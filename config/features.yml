@@ -121,7 +121,7 @@ features:
     actor_type: user
     description: Enables the After Visit Summary API.
     enable_in_development: true
-  bdd_sha_enabled:
+  disability_526_new_bdd_sha_enforcement_workflow_enabled:
     actor_type: user
     description: Enables new UI to encourage veterans to upload a Separation Health Assessment (SHA).
     enable_in_development: false
