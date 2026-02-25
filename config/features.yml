@@ -121,6 +121,10 @@ features:
     actor_type: user
     description: Enables the After Visit Summary API.
     enable_in_development: true
+  bdd_sha_enabled:
+    actor_type: user
+    description: Enables new UI to encourage veterans to upload a Separation Health Assessment (SHA).
+    enable_in_development: false
   benefits_claims_lighthouse_provider:
     actor_type: user
     description: (multi-claim provider) Enables the Lighthouse provider for benefits claims
