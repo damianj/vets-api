@@ -5,11 +5,12 @@ module SimpleFormsApi
     module VBA214140IbmConverter
       FORM_TYPE_LABEL = 'VA FORM 21-4140, AUG 2024'
       MAPPINGS = {
-        'VETERAN_FULL_NAME' => ->(form) { full_name(form) },
+        'VETERAN_NAME' => ->(form) { full_name(form) },
         'VETERAN_FIRST_NAME' => ->(form) { form.first_name.to_s },
         'VETERAN_INITIAL' => ->(form) { form.middle_initial.to_s[0].to_s },
         'VETERAN_LAST_NAME' => ->(form) { form.last_name.to_s },
         'VETERAN_SSN' => ->(form) { normalize_ssn(form.ssn) },
+        'VETERAN_SSN_1' => ->(form) { normalize_ssn(form.ssn) },
         'VA_FILE_NUMBER' => ->(form) { form.data.dig('id_number', 'va_file_number').to_s },
         'VETERAN_DOB' => ->(form) { format_date(form.dob) },
         'VETERAN_SERVICE_NUMBER' => ->(form) { form.data['service_number'] },
@@ -74,7 +75,7 @@ module SimpleFormsApi
         cleaned = date.to_s.delete('"')
 
         SUPPORTED_DATE_FORMATS.each do |format|
-          return Date.strptime(cleaned, format).strftime('%m%d%Y')
+          return Date.strptime(cleaned, format).strftime('%m/%d/%Y')
         rescue ArgumentError
           next
         end

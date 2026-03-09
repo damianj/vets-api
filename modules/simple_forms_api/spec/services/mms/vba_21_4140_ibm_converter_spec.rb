@@ -24,7 +24,7 @@ RSpec.describe SimpleFormsApi::Mms::VBA214140IbmConverter do
 
     it 'converts a parsed form to the keys and formats expected by IBM' do
       Timecop.freeze(Time.zone.yesterday) do
-        ibm_payload['DATE_SIGNED'] = Time.zone.yesterday.strftime('%m%d%Y')
+        ibm_payload['DATE_SIGNED'] = Time.zone.yesterday.strftime('%m/%d/%Y')
 
         expect(payload).to eq(ibm_payload)
       end
@@ -35,7 +35,7 @@ RSpec.describe SimpleFormsApi::Mms::VBA214140IbmConverter do
     end
 
     it 'formats DOB as MMDDYYYY' do
-      expect(payload['VETERAN_DOB']).to eq('02271979')
+      expect(payload['VETERAN_DOB']).to eq('02/27/1979')
     end
 
     it 'downcases email' do
@@ -48,7 +48,7 @@ RSpec.describe SimpleFormsApi::Mms::VBA214140IbmConverter do
     end
 
     it 'includes full name correctly' do
-      expect(payload['VETERAN_FULL_NAME']).to eq('Rumpelstilts T Mephistopheles-Rei')
+      expect(payload['VETERAN_NAME']).to eq('Rumpelstilts T Mephistopheles-Rei')
     end
 
     it 'truncates first name correctly' do
@@ -58,7 +58,7 @@ RSpec.describe SimpleFormsApi::Mms::VBA214140IbmConverter do
     it 'sets DATE_SIGNED as the current date' do
       Timecop.freeze(Time.zone.yesterday) do
         expect(payload['DATE_SIGNED'])
-          .to eq(Time.zone.yesterday.strftime('%m%d%Y'))
+          .to eq(Time.zone.yesterday.strftime('%m/%d/%Y'))
       end
     end
   end
