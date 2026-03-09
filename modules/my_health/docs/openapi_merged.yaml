@@ -1198,7 +1198,10 @@ paths:
       summary: /v1/messaging/message_drafts/{reply_id}/replydraft/{draft_id}
   /v1/messaging/messages:
     post:
-      description: Send a new secure message
+      description: |
+        Send a new secure message. When `prescription_id` is included in the request body,
+        the message is routed to the upstream MHV `POST message/renewal` endpoint for
+        prescription renewal messages.
       operationId: post_create_message
       parameters:
         - description: Indicates if this message is for an OH triage group (allows larger attachments)
@@ -1283,6 +1286,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/Errors'
           description: Not authorized for access to secure messages
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Errors'
+          description: |
+            Unprocessable Entity - Validation failed for one or more message fields
+            (for example, missing or empty `body`), as defined by the request schema.
       summary: /v1/messaging/messages
   /v1/messaging/messages/categories:
     get:
@@ -1589,6 +1600,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/Errors'
           description: Not authorized for access to secure messages
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Errors'
+          description: |
+            Unprocessable Entity - Validation failed for one or more message fields
+            (for example, missing or empty `body`), as defined by the request schema.
       summary: /v1/messaging/messages/{id}/reply
   /v1/messaging/messages/{id}/thread:
     get:
@@ -3234,6 +3253,84 @@ components:
           description: |
             If true, search exact strings for subject, sender, and recipient fields; otherwise search for the string as a
             substring within those fields
+    TriageGroup:
+      type: object
+      nullable: true
+      description: Embedded triage group (provider recipient) details from the MHV Secure Messaging API
+      properties:
+        triageTeamId:
+          type: integer
+          example: 401155
+        name:
+          type: string
+          example: SM_TO_VA_GOV_TRIAGE_GROUP_TEST
+        preferredTeam:
+          type: boolean
+          example: false
+        active:
+          type: boolean
+          example: true
+        stationNumber:
+          type: string
+          nullable: true
+          example: '979'
+        healthCareSystemName:
+          type: string
+          nullable: true
+        locationName:
+          type: string
+          nullable: true
+        locationStationNumber:
+          type: string
+          nullable: true
+        groupTypeEnumVal:
+          type: string
+          nullable: true
+        subGroupTypeEnumVal:
+          type: string
+          nullable: true
+        groupTypePatientDisplay:
+          type: string
+          nullable: true
+        subGroupTypePatientDisplay:
+          type: string
+          nullable: true
+        teamName:
+          type: string
+          nullable: true
+        leadProviderName:
+          type: string
+          nullable: true
+        suggestedNameDisplay:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        legacyName:
+          type: string
+          nullable: true
+        ohPoolId:
+          type: string
+          nullable: true
+        oplock:
+          type: integer
+          example: 1
+        createdDate:
+          type: string
+          nullable: true
+          example: Mon, 20 Mar 2023 14:01:45 GMT
+        modifiedDate:
+          type: string
+          nullable: true
+          example: Thu, 15 Jan 2026 15:49:06 GMT
+        relationType:
+          type: string
+          nullable: true
+          example: PATIENT
+        ohTriageGroup:
+          type: boolean
+          example: false
     SecureMessageSummary:
       type: object
       required:
@@ -3312,83 +3409,7 @@ components:
               nullable: true
               example: Triage_Group_5
             triageGroup:
-              type: object
-              nullable: true
-              description: Embedded triage group (provider recipient) details from the MHV Secure Messaging API
-              properties:
-                triageTeamId:
-                  type: integer
-                  example: 401155
-                name:
-                  type: string
-                  example: SM_TO_VA_GOV_TRIAGE_GROUP_TEST
-                preferredTeam:
-                  type: boolean
-                  example: false
-                active:
-                  type: boolean
-                  example: true
-                stationNumber:
-                  type: string
-                  nullable: true
-                  example: '979'
-                healthCareSystemName:
-                  type: string
-                  nullable: true
-                locationName:
-                  type: string
-                  nullable: true
-                locationStationNumber:
-                  type: string
-                  nullable: true
-                groupTypeEnumVal:
-                  type: string
-                  nullable: true
-                subGroupTypeEnumVal:
-                  type: string
-                  nullable: true
-                groupTypePatientDisplay:
-                  type: string
-                  nullable: true
-                subGroupTypePatientDisplay:
-                  type: string
-                  nullable: true
-                teamName:
-                  type: string
-                  nullable: true
-                leadProviderName:
-                  type: string
-                  nullable: true
-                suggestedNameDisplay:
-                  type: string
-                  nullable: true
-                description:
-                  type: string
-                  nullable: true
-                legacyName:
-                  type: string
-                  nullable: true
-                ohPoolId:
-                  type: string
-                  nullable: true
-                oplock:
-                  type: integer
-                  example: 1
-                createdDate:
-                  type: string
-                  nullable: true
-                  example: Mon, 20 Mar 2023 14:01:45 GMT
-                modifiedDate:
-                  type: string
-                  nullable: true
-                  example: Thu, 15 Jan 2026 15:49:06 GMT
-                relationType:
-                  type: string
-                  nullable: true
-                  example: PATIENT
-                ohTriageGroup:
-                  type: boolean
-                  example: false
+              $ref: '#/components/schemas/TriageGroup'
             proxySenderName:
               type: string
               nullable: true
@@ -3462,6 +3483,15 @@ components:
             Used for analytics tracking of Oracle Health facility messages. If not provided, facility
             tracking is skipped.
           example: '989'
+        prescription_id:
+          type: string
+          description: |
+            Optional. When present on `POST /v1/messaging/messages`, the message is routed to the
+            upstream MHV `POST message/renewal` endpoint instead of the standard `POST message` endpoint.
+            The Faraday camelcase middleware auto-transforms this to `prescriptionId` for the upstream
+            API. For other endpoints that reuse this schema (for example message drafts and reply drafts),
+            this field is accepted but ignored and does not change endpoint behavior.
+          example: '24654491'
     SecureMessageAttachment:
       type: object
       required:
@@ -3580,83 +3610,7 @@ components:
               nullable: true
               example: Triage_Group_5
             triageGroup:
-              type: object
-              nullable: true
-              description: Embedded triage group (provider recipient) details from the MHV Secure Messaging API
-              properties:
-                triageTeamId:
-                  type: integer
-                  example: 401155
-                name:
-                  type: string
-                  example: SM_TO_VA_GOV_TRIAGE_GROUP_TEST
-                preferredTeam:
-                  type: boolean
-                  example: false
-                active:
-                  type: boolean
-                  example: true
-                stationNumber:
-                  type: string
-                  nullable: true
-                  example: '979'
-                healthCareSystemName:
-                  type: string
-                  nullable: true
-                locationName:
-                  type: string
-                  nullable: true
-                locationStationNumber:
-                  type: string
-                  nullable: true
-                groupTypeEnumVal:
-                  type: string
-                  nullable: true
-                subGroupTypeEnumVal:
-                  type: string
-                  nullable: true
-                groupTypePatientDisplay:
-                  type: string
-                  nullable: true
-                subGroupTypePatientDisplay:
-                  type: string
-                  nullable: true
-                teamName:
-                  type: string
-                  nullable: true
-                leadProviderName:
-                  type: string
-                  nullable: true
-                suggestedNameDisplay:
-                  type: string
-                  nullable: true
-                description:
-                  type: string
-                  nullable: true
-                legacyName:
-                  type: string
-                  nullable: true
-                ohPoolId:
-                  type: string
-                  nullable: true
-                oplock:
-                  type: integer
-                  example: 1
-                createdDate:
-                  type: string
-                  nullable: true
-                  example: Mon, 20 Mar 2023 14:01:45 GMT
-                modifiedDate:
-                  type: string
-                  nullable: true
-                  example: Thu, 15 Jan 2026 15:49:06 GMT
-                relationType:
-                  type: string
-                  nullable: true
-                  example: PATIENT
-                ohTriageGroup:
-                  type: boolean
-                  example: false
+              $ref: '#/components/schemas/TriageGroup'
             proxySenderName:
               type: string
               nullable: true
@@ -3894,83 +3848,7 @@ components:
               nullable: true
               example: Triage_Group_5
             triageGroup:
-              type: object
-              nullable: true
-              description: Embedded triage group (provider recipient) details from the MHV Secure Messaging API
-              properties:
-                triageTeamId:
-                  type: integer
-                  example: 401155
-                name:
-                  type: string
-                  example: SM_TO_VA_GOV_TRIAGE_GROUP_TEST
-                preferredTeam:
-                  type: boolean
-                  example: false
-                active:
-                  type: boolean
-                  example: true
-                stationNumber:
-                  type: string
-                  nullable: true
-                  example: '979'
-                healthCareSystemName:
-                  type: string
-                  nullable: true
-                locationName:
-                  type: string
-                  nullable: true
-                locationStationNumber:
-                  type: string
-                  nullable: true
-                groupTypeEnumVal:
-                  type: string
-                  nullable: true
-                subGroupTypeEnumVal:
-                  type: string
-                  nullable: true
-                groupTypePatientDisplay:
-                  type: string
-                  nullable: true
-                subGroupTypePatientDisplay:
-                  type: string
-                  nullable: true
-                teamName:
-                  type: string
-                  nullable: true
-                leadProviderName:
-                  type: string
-                  nullable: true
-                suggestedNameDisplay:
-                  type: string
-                  nullable: true
-                description:
-                  type: string
-                  nullable: true
-                legacyName:
-                  type: string
-                  nullable: true
-                ohPoolId:
-                  type: string
-                  nullable: true
-                oplock:
-                  type: integer
-                  example: 1
-                createdDate:
-                  type: string
-                  nullable: true
-                  example: Mon, 20 Mar 2023 14:01:45 GMT
-                modifiedDate:
-                  type: string
-                  nullable: true
-                  example: Thu, 15 Jan 2026 15:49:06 GMT
-                relationType:
-                  type: string
-                  nullable: true
-                  example: PATIENT
-                ohTriageGroup:
-                  type: boolean
-                  example: false
+              $ref: '#/components/schemas/TriageGroup'
             proxySenderName:
               type: string
               nullable: true
@@ -4105,83 +3983,7 @@ components:
               nullable: true
               example: Triage_Group_5
             triageGroup:
-              type: object
-              nullable: true
-              description: Embedded triage group (provider recipient) details from the MHV Secure Messaging API
-              properties:
-                triageTeamId:
-                  type: integer
-                  example: 401155
-                name:
-                  type: string
-                  example: SM_TO_VA_GOV_TRIAGE_GROUP_TEST
-                preferredTeam:
-                  type: boolean
-                  example: false
-                active:
-                  type: boolean
-                  example: true
-                stationNumber:
-                  type: string
-                  nullable: true
-                  example: '979'
-                healthCareSystemName:
-                  type: string
-                  nullable: true
-                locationName:
-                  type: string
-                  nullable: true
-                locationStationNumber:
-                  type: string
-                  nullable: true
-                groupTypeEnumVal:
-                  type: string
-                  nullable: true
-                subGroupTypeEnumVal:
-                  type: string
-                  nullable: true
-                groupTypePatientDisplay:
-                  type: string
-                  nullable: true
-                subGroupTypePatientDisplay:
-                  type: string
-                  nullable: true
-                teamName:
-                  type: string
-                  nullable: true
-                leadProviderName:
-                  type: string
-                  nullable: true
-                suggestedNameDisplay:
-                  type: string
-                  nullable: true
-                description:
-                  type: string
-                  nullable: true
-                legacyName:
-                  type: string
-                  nullable: true
-                ohPoolId:
-                  type: string
-                  nullable: true
-                oplock:
-                  type: integer
-                  example: 1
-                createdDate:
-                  type: string
-                  nullable: true
-                  example: Mon, 20 Mar 2023 14:01:45 GMT
-                modifiedDate:
-                  type: string
-                  nullable: true
-                  example: Thu, 15 Jan 2026 15:49:06 GMT
-                relationType:
-                  type: string
-                  nullable: true
-                  example: PATIENT
-                ohTriageGroup:
-                  type: boolean
-                  example: false
+              $ref: '#/components/schemas/TriageGroup'
             proxySenderName:
               type: string
               nullable: true
