@@ -153,19 +153,24 @@ module V0
       nil
     end
 
+    # Checks whether the rated disabilities in form_data match those returned by an external service.
+    # If they differ, assigns the latter to form_data['updatedRatedDisabilities'] and updates the returnUrl
+    # to the appropriate page for rated disabilities
     def update_rated_disabilities(form_data, metadata)
-      if rated_disabilities_evss.present? &&
-         arr_to_compare(form_data&.dig('ratedDisabilities')) !=
-         arr_to_compare(rated_disabilities_evss&.rated_disabilities&.map(&:attributes))
+      return if rated_disabilities_evss.blank? ||
+                arr_to_compare(form_data&.dig('ratedDisabilities')) ==
+                arr_to_compare(rated_disabilities_evss&.rated_disabilities&.map(&:attributes))
 
-        if form_data['ratedDisabilities'].present? &&
-           form_data.dig('view:claimType', 'view:claimingIncrease')
-          metadata['returnUrl'] = '/disabilities/rated-disabilities'
-        end
-        # Use as_json instead of JSON.parse(to_json) to avoid string allocation overhead
-        evss_rated_disabilities = rated_disabilities_evss&.rated_disabilities&.map(&:as_json)
-        form_data['updatedRatedDisabilities'] = camelize_with_olivebranch(evss_rated_disabilities)
+      if form_data['ratedDisabilities'].present? &&
+         form_data.dig('view:claimType', 'view:claimingIncrease')
+        return_url = '/disabilities/rated-disabilities'
+        # For the new conditions flow, use a different return URL
+        return_url = '/conditions/summary' if [true, 'true'].include?(form_data[WORKFLOW_FLAG_KEY])
+        metadata['returnUrl'] = return_url
       end
+      # Use as_json instead of JSON.parse(to_json) to avoid string allocation overhead
+      evss_rated_disabilities = rated_disabilities_evss&.rated_disabilities&.map(&:as_json)
+      form_data['updatedRatedDisabilities'] = camelize_with_olivebranch(evss_rated_disabilities)
     end
 
     def purge_duplicate_additional_information(form_data)

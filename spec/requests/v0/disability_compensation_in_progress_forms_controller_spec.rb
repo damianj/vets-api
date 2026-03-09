@@ -46,6 +46,22 @@ RSpec.describe V0::DisabilityCompensationInProgressFormsController do
                  metadata: form_json['metadata'])
         end
 
+        # Helper that modifies form_data, triggers disability_rating/200_response, and returns the json response
+        def get_response_for_disability_rating(form_data_mod: nil)
+          fd = JSON.parse(in_progress_form_lighthouse.form_data)
+          form_data_mod&.call(fd)
+          in_progress_form_lighthouse.update(form_data: fd)
+
+          VCR.use_cassette('lighthouse/veteran_verification/disability_rating/200_response') do
+            VCR.use_cassette('disability_max_ratings/max_ratings') do
+              get v0_disability_compensation_in_progress_form_url(in_progress_form_lighthouse.form_id), params: nil
+            end
+          end
+
+          expect(response).to have_http_status(:ok)
+          JSON.parse(response.body)
+        end
+
         before do
           allow_any_instance_of(Auth::ClientCredentials::Service).to receive(:get_token).and_return('blahblech')
 
@@ -55,23 +71,56 @@ RSpec.describe V0::DisabilityCompensationInProgressFormsController do
         context 'when a form is found and rated_disabilities have updates' do
           it 'returns the form as JSON' do
             # change form data
-            fd = JSON.parse(in_progress_form_lighthouse.form_data)
-            fd['ratedDisabilities'].first['diagnosticCode'] = '111'
-            in_progress_form_lighthouse.update(form_data: fd)
-
-            VCR.use_cassette('lighthouse/veteran_verification/disability_rating/200_response') do
-              VCR.use_cassette('disability_max_ratings/max_ratings') do
-                get v0_disability_compensation_in_progress_form_url(in_progress_form_lighthouse.form_id), params: nil
+            json_response = get_response_for_disability_rating(
+              form_data_mod: lambda do |fd|
+                fd['ratedDisabilities'].first['diagnosticCode'] = '111'
               end
-            end
-
-            expect(response).to have_http_status(:ok)
-            json_response = JSON.parse(response.body)
+            )
             expect(json_response['formData']['ratedDisabilities'])
               .to eq(
                 JSON.parse(in_progress_form_lighthouse.form_data)['ratedDisabilities']
               )
             expect(json_response['formData']['updatedRatedDisabilities']).to eq(rated_disabilities_from_lighthouse)
+            expect(json_response['metadata']['returnUrl']).to eq('/disabilities/rated-disabilities')
+          end
+
+          it "sets returnUrl to 'conditions/summary' when new-flow is true (boolean)" do
+            json_response = get_response_for_disability_rating(
+              form_data_mod: lambda do |fd|
+                fd['ratedDisabilities'].first['diagnosticCode'] = '111'
+                fd['disability_comp_new_conditions_workflow'] = true
+              end
+            )
+            expect(json_response['metadata']['returnUrl']).to eq('/conditions/summary')
+          end
+
+          it "sets returnUrl to 'conditions/summary' when new-flow is 'true' (string)" do
+            json_response = get_response_for_disability_rating(
+              form_data_mod: lambda do |fd|
+                fd['ratedDisabilities'].first['diagnosticCode'] = '111'
+                fd['disability_comp_new_conditions_workflow'] = 'true'
+              end
+            )
+            expect(json_response['metadata']['returnUrl']).to eq('/conditions/summary')
+          end
+
+          it "sets returnUrl to '/disabilities/rated-disabilities' when new-flow is false" do
+            json_response = get_response_for_disability_rating(
+              form_data_mod: lambda do |fd|
+                fd['ratedDisabilities'].first['diagnosticCode'] = '111'
+                fd['disability_comp_new_conditions_workflow'] = false
+              end
+            )
+            expect(json_response['metadata']['returnUrl']).to eq('/disabilities/rated-disabilities')
+          end
+
+          it "sets returnUrl to '/disabilities/rated-disabilities' when new-flow key is not present" do
+            json_response = get_response_for_disability_rating(
+              form_data_mod: lambda do |fd|
+                fd['ratedDisabilities'].first['diagnosticCode'] = '111'
+                fd.delete('disability_comp_new_conditions_workflow')
+              end
+            )
             expect(json_response['metadata']['returnUrl']).to eq('/disabilities/rated-disabilities')
           end
 
@@ -727,21 +776,13 @@ RSpec.describe V0::DisabilityCompensationInProgressFormsController do
         context 'as_json optimization for updatedRatedDisabilities' do
           it 'returns correctly formatted updatedRatedDisabilities when disabilities change' do
             # Change form data to trigger the update path
-            fd = JSON.parse(in_progress_form_lighthouse.form_data)
-            fd['ratedDisabilities'].first['diagnosticCode'] = '111'
-            in_progress_form_lighthouse.update(form_data: fd)
-
-            VCR.use_cassette('lighthouse/veteran_verification/disability_rating/200_response') do
-              VCR.use_cassette('disability_max_ratings/max_ratings') do
-                get v0_disability_compensation_in_progress_form_url(in_progress_form_lighthouse.form_id), params: nil
-              end
-            end
-
-            expect(response).to have_http_status(:ok)
-            json_response = JSON.parse(response.body)
-            updated_disabilities = json_response['formData']['updatedRatedDisabilities']
-
             # Verify the structure is correct (as_json produces same output as JSON.parse(to_json))
+            json_response = get_response_for_disability_rating(
+              form_data_mod: lambda do |fd|
+                fd['ratedDisabilities'].first['diagnosticCode'] = '111'
+              end
+            )
+            updated_disabilities = json_response['formData']['updatedRatedDisabilities']
             expect(updated_disabilities).to be_an(Array)
             expect(updated_disabilities).not_to be_empty
             expect(updated_disabilities.first).to have_key('name')
@@ -751,29 +792,19 @@ RSpec.describe V0::DisabilityCompensationInProgressFormsController do
 
           it 'returns nil updatedRatedDisabilities when disabilities have not changed' do
             # Don't modify form data - disabilities should match
-            VCR.use_cassette('lighthouse/veteran_verification/disability_rating/200_response') do
-              get v0_disability_compensation_in_progress_form_url(in_progress_form_lighthouse.form_id), params: nil
-            end
-
-            expect(response).to have_http_status(:ok)
-            json_response = JSON.parse(response.body)
+            json_response = get_response_for_disability_rating(
+              form_data_mod: nil
+            )
             expect(json_response['formData']['updatedRatedDisabilities']).to be_nil
           end
 
           it 'sets returnUrl when rated disabilities have updates and claimingIncrease is true' do
-            fd = JSON.parse(in_progress_form_lighthouse.form_data)
-            fd['ratedDisabilities'].first['diagnosticCode'] = '111'
-            fd['view:claimType'] = { 'view:claimingIncrease' => true }
-            in_progress_form_lighthouse.update(form_data: fd)
-
-            VCR.use_cassette('lighthouse/veteran_verification/disability_rating/200_response') do
-              VCR.use_cassette('disability_max_ratings/max_ratings') do
-                get v0_disability_compensation_in_progress_form_url(in_progress_form_lighthouse.form_id), params: nil
+            json_response = get_response_for_disability_rating(
+              form_data_mod: lambda do |fd|
+                fd['ratedDisabilities'].first['diagnosticCode'] = '111'
+                fd['view:claimType'] = { 'view:claimingIncrease' => true }
               end
-            end
-
-            expect(response).to have_http_status(:ok)
-            json_response = JSON.parse(response.body)
+            )
             expect(json_response['metadata']['returnUrl']).to eq('/disabilities/rated-disabilities')
           end
         end
