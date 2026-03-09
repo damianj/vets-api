@@ -159,16 +159,55 @@ module MyHealth
 
       def build_paginated_response(prescriptions, base_meta)
         collection = Vets::Collection.new(prescriptions)
-        paginated = collection.paginate(
-          page: pagination_params[:page],
-          per_page: pagination_params[:per_page]
-        )
+        page, per_page = normalized_pagination_values
+        paginated = collection.paginate(page:, per_page:)
 
+        pagination_meta = paginated.metadata[:pagination]
         options = {
-          meta: base_meta.merge(pagination: paginated.metadata[:pagination]),
-          links: pagination_links(paginated)
+          meta: base_meta.merge(pagination: pagination_meta),
+          links: build_pagination_links(
+            current_page: pagination_meta[:current_page],
+            per_page: pagination_meta[:per_page],
+            total_pages: pagination_meta[:total_pages]
+          )
         }
         [paginated.data, options]
+      rescue Common::Exceptions::InvalidPaginationParams
+        Rails.logger.warn(
+          'Prescriptions pagination out of bounds',
+          page:, per_page:, total: collection.size
+        )
+        build_empty_paginated_response(collection, base_meta, page, per_page)
+      end
+
+      def build_empty_paginated_response(collection, base_meta, page, per_page)
+        pagination = Vets::Collections::Pagination.new(
+          page:,
+          per_page:,
+          total_entries: collection.size,
+          data: nil
+        )
+
+        # Extract total_pages for link generation; full metadata is merged into options[:meta] below
+        total_pages = pagination.metadata.dig(:pagination, :total_pages)
+
+        options = {
+          meta: base_meta.merge(pagination: pagination.metadata[:pagination]),
+          links: build_pagination_links(current_page: page, per_page:, total_pages:)
+        }
+
+        [[], options]
+      end
+
+      def normalized_pagination_values
+        page = pagination_params[:page].to_i
+        per_page = pagination_params[:per_page].to_i
+
+        page = 1 unless page.positive?
+        per_page = Vets::Collection::DEFAULT_PER_PAGE unless per_page.positive?
+        per_page = [per_page, Vets::Collection::DEFAULT_MAX_PER_PAGE].min
+
+        [page, per_page]
       end
 
       def log_prescriptions_access

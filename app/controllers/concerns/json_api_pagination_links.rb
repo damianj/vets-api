@@ -11,6 +11,11 @@ module JsonApiPaginationLinks
     current_page = pagination_params[:page].try(:to_i) || 1
     total_pages = (total_size.to_f / per_page).ceil
 
+    build_pagination_links(current_page:, per_page:, total_pages:)
+  end
+
+  # Also called directly from controllers for custom pagination responses (e.g. out-of-bounds handling)
+  def build_pagination_links(current_page:, per_page:, total_pages:)
     {
       self: build_page_url(current_page, per_page),
       first: build_page_url(1, per_page),

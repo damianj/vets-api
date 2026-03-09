@@ -757,6 +757,53 @@ RSpec.describe 'MyHealth::V2::Prescriptions', type: :request do
         end
       end
 
+      it 'returns an empty page at the exact out-of-bounds boundary' do
+        VCR.use_cassette('unified_health_data/get_prescriptions_success', match_requests_on: %i[method path]) do
+          # Use a large per_page to ensure only 1 page exists, then request page 2 (exact boundary)
+          get('/my_health/v2/prescriptions', params: { page: 2, per_page: 10_000 }, headers:)
+
+          json_response = JSON.parse(response.body)
+          pagination = json_response.dig('meta', 'pagination')
+
+          aggregate_failures do
+            expect(response).to have_http_status(:success)
+            expect(json_response['data']).to eq([])
+            expect(pagination['current_page']).to eq(2)
+            expect(pagination['total_pages']).to eq(1)
+          end
+        end
+      end
+
+      it 'returns an empty page when requested page is far out of bounds' do
+        VCR.use_cassette('unified_health_data/get_prescriptions_success', match_requests_on: %i[method path]) do
+          requested_page = 999
+          per_page = 10
+
+          get('/my_health/v2/prescriptions', params: { page: requested_page, per_page: }, headers:)
+
+          json_response = JSON.parse(response.body)
+          pagination = json_response.dig('meta', 'pagination')
+          links = json_response['links']
+
+          aggregate_failures do
+            expect(response).to have_http_status(:success)
+            expect(json_response['data']).to eq([])
+
+            expect(pagination).to include(
+              'current_page' => requested_page,
+              'per_page' => per_page
+            )
+            expect(pagination['total_pages']).to be < requested_page
+            expect(pagination['total_entries']).to be >= 0
+
+            expect(links).to include('self', 'first', 'last', 'prev', 'next')
+            expect(links['self']).to include("page=#{requested_page}", "per_page=#{per_page}")
+            expect(links['prev']).to include("page=#{requested_page - 1}")
+            expect(links['next']).to be_nil
+          end
+        end
+      end
+
       it 'sorts prescriptions alphabetically by name' do
         VCR.use_cassette('unified_health_data/get_prescriptions_success', match_requests_on: %i[method path]) do
           get('/my_health/v2/prescriptions', params: { sort: 'alphabetical-rx-name' }, headers:)
