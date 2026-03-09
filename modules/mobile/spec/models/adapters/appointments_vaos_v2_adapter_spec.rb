@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'rails_helper'
+require 'unified_health_data/models/avs'
 
 describe Mobile::V0::Adapters::VAOSV2Appointments, :aggregate_failures do
   let(:appointment_fixtures) do
@@ -754,6 +755,14 @@ describe Mobile::V0::Adapters::VAOSV2Appointments, :aggregate_failures do
       appt = appointment_by_id(booked_va_id)
       expect(appt.avs_pdf).to be_nil
       appt = appointment_by_id(cerner_va_id)
+      expect(appt.avs_pdf.length).to eq(1)
+      expect(appt.avs_pdf[0].to_h).to eq(avs_pdf)
+    end
+
+    it 'coerces UnifiedHealthData::AfterVisitSummary items to AvsPdf' do
+      after_visit_summary = UnifiedHealthData::AfterVisitSummary.new(avs_pdf.stringify_keys)
+      appt = appointment_by_id(cerner_va_id, overrides: { avs_pdf: [after_visit_summary] })
+
       expect(appt.avs_pdf.length).to eq(1)
       expect(appt.avs_pdf[0].to_h).to eq(avs_pdf)
     end

@@ -95,7 +95,7 @@ module Mobile
             service_category_name: appointment.dig(:service_category, 0, :text),
             show_schedule_link: appointment[:show_schedule_link],
             is_cerner: appointment[:is_cerner],
-            avs_pdf: appointment[:avs_pdf],
+            avs_pdf: normalized_avs_pdf,
             avs_error: appointment[:avs_error]
           }
 
@@ -436,6 +436,21 @@ module Mobile
             appointment.start < Time.now.utc && # verify it's a past appointment
             ## TODO: reduce duplication by address this on the app frontend with claim metadata
             TravelPay::DateUtils.valid_datetime?(appointment[:local_start_time].to_s)
+        end
+
+        def normalized_avs_pdf
+          return nil if appointment[:avs_pdf].nil?
+
+          appointment[:avs_pdf].map { |avs| normalize_avs_item(avs) }
+        end
+
+        def normalize_avs_item(avs)
+          return avs.to_h if avs.is_a?(Mobile::V0::AvsPdf)
+          return avs.deep_symbolize_keys if avs.is_a?(Hash)
+          return avs.attributes.deep_symbolize_keys if avs.respond_to?(:attributes)
+          return avs.to_h.deep_symbolize_keys if avs.respond_to?(:to_h)
+
+          avs
         end
       end
     end
