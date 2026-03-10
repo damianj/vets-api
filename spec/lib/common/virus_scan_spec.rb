@@ -285,7 +285,6 @@ RSpec.describe Common::VirusScan do
     before do
       File.write(file_path, test_file_content)
       RequestStore.store['additional_request_attributes'] = {
-        'user_uuid' => 'test-user-uuid-123',
         'remote_ip' => '192.168.1.1'
       }
     end
@@ -300,7 +299,6 @@ RSpec.describe Common::VirusScan do
           event: 'virus_scan',
           scan_result: 'clean',
           virus_name: nil,
-          user_uuid: 'test-user-uuid-123',
           ip_address: '192.168.1.1'
         }
       end

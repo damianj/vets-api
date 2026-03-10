@@ -78,7 +78,7 @@ module Common
     def emit_scan_audit_log(file_metadata:, scan_result:, virus_name:, scan_duration_ms:, upload_context:)
       request_attributes = RequestStore.store['additional_request_attributes'] || {}
       Rails.logger.info('ClamAV Virus Scan Audit',
-                        event: 'virus_scan', user_uuid: request_attributes['user_uuid'],
+                        event: 'virus_scan',
                         ip_address: request_attributes['remote_ip'], file_name: file_metadata[:file_name_hashed],
                         file_size: file_metadata[:file_size], content_type: file_metadata[:content_type],
                         scan_result:, virus_name:, scan_duration_ms:, upload_context:)
