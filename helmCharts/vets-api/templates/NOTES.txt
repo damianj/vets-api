@@ -1,2 +1,0 @@
-1. Your application URL is:
-  https://{{ .Values.domainName }}
