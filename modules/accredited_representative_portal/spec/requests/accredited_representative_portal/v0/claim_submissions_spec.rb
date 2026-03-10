@@ -64,6 +64,7 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimSubmissionsController, t
 
         expect(parsed_response['data']).to contain_exactly(
           {
+            'claimantId' => saved_claim_claimant_representative_a.claimant_id,
             'submittedDate' => saved_claim_claimant_representative_a.created_at.to_date.iso8601,
             'firstName' => 'John',
             'lastName' => 'Doe',
@@ -77,6 +78,7 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimSubmissionsController, t
             'id' => saved_claim_claimant_representative_a.id
           },
           {
+            'claimantId' => saved_claim_claimant_representative_b.claimant_id,
             'submittedDate' => saved_claim_claimant_representative_b.created_at.to_date.iso8601,
             'firstName' => 'John',
             'lastName' => 'Doe',
@@ -148,6 +150,7 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimSubmissionsController, t
                   {
                     'data' => [
                       {
+                        'claimantId' => saved_claim_claimant_representative_b.claimant_id,
                         'submittedDate' => saved_claim_claimant_representative_b.created_at.to_date.iso8601,
                         'firstName' => 'Maurice',
                         'lastName' => 'Murphy',

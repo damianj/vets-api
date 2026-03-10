@@ -7,7 +7,7 @@ module AccreditedRepresentativePortal
       CHARS_VISIBLE: 4
     }.freeze
 
-    attributes :claimant_id, :created_at, :expires_at
+    attributes :created_at, :expires_at
 
     attribute :power_of_attorney_form do |poa_request|
       next unless poa_request.power_of_attorney_form
@@ -74,6 +74,11 @@ module AccreditedRepresentativePortal
         end
 
       { status: }
+    end
+
+    attribute :claimant_id do |poa_request|
+      claimant = poa_request.claimant
+      IcnTemporaryIdentifier.save_icn(claimant.icn).id if claimant
     end
   end
 end

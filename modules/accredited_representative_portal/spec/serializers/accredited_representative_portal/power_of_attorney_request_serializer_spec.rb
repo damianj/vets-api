@@ -33,7 +33,11 @@ RSpec.describe AccreditedRepresentativePortal::PowerOfAttorneyRequestSerializer,
     end
 
     it 'includes :claimant_id' do
-      expect(veteran_declined_data[:claimantId]).to eq veteran_declined_poa_request.claimant_id
+      expect(
+        veteran_declined_data[:claimantId]
+      ).to eq AccreditedRepresentativePortal::IcnTemporaryIdentifier.find_by(
+        icn: veteran_declined_poa_request.claimant.icn
+      ).id
     end
 
     it 'includes :created_at' do

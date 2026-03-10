@@ -15,6 +15,8 @@ module AccreditedRepresentativePortal
       super
     end
 
+    attribute :claimant_id
+
     attribute :submitted_date do |object|
       object.created_at&.to_date&.iso8601
     end
