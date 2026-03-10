@@ -124,6 +124,7 @@ if Settings.api.url.present?
 - **Form handling**: Complex forms not using form objects for serialization
 - **Unnecessary Gemfile changes**: Committing Gemfile/Gemfile.lock changes that are not required for the feature (e.g., local dev environment setup changes, removal of sidekiq-ent/sidekiq-pro gems)
 - **Unsafe Settings usage**: Using Settings values in boolean context without `ActiveModel::Type::Boolean.new.cast()` - values may be strings, integers, or nil due to Parameter Store and `env_parse_values`
+- **Timezone mismatch in tests**: Tests using `Time.zone.today`, `Date.today`, or `Date.current` in the default `Time.zone` (often UTC in tests/CI) when the production code computes dates in an explicit application timezone (e.g., `Time.use_zone('Eastern Time (US & Canada)') { Date.current }`). Tests must use the same timezone configuration as the code under test to avoid off-by-one flaky failures that only occur when CI runs between midnight UTC and midnight in the target timezone.
 
 ### Architecture Concerns
 - **N+1 queries**: Loading associations in loops without includes

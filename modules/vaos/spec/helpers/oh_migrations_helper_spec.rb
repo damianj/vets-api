@@ -3,13 +3,26 @@
 require 'rails_helper'
 
 RSpec.describe VAOS::OhMigrationsHelper do
+  include ActiveSupport::Testing::TimeHelpers
+
+  # Freeze time in Eastern Time so the spec and helper always share the same "today"
+  around do |example|
+    Time.use_zone('Eastern Time (US & Canada)') do
+      freeze_time do
+        example.run
+      end
+    end
+  end
+
+  let(:today) { Date.current }
+
   it 'returns empty hash for nil' do
     Settings.mhv.oh_facility_checks.oh_migrations_list = nil
     expect(VAOS::OhMigrationsHelper.get_migrations).to eq({})
   end
 
   it 'calculates future migration dates' do
-    go_live_date = Time.zone.today + 7.days
+    go_live_date = today + 7.days
     Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
 
     migrations = VAOS::OhMigrationsHelper.get_migrations
@@ -23,7 +36,7 @@ RSpec.describe VAOS::OhMigrationsHelper do
   end
 
   it '31 days before migration date, eligibility is not disabled' do
-    go_live_date = Time.zone.today + 31.days
+    go_live_date = today + 31.days
     Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
     migrations = VAOS::OhMigrationsHelper.get_migrations
 
@@ -36,7 +49,7 @@ RSpec.describe VAOS::OhMigrationsHelper do
   end
 
   it '30 days before migration date, eligibility is disabled' do
-    go_live_date = Time.zone.today + 30.days
+    go_live_date = today + 30.days
     Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
     migrations = VAOS::OhMigrationsHelper.get_migrations
 
@@ -49,7 +62,7 @@ RSpec.describe VAOS::OhMigrationsHelper do
   end
 
   it '6 days after migration date, eligibility is still disabled' do
-    go_live_date = Time.zone.today - 6.days
+    go_live_date = today - 6.days
     Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
     migrations = VAOS::OhMigrationsHelper.get_migrations
 
@@ -62,7 +75,7 @@ RSpec.describe VAOS::OhMigrationsHelper do
   end
 
   it '7 days after migration date, eligibility is not disabled' do
-    go_live_date = Time.zone.today - 7.days
+    go_live_date = today - 7.days
     Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
     migrations = VAOS::OhMigrationsHelper.get_migrations
 
@@ -75,7 +88,7 @@ RSpec.describe VAOS::OhMigrationsHelper do
   end
 
   it 'calculates past migration dates' do
-    go_live_date = Time.zone.today - 60.days
+    go_live_date = today - 60.days
     Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
     migrations = VAOS::OhMigrationsHelper.get_migrations
 
@@ -88,8 +101,8 @@ RSpec.describe VAOS::OhMigrationsHelper do
   end
 
   it 'handles multiple migrations' do
-    go_live_date1 = Time.zone.today + 7.days
-    go_live_date2 = Time.zone.today - 60.days
+    go_live_date1 = today + 7.days
+    go_live_date2 = today - 60.days
 
     oh_migrations_list = "#{go_live_date1}:[123,Test 1],[456,Test 2];#{go_live_date2}:[518,Cleveland VA]"
     Settings.mhv.oh_facility_checks.oh_migrations_list = oh_migrations_list
