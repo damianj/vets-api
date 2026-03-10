@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'sidekiq/attr_package'
-
 module DebtsApi
   module V0
     class DigitalDisputeSubmission < ApplicationRecord
@@ -33,6 +31,8 @@ module DebtsApi
       after_validation :log_and_sanitize_file_errors
 
       enum :state, { pending: 0, submitted: 1, failed: 2 }
+
+      LOCKBOX = Lockbox.new(key: Settings.lockbox.master_key, encode: true)
 
       def parsed_metadata
         return {} if metadata.blank?
@@ -119,12 +119,16 @@ module DebtsApi
         user = User.find(user_uuid)
         return if user&.email.blank?
 
-        cache_key = Sidekiq::AttrPackage.create(email: user.email, first_name: user.first_name)
+        user_pii = {
+          first_name: DigitalDisputeSubmission::LOCKBOX.encrypt(user.first_name),
+          email: DigitalDisputeSubmission::LOCKBOX.encrypt(user.email)
+        }
+
         DebtsApi::V0::Form5655::SendConfirmationEmailJob.perform_async(
           {
             'submission_type' => 'digital_dispute',
-            'cache_key' => cache_key,
             'user_uuid' => user.uuid,
+            'user_pii' => user_pii,
             'template_id' => CONFIRMATION_TEMPLATE
           }
         )
@@ -139,16 +143,18 @@ module DebtsApi
         user = User.find(user_uuid)
         return if user&.email.blank?
 
-        cache_key = Sidekiq::AttrPackage.create(
-          email: user.email.downcase,
-          personalisation: failure_email_personalization_info(user)
-        )
+        user_pii = {
+          first_name: DigitalDisputeSubmission::LOCKBOX.encrypt(user.first_name),
+          email: DigitalDisputeSubmission::LOCKBOX.encrypt(user.email)
+        }
+        personalisation = failure_email_personalization_info(user_pii)
+
         DebtManagementCenter::VANotifyEmailJob.perform_in(
           24.hours,
-          nil,
+          user_pii[:email],
           FAILURE_TEMPLATE,
-          nil,
-          { id_type: 'email', failure_mailer: true, cache_key: }
+          personalisation,
+          { id_type: 'email', failure_mailer: true }
         )
       rescue => e
         StatsD.increment("#{STATS_KEY}.send_failed_form_email.failure")
@@ -156,9 +162,9 @@ module DebtsApi
         nil
       end
 
-      def failure_email_personalization_info(user)
+      def failure_email_personalization_info(user_pii)
         {
-          'first_name' => user.first_name,
+          'first_name' => user_pii[:first_name],
           'date_submitted' => Time.zone.now.strftime('%m/%d/%Y'),
           'updated_at' => updated_at,
           'confirmation_number' => guid

@@ -43,7 +43,6 @@ module DebtManagementCenter
     def perform(identifier, template_id, personalisation = nil, options = {})
       options = (options || {}).transform_keys(&:to_s)
       cache_key = options['cache_key']
-      identifier, personalisation = retrieve_pii_from_cache(cache_key, identifier, personalisation)
 
       send_email(identifier, template_id, personalisation, options)
       cleanup_and_record_success(cache_key, options['failure_mailer'])
@@ -58,19 +57,9 @@ module DebtManagementCenter
 
     private
 
-    def retrieve_pii_from_cache(cache_key, identifier, personalisation)
-      return [identifier, personalisation] unless cache_key
-
-      attributes = Sidekiq::AttrPackage.find(cache_key)
-      return [identifier, personalisation] unless attributes
-
-      [attributes[:email], attributes[:personalisation]]
-    end
-
     def send_email(identifier, template_id, personalisation, options)
-      id_type = options['id_type'] || 'email'
       notify_client = va_notify_client(options['failure_mailer'])
-      notify_client.send_email(email_params(identifier, template_id, personalisation, id_type))
+      notify_client.send_email(email_params(identifier, template_id, personalisation, options))
     end
 
     def cleanup_and_record_success(_cache_key, use_failure_mailer)
@@ -83,12 +72,16 @@ module DebtManagementCenter
 
     def handle_error(error, template_id)
       StatsD.increment("#{STATS_KEY}.failure")
-      Rails.logger.error("DebtManagementCenter::VANotifyEmailJob failed to send email: #{error.message}")
+      # Do not log error.message - it may contain PII (email, personalisation) from API responses
+      Rails.logger.error("DebtManagementCenter::VANotifyEmailJob failed to send email: #{error.class}")
       log_exception_to_sentry(error, { args: { template_id: } }, { error: :dmc_va_notify_email_job })
       raise error
     end
 
-    def email_params(identifier, template_id, personalisation, id_type)
+    def email_params(identifier, template_id, personalisation, options)
+      id_type = options['id_type'] || 'email'
+      identifier, personalisation = plain_pii(identifier, personalisation, options)
+
       case id_type.downcase
       when 'email'
         {
@@ -105,6 +98,32 @@ module DebtManagementCenter
       else
         raise UnrecognizedIdentifier, id_type
       end
+    end
+
+    def plain_pii(identifier, personalisation, options)
+      cache_key = options['cache_key']
+      if cache_key.present?
+        attributes = Sidekiq::AttrPackage.find(cache_key)
+        raise Sidekiq::AttrPackageError.new('find', 'cache miss') unless attributes
+
+        [attributes[:email], attributes[:personalisation]]
+      else
+        [plain_value(identifier), plain_personalisation(personalisation)]
+      end
+    end
+
+    def plain_personalisation(personalisation)
+      return personalisation if personalisation.blank? || personalisation['first_name'].blank?
+
+      personalisation.merge('first_name' => plain_value(personalisation['first_name']))
+    end
+
+    def plain_value(value)
+      return value if value.blank?
+
+      DebtsApi::V0::DigitalDisputeSubmission::LOCKBOX.decrypt(value)
+    rescue ActiveSupport::MessageEncryptor::InvalidMessage, Lockbox::DecryptionError
+      value
     end
 
     def va_notify_client(use_failure_mailer)
