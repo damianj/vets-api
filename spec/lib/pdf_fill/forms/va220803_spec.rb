@@ -34,10 +34,16 @@ describe PdfFill::Forms::Va220803 do
       expect(merged_data['bill_type_chapter_1606']).to be_nil
     end
 
-    it 'does not fill in the file number field' do
+    it 'does fills in the file number field with ssn' do
       merged_data = subject.merge_fields
 
-      expect(merged_data['fileNumber']).to eq('')
+      expect(merged_data['fileNumber']).to eq('123-45-6789 AB')
+    end
+
+    it 'formats the test date' do
+      merged_data = subject.merge_fields
+
+      expect(merged_data['testDate']).to eq('11/13/2022')
     end
 
     it 'formats the file organization info correctly' do

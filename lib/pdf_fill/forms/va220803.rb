@@ -82,6 +82,7 @@ module PdfFill
         format_organization_info(form_data)
         format_signature(form_data)
         format_test_cost(form_data)
+        format_test_date(form_data)
 
         form_data
       end
@@ -100,10 +101,11 @@ module PdfFill
       end
 
       def format_file_number(form_data)
-        if form_data['vaFileNumber'].present? && form_data['vaBenefitProgram'] == 'chapter35'
-          formatted_file_number = [form_data['vaFileNumber'][0..2],
-                                   form_data['vaFileNumber'][3..4],
-                                   form_data['vaFileNumber'][5..]].join('-')
+        file_number = form_data['vaFileNumber'].presence || form_data['ssn'].presence
+        if file_number.present?
+          formatted_file_number = [file_number[0..2],
+                                   file_number[3..4],
+                                   file_number[5..]].join('-')
           form_data['fileNumber'] = "#{formatted_file_number} #{form_data['payeeNumber']}"
         else
           form_data['fileNumber'] = ''
@@ -126,16 +128,21 @@ module PdfFill
       end
 
       def format_signature(form_data)
-        date_signed = begin
-          Date.parse(form_data['dateSigned']).strftime('%m/%d/%Y')
-        rescue
-          form_data['dateSigned']
-        end
-        form_data['dateSigned'] = date_signed
+        form_data['dateSigned'] = format_date(form_data['dateSigned'])
       end
 
       def format_test_cost(form_data)
         form_data['testCost'] = "$#{form_data['testCost']}"
+      end
+
+      def format_test_date(form_data)
+        form_data['testDate'] = format_date(form_data['testDate'])
+      end
+
+      def format_date(date_str, format = '%m/%d/%Y')
+        Date.parse(date_str).strftime(format)
+      rescue
+        date_str
       end
     end
   end
