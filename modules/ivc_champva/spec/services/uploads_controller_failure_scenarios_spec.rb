@@ -79,9 +79,9 @@ RSpec.describe 'IVC CHAMPVA Integration Failure Scenarios', type: :request do
         # Verify the VES request was attempted and failed (may retry once)
         expect(WebMock).to have_requested(:post, %r{.*/ves-vfmp-app-svc/champva-applications}).at_least_once
 
-        # Verify VES error was logged (retry mechanism logs the error)
+        # Verify VES error was logged (retry mechanism logs the error with exception object)
         expect(Rails.logger).to have_received(:error)
-          .with(a_string_matching(/Ignoring error when submitting to VES.*Connection refused/)).at_least(:once)
+          .with(a_string_matching(/VES Submission: Retry attempt.*failed/), anything).at_least(:once)
 
         # Verify form submission still succeeded despite VES failure
         expect(response).to have_http_status(:ok)
@@ -103,9 +103,9 @@ RSpec.describe 'IVC CHAMPVA Integration Failure Scenarios', type: :request do
         # Verify the VES request was attempted and failed (may retry once)
         expect(WebMock).to have_requested(:post, %r{.*/ves-vfmp-app-svc/champva-applications}).at_least_once
 
-        # Verify VES error was logged with the response code
+        # Verify VES error was logged (retry mechanism logs the error with exception object)
         expect(Rails.logger).to have_received(:error)
-          .with(a_string_matching(/Ignoring error when submitting to VES.*response code: 500/))
+          .with(a_string_matching(/VES Submission: Retry attempt.*failed/), anything)
           .at_least(:once)
 
         # Form submission should still succeed despite VES failure
