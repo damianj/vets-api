@@ -5,7 +5,7 @@ require 'bio_heart_api/form_mappers/base_mapper'
 module BioHeartApi
   module FormMappers
     class Form21p601Mapper < BioHeartApi::FormMappers::BaseMapper
-      FORM_TYPE = '21P-601'
+      FORM_TYPE = 'VA FORM 21P-601, SEP 2025'
 
       # rubocop:disable Metrics/MethodLength
       def call
@@ -115,8 +115,8 @@ module BioHeartApi
           # Box 26 - Remarks
           'REMARKS' => form['remarks'],
 
-          # Form Type (must be prefixed with StructuredData: to be ingested)
-          'FORM_TYPE' => "StructuredData:#{FORM_TYPE}"
+          # Form Type
+          'FORM_TYPE' => FORM_TYPE
         }
 
         # Add Box 14A-D - Surviving Relatives (up to 4)

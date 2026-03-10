@@ -21,7 +21,7 @@ RSpec.describe BioHeartApi::FormMappers::Form21p601Mapper do
       expect(result).to include(
         'VETERAN_FIRST_NAME' => 'Robert',
         'VETERAN_LAST_NAME' => 'Thompson',
-        'FORM_TYPE' => 'StructuredData:21P-601'
+        'FORM_TYPE' => 'VA FORM 21P-601, SEP 2025'
       )
     end
 

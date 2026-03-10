@@ -5,7 +5,7 @@ require 'bio_heart_api/form_mappers/base_mapper'
 module BioHeartApi
   module FormMappers
     class Form21p0537Mapper < BioHeartApi::FormMappers::BaseMapper
-      FORM_TYPE = '21P-0537'
+      FORM_TYPE = 'VA FORM 21P-0537, DEC 2025'
 
       def call
         form = @params.to_h.with_indifferent_access
@@ -39,8 +39,8 @@ module BioHeartApi
           # 5B - Date Signed
           'DATE_SIGNED' => parse_date(form.dig('recipient', 'signature_date')),
 
-          # Form Type (must be prefixed with StructuredData: to be ingested)
-          'FORM_TYPE' => "StructuredData:#{FORM_TYPE}"
+          # Form Type
+          'FORM_TYPE' => FORM_TYPE
         }
       end
 
