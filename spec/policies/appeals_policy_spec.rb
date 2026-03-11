@@ -21,5 +21,13 @@ describe AppealsPolicy do
         expect(subject).not_to permit(user, :appeals)
       end
     end
+
+    context 'with a loa3 user who does not have an SSN' do
+      let(:user) { build(:user, :loa3, ssn: nil) }
+
+      it 'denies access' do
+        expect(subject).not_to permit(user, :appeals)
+      end
+    end
   end
 end

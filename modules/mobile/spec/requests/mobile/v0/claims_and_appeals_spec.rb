@@ -481,7 +481,11 @@ RSpec.describe 'Mobile::V0::ClaimsAndAppeals', type: :request do
 
       context 'when user is only authorized to access appeals, not claims' do
         let!(:user) do
-          sis_user(icn: '1008596379V859838', participant_id: nil)
+          sis_user(icn: '1008596379V859838')
+        end
+
+        before do
+          allow_any_instance_of(LighthousePolicy).to receive(:access?).and_return(false)
         end
 
         it 'returns appeals with authorization error for claims' do
@@ -525,14 +529,12 @@ RSpec.describe 'Mobile::V0::ClaimsAndAppeals', type: :request do
       end
 
       context 'when user is only authorized to access claims, not appeals' do
-        # ssn: nil makes AppealsPolicy#access? return false (requires loa3? && ssn.present?)
-        # while LighthousePolicy#access? still passes (requires icn + participant_id, not ssn)
         let!(:user) do
-          sis_user(icn: '1008596379V859838', ssn: nil)
+          sis_user(icn: '1008596379V859838')
         end
 
         before do
-          allow(Flipper).to receive(:enabled?).with('benefits_claims_lighthouse_provider', anything).and_return(true)
+          allow_any_instance_of(AppealsPolicy).to receive(:access?).and_return(false)
         end
 
         it 'returns claims with authorization error for appeals' do
@@ -583,9 +585,14 @@ RSpec.describe 'Mobile::V0::ClaimsAndAppeals', type: :request do
         end
       end
 
-      context 'when user is not authorized to access neither claims nor appeals' do
+      context 'when user is not authorized to access either claims or appeals' do
         let!(:user) do
-          sis_user(:api_auth, :loa1, icn: '1008596379V859838', participant_id: nil)
+          sis_user(icn: '1008596379V859838')
+        end
+
+        before do
+          allow_any_instance_of(AppealsPolicy).to receive(:access?).and_return(false)
+          allow_any_instance_of(LighthousePolicy).to receive(:access?).and_return(false)
         end
 
         it 'returns 403 status' do
