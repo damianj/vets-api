@@ -252,9 +252,6 @@ features:
     actor_type: user
     description: Enables the registration-only path for the Health Care Application
     enable_in_development: true
-  hca_ez_kafka_submission_enabled:
-    actor_type: cookie_id
-    description: Enables the 10-10EZ Kafka Event Bus submission
   hca_health_facilities_update_job:
     actor_type: user
     description: Enables the health facilities import job - should only run daily by default in prod, staging, and sandbox.
