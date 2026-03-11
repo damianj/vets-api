@@ -116,6 +116,8 @@ module VAOS
           cnp_count += 1 if cnp?(appt)
         end
 
+        check_appointments_migration_override(appointments)
+
         appointments = merge_appointments(eps_appointments, appointments) if include[:eps]
 
         if Flipper.enabled?(:va_online_scheduling_log_mobile, user) && tp_client == 'mobile'
@@ -265,6 +267,8 @@ module VAOS
           include[:clinics] = true
 
           prepare_appointment(appointment, include)
+
+          check_appointments_migration_override([appointment])
 
           if Flipper.enabled?(:travel_pay_view_claim_details, user) && include[:travel_pay_claims]
             appointment = merge_one_travel_claim(appointment, tp_client)
@@ -1622,6 +1626,20 @@ module VAOS
         return unless response.success? && response.body[:data].present?
 
         SchemaContract::ValidationInitiator.call(user:, response:, contract_name:)
+      end
+
+      def check_appointments_migration_override(appointments)
+        if Flipper.enabled?(:va_online_scheduling_backend_oh_migration_check, user)
+          migrations = VAOS::OhMigrationsHelper.get_migrations
+          appointments.each do |appt|
+            if appt[:location_id]
+              parent_facility_id = appt[:location_id][0, 3]
+              if migrations.key?(parent_facility_id) && migrations[parent_facility_id][:cancellation_disabled]
+                set_cancellable_false(appt)
+              end
+            end
+          end
+        end
       end
 
       def merge_all_travel_claims(start_date, end_date, appointments, tp_client)

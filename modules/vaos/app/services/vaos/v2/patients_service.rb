@@ -51,7 +51,8 @@ module VAOS
 
       def check_migration_eligibility_override(facility_id, type)
         migrations = VAOS::OhMigrationsHelper.get_migrations
-        if migrations.key?(facility_id) && migrations[facility_id][:disable_eligibility]
+        parent_facility_id = facility_id[0, 3]
+        if migrations.key?(parent_facility_id) && migrations[parent_facility_id][:disable_eligibility]
           {
             eligible: false,
             ineligibility_reasons: [{

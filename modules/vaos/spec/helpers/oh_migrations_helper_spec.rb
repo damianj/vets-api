@@ -35,58 +35,6 @@ RSpec.describe VAOS::OhMigrationsHelper do
     expect(migrations['123'][:disable_eligibility]).to be(true)
   end
 
-  it '31 days before migration date, eligibility is not disabled' do
-    go_live_date = today + 31.days
-    Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
-    migrations = VAOS::OhMigrationsHelper.get_migrations
-
-    expect(migrations.size).to eq(1)
-    expect(migrations).to have_key('123')
-    expect(migrations['123'][:migration_days]).to eq(-31)
-    expect(migrations['123'][:migration_date]).to be_an_instance_of(Date)
-    expect(migrations['123'][:migration_date]).to eq(go_live_date)
-    expect(migrations['123'][:disable_eligibility]).to be(false)
-  end
-
-  it '30 days before migration date, eligibility is disabled' do
-    go_live_date = today + 30.days
-    Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
-    migrations = VAOS::OhMigrationsHelper.get_migrations
-
-    expect(migrations.size).to eq(1)
-    expect(migrations).to have_key('123')
-    expect(migrations['123'][:migration_days]).to eq(-30)
-    expect(migrations['123'][:migration_date]).to be_an_instance_of(Date)
-    expect(migrations['123'][:migration_date]).to eq(go_live_date)
-    expect(migrations['123'][:disable_eligibility]).to be(true)
-  end
-
-  it '6 days after migration date, eligibility is still disabled' do
-    go_live_date = today - 6.days
-    Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
-    migrations = VAOS::OhMigrationsHelper.get_migrations
-
-    expect(migrations.size).to eq(1)
-    expect(migrations).to have_key('123')
-    expect(migrations['123'][:migration_days]).to eq(6)
-    expect(migrations['123'][:migration_date]).to be_an_instance_of(Date)
-    expect(migrations['123'][:migration_date]).to eq(go_live_date)
-    expect(migrations['123'][:disable_eligibility]).to be(true)
-  end
-
-  it '7 days after migration date, eligibility is not disabled' do
-    go_live_date = today - 7.days
-    Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
-    migrations = VAOS::OhMigrationsHelper.get_migrations
-
-    expect(migrations.size).to eq(1)
-    expect(migrations).to have_key('123')
-    expect(migrations['123'][:migration_days]).to eq(7)
-    expect(migrations['123'][:migration_date]).to be_an_instance_of(Date)
-    expect(migrations['123'][:migration_date]).to eq(go_live_date)
-    expect(migrations['123'][:disable_eligibility]).to be(false)
-  end
-
   it 'calculates past migration dates' do
     go_live_date = today - 60.days
     Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
@@ -125,5 +73,113 @@ RSpec.describe VAOS::OhMigrationsHelper do
     expect(migrations['518'][:migration_date]).to be_an_instance_of(Date)
     expect(migrations['518'][:migration_date]).to eq(go_live_date2)
     expect(migrations['518'][:disable_eligibility]).to be(false)
+  end
+
+  context 'disable_eligibility' do
+    it 'is false 31 days before migration date' do
+      go_live_date = today + 31.days
+      Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
+      migrations = VAOS::OhMigrationsHelper.get_migrations
+
+      expect(migrations.size).to eq(1)
+      expect(migrations).to have_key('123')
+      expect(migrations['123'][:migration_days]).to eq(-31)
+      expect(migrations['123'][:migration_date]).to be_an_instance_of(Date)
+      expect(migrations['123'][:migration_date]).to eq(go_live_date)
+      expect(migrations['123'][:disable_eligibility]).to be(false)
+    end
+
+    it 'is true 30 days before migration date' do
+      go_live_date = today + 30.days
+      Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
+      migrations = VAOS::OhMigrationsHelper.get_migrations
+
+      expect(migrations.size).to eq(1)
+      expect(migrations).to have_key('123')
+      expect(migrations['123'][:migration_days]).to eq(-30)
+      expect(migrations['123'][:migration_date]).to be_an_instance_of(Date)
+      expect(migrations['123'][:migration_date]).to eq(go_live_date)
+      expect(migrations['123'][:disable_eligibility]).to be(true)
+    end
+
+    it 'is true 6 days after migration date' do
+      go_live_date = today - 6.days
+      Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
+      migrations = VAOS::OhMigrationsHelper.get_migrations
+
+      expect(migrations.size).to eq(1)
+      expect(migrations).to have_key('123')
+      expect(migrations['123'][:migration_days]).to eq(6)
+      expect(migrations['123'][:migration_date]).to be_an_instance_of(Date)
+      expect(migrations['123'][:migration_date]).to eq(go_live_date)
+      expect(migrations['123'][:disable_eligibility]).to be(true)
+    end
+
+    it 'is false 7 days after migration date' do
+      go_live_date = today - 7.days
+      Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
+      migrations = VAOS::OhMigrationsHelper.get_migrations
+
+      expect(migrations.size).to eq(1)
+      expect(migrations).to have_key('123')
+      expect(migrations['123'][:migration_days]).to eq(7)
+      expect(migrations['123'][:migration_date]).to be_an_instance_of(Date)
+      expect(migrations['123'][:migration_date]).to eq(go_live_date)
+      expect(migrations['123'][:disable_eligibility]).to be(false)
+    end
+  end
+
+  context 'cancellation_disabled' do
+    it 'is false 11 days before migration date' do
+      go_live_date = today + 11.days
+      Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
+      migrations = VAOS::OhMigrationsHelper.get_migrations
+
+      expect(migrations.size).to eq(1)
+      expect(migrations).to have_key('123')
+      expect(migrations['123'][:migration_days]).to eq(-11)
+      expect(migrations['123'][:migration_date]).to be_an_instance_of(Date)
+      expect(migrations['123'][:migration_date]).to eq(go_live_date)
+      expect(migrations['123'][:cancellation_disabled]).to be(false)
+    end
+
+    it 'is true 10 days before migration date' do
+      go_live_date = today + 10.days
+      Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
+      migrations = VAOS::OhMigrationsHelper.get_migrations
+
+      expect(migrations.size).to eq(1)
+      expect(migrations).to have_key('123')
+      expect(migrations['123'][:migration_days]).to eq(-10)
+      expect(migrations['123'][:migration_date]).to be_an_instance_of(Date)
+      expect(migrations['123'][:migration_date]).to eq(go_live_date)
+      expect(migrations['123'][:cancellation_disabled]).to be(true)
+    end
+
+    it 'is true 6 days after migration date' do
+      go_live_date = today - 6.days
+      Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
+      migrations = VAOS::OhMigrationsHelper.get_migrations
+
+      expect(migrations.size).to eq(1)
+      expect(migrations).to have_key('123')
+      expect(migrations['123'][:migration_days]).to eq(6)
+      expect(migrations['123'][:migration_date]).to be_an_instance_of(Date)
+      expect(migrations['123'][:migration_date]).to eq(go_live_date)
+      expect(migrations['123'][:cancellation_disabled]).to be(true)
+    end
+
+    it 'is false 7 days after migration date' do
+      go_live_date = today - 7.days
+      Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[123,Test 1]"
+      migrations = VAOS::OhMigrationsHelper.get_migrations
+
+      expect(migrations.size).to eq(1)
+      expect(migrations).to have_key('123')
+      expect(migrations['123'][:migration_days]).to eq(7)
+      expect(migrations['123'][:migration_date]).to be_an_instance_of(Date)
+      expect(migrations['123'][:migration_date]).to eq(go_live_date)
+      expect(migrations['123'][:cancellation_disabled]).to be(false)
+    end
   end
 end

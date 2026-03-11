@@ -63,6 +63,9 @@ describe VAOS::V2::AppointmentsService do
     allow_any_instance_of(VAOS::UserService).to receive(:session).and_return('stubbed_token')
     Flipper.enable_actor(:appointments_consolidation, user)
     allow(Flipper).to receive(:enabled?).with(:va_online_scheduling_vaos_alternate_route).and_return(false)
+    allow(Flipper).to receive(:enabled?)
+      .with(:va_online_scheduling_backend_oh_migration_check, instance_of(User))
+      .and_return(false)
   end
 
   describe '#post_appointment' do
@@ -1197,6 +1200,32 @@ describe VAOS::V2::AppointmentsService do
 
       context 'with an appointment' do
         context 'with Jacqueline Morgan' do
+          context 'when va_online_scheduling_backend_oh_migration_check is enabled' do
+            before do
+              allow(Flipper).to receive(:enabled?)
+                .with(:va_online_scheduling_backend_oh_migration_check, instance_of(User))
+                .and_return(true)
+            end
+
+            it 'returns an uncancellable proposed appointment' do
+              go_live_date = Time.zone.today + 5.days
+              Settings.mhv.oh_facility_checks.oh_migrations_list = "#{go_live_date}:[983,Test 1]"
+
+              allow_any_instance_of(VAOS::V2::MobileFacilityService).to receive(:get_facility!)
+                .and_return(mock_facility)
+              VCR.use_cassette('vaos/v2/appointments/get_appointment_200_with_facility_200_vpg',
+                               match_requests_on: %i[method path query]) do
+                response = subject.get_appointment('70060')
+                expect(response[:id]).to eq('70060')
+                expect(response[:kind]).to eq('clinic')
+                expect(response[:status]).to eq('proposed')
+                expect(response[:requested_periods][0][:local_start_time]).to eq('Sun, 19 Dec 2021 19:00:00 -0500')
+                expect(response[:show_schedule_link]).to be_nil
+                expect(response[:cancellable]).to be(false)
+              end
+            end
+          end
+
           it 'returns a proposed appointment' do
             allow_any_instance_of(VAOS::V2::MobileFacilityService).to receive(:get_facility!).and_return(mock_facility)
             VCR.use_cassette('vaos/v2/appointments/get_appointment_200_with_facility_200_vpg',
@@ -1207,6 +1236,7 @@ describe VAOS::V2::AppointmentsService do
               expect(response[:status]).to eq('proposed')
               expect(response[:requested_periods][0][:local_start_time]).to eq('Sun, 19 Dec 2021 19:00:00 -0500')
               expect(response[:show_schedule_link]).to be_nil
+              expect(response[:cancellable]).to be(true)
             end
           end
         end

@@ -46,7 +46,7 @@ describe VAOS::V2::PatientsService do
           end
         end
 
-        context 'checking migrations' do
+        context 'when va_online_scheduling_backend_oh_migration_check is enabled' do
           before do
             allow(Flipper).to receive(:enabled?)
               .with(:va_online_scheduling_backend_oh_migration_check, instance_of(User))
@@ -65,7 +65,7 @@ describe VAOS::V2::PatientsService do
           end
         end
 
-        context 'not checking migrations' do
+        context 'when va_online_scheduling_backend_oh_migration_check is disabled' do
           before do
             allow(Flipper).to receive(:enabled?)
               .with(:va_online_scheduling_backend_oh_migration_check, instance_of(User))
