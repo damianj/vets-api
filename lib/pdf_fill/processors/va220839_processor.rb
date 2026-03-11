@@ -51,8 +51,6 @@ module PdfFill
 
         # capture overflow when College or professonal school exceeds 25 characters
         combine_extras(file_path, hash_converter.extras_generator, FORM_CLASS)
-
-        file_path
       end
 
       def generate_extended_form(merged_form_data, hash_converter)

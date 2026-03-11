@@ -27,7 +27,8 @@ describe PdfFill::Processors::VA220839Processor do
       let(:saved_claim) { create(:va0839) }
 
       it 'creates the pdf correctly' do
-        processor.process
+        result = processor.process
+        expect(result).to eq('tmp/pdfs/22-0839_abc.pdf')
         expect(File.exist?('tmp/pdfs/22-0839_abc.pdf')).to be(true)
       end
 
