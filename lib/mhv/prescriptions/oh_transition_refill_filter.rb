@@ -1,24 +1,29 @@
 # frozen_string_literal: true
 
 require 'mhv/oh_facilities_helper/service'
+require 'unified_health_data/service'
 
 module MHV
   module Prescriptions
     # Filters prescription refill orders based on Oracle Health migration status.
-    # Facilities in blocking phases (p4-p6, i.e. T-3 to T+2) are returned as failures
+    # Facilities in blocking phases (p4-p5, i.e. T-3 to T+2) are returned as failures
     # without being sent to the upstream service.
     #
     # Usage:
-    #   filter = MHV::Prescriptions::OhTransitionRefillFilter.new(current_user)
+    #   filter = MHV::Prescriptions::OhTransitionRefillFilter.new(current_user, source_app: request.env['SOURCE_APP'])
     #   allowed_orders, blocked_failures = filter.partition_orders(parsed_orders)
     #
     # Gated by the :mhv_medications_oh_transition_refill_block Flipper flag.
     class OhTransitionRefillFilter
-      BLOCKED_PHASES = %w[p4 p5 p6].freeze
+      STATSD_KEY_PREFIX = "#{UnifiedHealthData::Service::STATSD_KEY_PREFIX}.oh_transition".freeze
+      BLOCKED_PHASES = %w[p4 p5].freeze
       BLOCKED_ERROR_MESSAGE = 'Refill blocked: facility is transitioning to Oracle Health'
 
-      def initialize(user)
+      # @param user [User] the current user
+      # @param source_app [String] the source application name — used for StatsD metric tagging
+      def initialize(user, source_app:)
         @user = user
+        @source_app = source_app
       end
 
       # Partitions orders into allowed and OH-blocked groups.
@@ -67,14 +72,19 @@ module MHV
       end
 
       def log_blocked_orders(blocked_failures, total_count)
+        station_counts = blocked_failures.map { |f| f[:station_number] }.tally
         Rails.logger.warn(
           'OhTransitionRefillFilter: blocked refill orders for OH-transitioning facilities',
           {
             blocked_count: blocked_failures.size,
             total_count:,
-            blocked_stations: blocked_failures.map { |f| f[:station_number] }.uniq
+            blocked_stations: station_counts.keys
           }
         )
+        station_counts.each do |station, count|
+          StatsD.increment("#{STATSD_KEY_PREFIX}.refills.blocked", count,
+                           tags: ["station_number:#{station}", "source_app:#{@source_app}"])
+        end
       end
 
       def oh_facilities_helper

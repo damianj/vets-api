@@ -34,6 +34,7 @@ module MyHealth
         return unless validate_feature_flag
 
         parsed_orders = orders
+        track_refills_requested_by_station(parsed_orders)
         allowed_orders, blocked_failures = oh_transition_filter.partition_orders(parsed_orders)
 
         # Only call upstream service if there are non-blocked orders
@@ -121,8 +122,18 @@ module MyHealth
                          tags: ["source_app:#{request.env['SOURCE_APP']}"])
       end
 
+      def track_refills_requested_by_station(orders)
+        station_counts = orders.map { |o| o['stationNumber'] }.compact.tally
+        station_counts.each do |station, count|
+          StatsD.increment("#{UnifiedHealthData::Service::STATSD_KEY_PREFIX}.refills.requested_by_station", count,
+                           tags: ["station_number:#{station}", "source_app:#{request.env['SOURCE_APP']}"])
+        end
+      end
+
       def oh_transition_filter
-        @oh_transition_filter ||= MHV::Prescriptions::OhTransitionRefillFilter.new(@current_user)
+        @oh_transition_filter ||= MHV::Prescriptions::OhTransitionRefillFilter.new(
+          @current_user, source_app: request.env['SOURCE_APP']
+        )
       end
 
       def validate_feature_flag

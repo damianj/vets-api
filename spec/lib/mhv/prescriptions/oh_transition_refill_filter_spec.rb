@@ -4,7 +4,7 @@ require 'rails_helper'
 require 'mhv/prescriptions/oh_transition_refill_filter'
 
 RSpec.describe MHV::Prescriptions::OhTransitionRefillFilter do
-  subject(:filter) { described_class.new(user) }
+  subject(:filter) { described_class.new(user, source_app: 'mhv-medications') }
 
   let(:user) { build(:user) }
   let(:mock_oh_helper) { instance_double(MHV::OhFacilitiesHelper::Service) }
@@ -47,6 +47,7 @@ RSpec.describe MHV::Prescriptions::OhTransitionRefillFilter do
       before do
         allow(Flipper).to receive(:enabled?)
           .with(:mhv_medications_oh_transition_refill_block, user).and_return(true)
+        allow(StatsD).to receive(:increment)
       end
 
       context 'when all facilities are in blocked phases' do
@@ -79,6 +80,21 @@ RSpec.describe MHV::Prescriptions::OhTransitionRefillFilter do
           expect(Rails.logger).to have_received(:warn).with(
             'OhTransitionRefillFilter: blocked refill orders for OH-transitioning facilities',
             { blocked_count: 2, total_count: 2, blocked_stations: %w[556 570] }
+          )
+        end
+
+        it 'increments the blocked metric per station with platform tag' do
+          allow(Rails.logger).to receive(:warn)
+
+          filter.partition_orders(orders)
+
+          expect(StatsD).to have_received(:increment).with(
+            "#{described_class::STATSD_KEY_PREFIX}.refills.blocked", 1,
+            tags: %w[station_number:556 source_app:mhv-medications]
+          )
+          expect(StatsD).to have_received(:increment).with(
+            "#{described_class::STATSD_KEY_PREFIX}.refills.blocked", 1,
+            tags: %w[station_number:570 source_app:mhv-medications]
           )
         end
       end
@@ -131,10 +147,18 @@ RSpec.describe MHV::Prescriptions::OhTransitionRefillFilter do
 
           expect(Rails.logger).not_to have_received(:warn)
         end
+
+        it 'does not increment the blocked metric' do
+          filter.partition_orders(orders)
+
+          expect(StatsD).not_to have_received(:increment).with(
+            "#{described_class::STATSD_KEY_PREFIX}.refills.blocked", anything, anything
+          )
+        end
       end
 
-      it 'blocks each of the defined blocked phases (p4, p5, p6)' do
-        %w[p4 p5 p6].each do |phase|
+      it 'blocks each of the defined blocked phases (p4, p5)' do
+        %w[p4 p5].each do |phase|
           allow(mock_oh_helper).to receive(:get_phases_for_station_numbers)
             .and_return({ '556' => phase, '570' => phase })
 
@@ -144,8 +168,8 @@ RSpec.describe MHV::Prescriptions::OhTransitionRefillFilter do
         end
       end
 
-      it 'does not block phases outside p4-p6' do
-        %w[p0 p1 p2 p3 p7].each do |phase|
+      it 'does not block phases outside p4-p5' do
+        %w[p0 p1 p2 p3 p6 p7].each do |phase|
           allow(mock_oh_helper).to receive(:get_phases_for_station_numbers)
             .and_return({ '556' => phase, '570' => phase })
 
