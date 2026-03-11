@@ -4,7 +4,43 @@ require 'rails_helper'
 require_relative '../support/shared_examples_for_base_form'
 
 RSpec.describe SimpleFormsApi::VBA214138 do
-  it_behaves_like 'zip_code_is_us_based', %w[mailing_address]
+  describe '#zip_code_is_us_based' do
+    context 'when Veteran is filing with profile mailing address' do
+      it 'returns true for USA' do
+        data = {
+          'claimant_type' => 'self',
+          'veteran' => { 'mailing_address' => { 'country_code_iso3' => 'USA' } }
+        }
+        expect(described_class.new(data).zip_code_is_us_based).to be true
+      end
+
+      it 'returns false for non-USA' do
+        data = {
+          'claimant_type' => 'self',
+          'veteran' => { 'mailing_address' => { 'country_code_iso3' => 'CAN' } }
+        }
+        expect(described_class.new(data).zip_code_is_us_based).to be false
+      end
+    end
+
+    context 'when non-Veteran is filing with veteran_mailing_address' do
+      it 'returns true for USA' do
+        data = {
+          'claimant_type' => 'forVeteran',
+          'veteran_mailing_address' => { 'country' => 'USA' }
+        }
+        expect(described_class.new(data).zip_code_is_us_based).to be true
+      end
+
+      it 'returns false for non-USA' do
+        data = {
+          'claimant_type' => 'forVeteran',
+          'veteran_mailing_address' => { 'country' => 'CAN' }
+        }
+        expect(described_class.new(data).zip_code_is_us_based).to be false
+      end
+    end
+  end
 
   describe '#desired_stamps' do
     let(:data) { { 'statement_of_truth_signature' => 'John Doe' } }
@@ -59,54 +95,45 @@ RSpec.describe SimpleFormsApi::VBA214138 do
     end
 
     context 'when the Veteran is filing' do
-      context 'with top-level profile keys (from profile confirm page)' do
+      context 'with top-level profile keys and profile mailing address' do
         let(:data) do
           {
             'claimant_type' => 'self',
-            'first' => 'Hector',
-            'middle' => 'J',
-            'last' => 'Allen',
-            'id_number' => { 'ssn' => '796126859' },
-            'mailing_address' => { 'postal_code' => '12345' },
+            'first' => 'John',
+            'last' => 'Veteran',
+            'id_number' => { 'ssn' => '321540987' },
+            'veteran' => {
+              'mailing_address' => {
+                'address_line1' => '400 NW 65th St',
+                'city' => 'Seattle',
+                'state_code' => 'WA',
+                'zip_code' => '98117',
+                'country_code_iso3' => 'USA'
+              }
+            },
             'form_number' => '21-4138'
           }
         end
 
-        it 'reads name from top-level profile keys' do
-          result = described_class.new(data).metadata
-          expect(result['veteranFirstName']).to eq('Hector')
-          expect(result['veteranLastName']).to eq('Allen')
-          expect(result['fileNumber']).to eq('796126859')
-          expect(result['zipCode']).to eq('12345')
-        end
-      end
-
-      context 'with nested full_name (fallback)' do
-        let(:data) do
-          {
-            'claimant_type' => 'self',
-            'full_name' => { 'first' => 'John', 'last' => 'Doe' },
-            'id_number' => { 'ssn' => '123456789' },
-            'mailing_address' => { 'postal_code' => '12345' },
-            'form_number' => '21-4138'
-          }
-        end
-
-        it 'falls back to full_name when top-level keys are absent' do
+        it 'uses the Veterans name, ID, and profile mailing address in metadata' do
           result = described_class.new(data).metadata
           expect(result['veteranFirstName']).to eq('John')
-          expect(result['veteranLastName']).to eq('Doe')
-          expect(result['fileNumber']).to eq('123456789')
-          expect(result['zipCode']).to eq('12345')
+          expect(result['veteranLastName']).to eq('Veteran')
+          expect(result['fileNumber']).to eq('321540987')
+          expect(result['zipCode']).to eq('98117')
+          expect(result['source']).to eq('VA Platform Digital Forms')
+          expect(result['docType']).to eq('21-4138')
+          expect(result['businessLine']).to eq('CMP')
         end
       end
 
       it 'uses VA file number when available' do
         data = {
           'claimant_type' => 'self',
-          'full_name' => { 'first' => 'John', 'last' => 'Doe' },
-          'id_number' => { 'va_file_number' => 'C12345678', 'ssn' => '123456789' },
-          'mailing_address' => { 'postal_code' => '12345' },
+          'first' => 'John',
+          'last' => 'Veteran',
+          'id_number' => { 'va_file_number' => 'C12345678', 'ssn' => '321540987' },
+          'veteran' => { 'mailing_address' => { 'zip_code' => '98117', 'country_code_iso3' => 'USA' } },
           'form_number' => '21-4138'
         }
         result = described_class.new(data).metadata
@@ -116,13 +143,14 @@ RSpec.describe SimpleFormsApi::VBA214138 do
       it 'falls back to SSN when VA file number is blank' do
         data = {
           'claimant_type' => 'self',
-          'full_name' => { 'first' => 'John', 'last' => 'Doe' },
-          'id_number' => { 'va_file_number' => '', 'ssn' => '123456789' },
-          'mailing_address' => { 'postal_code' => '12345' },
+          'first' => 'John',
+          'last' => 'Veteran',
+          'id_number' => { 'va_file_number' => '', 'ssn' => '321540987' },
+          'veteran' => { 'mailing_address' => { 'zip_code' => '98117', 'country_code_iso3' => 'USA' } },
           'form_number' => '21-4138'
         }
         result = described_class.new(data).metadata
-        expect(result['fileNumber']).to eq('123456789')
+        expect(result['fileNumber']).to eq('321540987')
       end
     end
   end
@@ -151,17 +179,15 @@ RSpec.describe SimpleFormsApi::VBA214138 do
         let(:data) do
           {
             'claimant_type' => 'self',
-            'first' => 'Hector',
-            'middle' => 'J',
-            'last' => 'Allen'
+            'first' => 'John',
+            'last' => 'Veteran'
           }
         end
 
         it 'returns name from top-level keys' do
           expect(described_class.new(data).veteran_full_name).to eq({
-                                                                      'first' => 'Hector',
-                                                                      'middle' => 'J',
-                                                                      'last' => 'Allen'
+                                                                      'first' => 'John',
+                                                                      'last' => 'Veteran'
                                                                     })
         end
       end
@@ -216,21 +242,138 @@ RSpec.describe SimpleFormsApi::VBA214138 do
     end
 
     context 'when veteran_id_number is absent (Veteran filer)' do
-      let(:data) { { 'id_number' => { 'ssn' => '123456789' } } }
+      let(:data) { { 'id_number' => { 'ssn' => '321540987' } } }
 
       it 'falls back to id_number' do
-        expect(described_class.new(data).veteran_id_data).to eq({ 'ssn' => '123456789' })
+        expect(described_class.new(data).veteran_id_data).to eq({ 'ssn' => '321540987' })
+      end
+    end
+  end
+
+  describe '#veteran_mailing_address' do
+    context 'when non-Veteran is filing' do
+      it 'returns veteran_mailing_address directly' do
+        data = {
+          'claimant_type' => 'forVeteran',
+          'veteran_mailing_address' => { 'street' => '123 Fake St', 'city' => 'Faketown', 'state' => 'IN',
+                                         'postal_code' => '46375', 'country' => 'USA' }
+        }
+        expect(described_class.new(data).veteran_mailing_address).to eq({
+                                                                          'street' => '123 Fake St',
+                                                                          'city' => 'Faketown',
+                                                                          'state' => 'IN',
+                                                                          'postal_code' => '46375',
+                                                                          'country' => 'USA'
+                                                                        })
+      end
+    end
+
+    context 'when Veteran is filing with profile mailing address' do
+      it 'parses the profile mailing address into the expected shape' do
+        data = {
+          'claimant_type' => 'self',
+          'veteran' => {
+            'mailing_address' => {
+              'address_line1' => '400 NW 65th St',
+              'city' => 'Seattle',
+              'state_code' => 'WA',
+              'zip_code' => '98117',
+              'country_code_iso3' => 'USA'
+            }
+          }
+        }
+        expect(described_class.new(data).veteran_mailing_address).to eq({
+                                                                          'street' => '400 NW 65th St',
+                                                                          'city' => 'Seattle',
+                                                                          'state' => 'WA',
+                                                                          'postal_code' => '98117',
+                                                                          'country' => 'USA'
+                                                                        })
+      end
+    end
+
+    context 'when no address is present' do
+      it 'returns an empty hash' do
+        expect(described_class.new({}).veteran_mailing_address).to eq({})
+      end
+    end
+  end
+
+  describe '#veteran_phone' do
+    context 'when non-Veteran is filing' do
+      it 'returns veteran_phone directly' do
+        data = { 'veteran_phone' => '2197756113' }
+        expect(described_class.new(data).veteran_phone).to eq('2197756113')
+      end
+    end
+
+    context 'when Veteran is filing with profile mobile phone' do
+      it 'concatenates area_code and phone_number' do
+        data = {
+          'veteran' => {
+            'mobile_phone' => { 'area_code' => '123', 'phone_number' => '4567890' }
+          }
+        }
+        expect(described_class.new(data).veteran_phone).to eq('1234567890')
+      end
+    end
+
+    context 'when no phone is present' do
+      it 'returns nil' do
+        expect(described_class.new({}).veteran_phone).to be_nil
+      end
+    end
+  end
+
+  describe '#veteran_email' do
+    context 'when non-Veteran is filing' do
+      it 'returns veteran_email_address directly' do
+        data = { 'veteran_email_address' => 'veteran@example.com' }
+        expect(described_class.new(data).veteran_email).to eq('veteran@example.com')
+      end
+    end
+
+    context 'when Veteran is filing with profile email' do
+      it 'returns email from nested veteran object' do
+        data = { 'veteran' => { 'email' => { 'email_address' => 'testing@gmail.com' } } }
+        expect(described_class.new(data).veteran_email).to eq('testing@gmail.com')
+      end
+    end
+
+    context 'when no email is present' do
+      it 'returns nil' do
+        expect(described_class.new({}).veteran_email).to be_nil
+      end
+    end
+  end
+
+  describe '#veteran_date_of_birth' do
+    context 'when non-Veteran is filing' do
+      it 'returns veteran_date_of_birth directly' do
+        data = { 'veteran_date_of_birth' => '1980-04-01' }
+        expect(described_class.new(data).veteran_date_of_birth).to eq('1980-04-01')
+      end
+    end
+
+    context 'when Veteran is filing' do
+      it 'returns date_of_birth' do
+        data = { 'date_of_birth' => '1980-01-01' }
+        expect(described_class.new(data).veteran_date_of_birth).to eq('1980-01-01')
+      end
+    end
+
+    context 'when no date of birth is present' do
+      it 'returns nil' do
+        expect(described_class.new({}).veteran_date_of_birth).to be_nil
       end
     end
   end
 
   describe '#notification_first_name' do
-    context 'when Veteran is filing' do
-      let(:data) { { 'full_name' => { 'first' => 'John', 'last' => 'Doe' } } }
+    let(:data) { { 'full_name' => { 'first' => 'John', 'last' => 'Doe' } } }
 
-      it 'returns the first name from full_name' do
-        expect(described_class.new(data).notification_first_name).to eq('John')
-      end
+    it 'returns the first name from full_name' do
+      expect(described_class.new(data).notification_first_name).to eq('John')
     end
   end
 
@@ -246,9 +389,11 @@ RSpec.describe SimpleFormsApi::VBA214138 do
     context 'when statement is within the character limit' do
       let(:data) do
         {
-          'statement' => 'a' * 3682,
-          'full_name' => { 'first' => 'John', 'last' => 'Doe' },
-          'id_number' => { 'ssn' => '123456789' }
+          'claimant_type' => 'self',
+          'statement' => 'a' * 3685,
+          'first' => 'John',
+          'last' => 'Veteran',
+          'id_number' => { 'ssn' => '321540987' }
         }
       end
 
@@ -260,9 +405,11 @@ RSpec.describe SimpleFormsApi::VBA214138 do
     context 'when statement exceeds the character limit' do
       let(:data) do
         {
+          'claimant_type' => 'self',
           'statement' => 'a' * 4000,
-          'full_name' => { 'first' => 'Jane', 'last' => 'Smith' },
-          'id_number' => { 'ssn' => '987654321' }
+          'first' => 'John',
+          'last' => 'Veteran',
+          'id_number' => { 'ssn' => '321540987' }
         }
       end
 
@@ -274,42 +421,14 @@ RSpec.describe SimpleFormsApi::VBA214138 do
       end
     end
 
-    context 'when statement is exactly at the limit' do
-      let(:data) do
-        {
-          'statement' => 'a' * 3685,
-          'full_name' => { 'first' => 'John', 'last' => 'Doe' },
-          'id_number' => { 'ssn' => '123456789' }
-        }
-      end
-
-      it 'returns nil' do
-        expect(described_class.new(data).overflow_pdf).to be_nil
-      end
-    end
-
-    context 'when statement is one character over the limit' do
-      let(:data) do
-        {
-          'statement' => 'a' * 3687,
-          'full_name' => { 'first' => 'John', 'last' => 'Doe' },
-          'id_number' => { 'ssn' => '123456789' }
-        }
-      end
-
-      it 'returns a file path' do
-        result = described_class.new(data).overflow_pdf
-        expect(result).not_to be_nil
-        File.delete(result) if result && File.exist?(result)
-      end
-    end
-
     context 'when statement is nil' do
       let(:data) do
         {
+          'claimant_type' => 'self',
           'statement' => nil,
-          'full_name' => { 'first' => 'John', 'last' => 'Doe' },
-          'id_number' => { 'ssn' => '123456789' }
+          'first' => 'John',
+          'last' => 'Veteran',
+          'id_number' => { 'ssn' => '321540987' }
         }
       end
 
@@ -416,6 +535,45 @@ RSpec.describe SimpleFormsApi::VBA214138 do
         result = described_class.new(data).remarks_with_claimant_header
         expect(result).to start_with('Submitted by: Not provided (spouse)')
       end
+    end
+  end
+
+  context 'when the claimant header pushes content over the limit' do
+    let(:header_offset) { 'Submitted by: Ally Soto (spouse)'.length + 2 }
+    let(:data) do
+      {
+        'claimant_type' => 'forVeteran',
+        'full_name' => { 'first' => 'Ally', 'last' => 'Soto' },
+        'relationship_to_veteran' => 'spouse',
+        'statement' => 'a' * 3660,
+
+        'id_number' => { 'ssn' => '123456789' }
+      }
+    end
+
+    it 'triggers overflow because the header consumes additional characters' do
+      form = described_class.new(data)
+      expect(form.overflow_pdf).not_to be_nil
+    end
+
+    it 'would not trigger overflow without the header' do
+      described_class.new(data)
+      expect(data['statement'].length).to be < SimpleFormsApi::VBA214138::ALLOTTED_REMARKS_LAST_INDEX
+    end
+
+    it 'passes the correct cutoff to the generator accounting for header length' do
+      form = described_class.new(data)
+      full_remarks = form.remarks_with_claimant_header
+      header_length = full_remarks.length - data['statement'].length
+      expected_cutoff = [SimpleFormsApi::VBA214138::ALLOTTED_REMARKS_LAST_INDEX - header_length, 0].max
+
+      allow(SimpleFormsApi::OverflowPdfGenerator).to receive(:new).and_call_original
+      form.overflow_pdf
+
+      expect(SimpleFormsApi::OverflowPdfGenerator).to have_received(:new).with(
+        data,
+        cutoff: expected_cutoff
+      )
     end
   end
 end
