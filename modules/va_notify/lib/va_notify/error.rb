@@ -30,6 +30,14 @@ module VANotify
       super(build_message)
     end
 
+    def log_error
+      Rails.logger.error(
+        self.class.name,
+        status_code:,
+        context:
+      )
+    end
+
     private
 
     def build_message
