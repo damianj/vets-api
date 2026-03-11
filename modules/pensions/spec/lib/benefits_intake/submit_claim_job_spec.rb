@@ -25,7 +25,6 @@ RSpec.describe Pensions::BenefitsIntake::SubmitClaimJob, :uploader_helpers do
 
     before do
       allow(Flipper).to receive(:enabled?).with(:validate_saved_claims_with_json_schemer).and_return(true)
-      allow(Flipper).to receive(:enabled?).with(:pension_kafka_event_bus_submission_enabled).and_return(true)
       allow(Flipper).to receive(:enabled?).with(:pension_extras_redesign_enabled).and_return(false)
 
       job.instance_variable_set(:@claim, claim)

@@ -2644,9 +2644,6 @@ features:
   pension_form_profile_module_enabled:
     actor_type: user
     description: Use the module version of the FormProfile
-  pension_kafka_event_bus_submission_enabled:
-    actor_type: user
-    description: Enable the EventBusSubmissionJob for Kafka
   pension_extras_redesign_enabled:
     actor_type: user
     description: Enable the new overflow design

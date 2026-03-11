@@ -29,7 +29,7 @@ module Pensions
           claim = nil
         end
 
-        if claim.present? && Flipper.enabled?(:pension_kafka_event_bus_submission_enabled)
+        if claim.present?
           # TODO: Set this back to claim&.user_account_id once the DB migration is done
           user_icn = UserAccount.find_by(id: msg['args'][1])&.icn.to_s
           participant_id = msg['args'][2]
@@ -66,7 +66,7 @@ module Pensions
 
         upload_document
 
-        submit_traceability_to_event_bus if Flipper.enabled?(:pension_kafka_event_bus_submission_enabled)
+        submit_traceability_to_event_bus
 
         monitor.track_submission_success(@claim, @intake_service, @user_account_uuid)
 

@@ -57,7 +57,7 @@ module Pensions
           raise Common::Exceptions::ValidationErrors, claim.errors
         end
 
-        submit_traceability_to_event_bus(claim) if Flipper.enabled?(:pension_kafka_event_bus_submission_enabled)
+        submit_traceability_to_event_bus(claim)
 
         # Submit to BPDS if the feature is enabled
         process_and_upload_to_bpds(claim)
