@@ -123,14 +123,6 @@ RSpec.describe Mobile::V0::VeteranStatusCard::Service do
       end
     end
 
-    describe '#uncaught_error_response' do
-      it 'returns Mobile constants' do
-        expect(subject.send(:uncaught_error_response)).to eq(
-          Mobile::V0::VeteranStatusCard::Constants::SOMETHING_WENT_WRONG_RESPONSE
-        )
-      end
-    end
-
     describe '#person_not_found_response' do
       it 'returns Mobile constants' do
         expect(subject.send(:person_not_found_response)).to eq(
@@ -564,12 +556,12 @@ RSpec.describe Mobile::V0::VeteranStatusCard::Service do
           let(:not_confirmed_reason) { 'MORE_RESEARCH_REQUIRED' }
           let(:ssc_code) { 'UNKNOWN_CODE' }
 
-          it 'logs user_message: uncaught_error' do
+          it 'logs user_message: unknown_eligibility' do
             subject.status_card
 
             expect(Rails.logger).to have_received(:info).with(
               '[Mobile::V0::VeteranStatusCard::Service] VSC Card Result',
-              hash_including(user_message: described_class::UNCAUGHT_ERROR_MESSAGE)
+              hash_including(user_message: described_class::UNKNOWN_ELIGIBILITY_MESSAGE)
             )
           end
         end

@@ -722,12 +722,12 @@ RSpec.describe VeteranStatusCard::Service do
           let(:not_confirmed_reason) { 'MORE_RESEARCH_REQUIRED' }
           let(:ssc_code) { 'UNKNOWN_CODE' }
 
-          it 'logs user_message: uncaught_error' do
+          it 'logs user_message: unknown_eligibility' do
             subject.status_card
 
             expect(Rails.logger).to have_received(:info).with(
               '[VeteranStatusCard::Service] VSC Card Result',
-              hash_including(user_message: VeteranStatusCard::Service::UNCAUGHT_ERROR_MESSAGE)
+              hash_including(user_message: VeteranStatusCard::Service::UNKNOWN_ELIGIBILITY_MESSAGE)
             )
           end
         end

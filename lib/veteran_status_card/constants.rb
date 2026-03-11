@@ -95,19 +95,6 @@ module VeteranStatusCard
       status: WARNING_STATUS
     }.freeze
 
-    UNCAUGHT_ERROR_TITLE = "This page isn't working right now"
-    UNCAUGHT_ERROR_MESSAGE = [
-      {
-        type: 'text',
-        value: "We're sorry. Something went wrong on our end. Refresh this page or try again later."
-      }
-    ].freeze
-    UNCAUGHT_ERROR_RESPONSE = {
-      title: UNCAUGHT_ERROR_TITLE,
-      message: UNCAUGHT_ERROR_MESSAGE,
-      status: WARNING_STATUS
-    }.freeze
-
     SOMETHING_WENT_WRONG_TITLE = 'Something went wrong'
     SOMETHING_WENT_WRONG_MESSAGE = [
       {

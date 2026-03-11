@@ -233,17 +233,6 @@ module VeteranStatusCard
     end
 
     ##
-    # Returns the uncaught error response
-    # Override in subclasses to use different messaging
-    #
-    # @return [Hash] response with :title, :message, :status keys
-    #
-    def uncaught_error_response
-      @user_message = UNCAUGHT_ERROR_MESSAGE
-      VeteranStatusCard::Constants::UNCAUGHT_ERROR_RESPONSE
-    end
-
-    ##
     # Returns the person not found response
     # Override in subclasses to use different messaging
     #
@@ -418,7 +407,7 @@ module VeteranStatusCard
         unknown_eligibility_response
       else
         @confirmation_status = UNCAUGHT_SSC_MESSAGE
-        uncaught_error_response
+        unknown_eligibility_response
       end
     end
 

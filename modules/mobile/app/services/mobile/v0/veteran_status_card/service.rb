@@ -76,15 +76,6 @@ module Mobile
         end
 
         ##
-        # @see VeteranStatusCard::Service#uncaught_error_response
-        # @return [Hash] mobile-specific uncaught error response
-        #
-        def uncaught_error_response
-          @user_message = UNCAUGHT_ERROR_MESSAGE
-          Mobile::V0::VeteranStatusCard::Constants::SOMETHING_WENT_WRONG_RESPONSE
-        end
-
-        ##
         # @see VeteranStatusCard::Service#person_not_found_response
         # @return [Hash] mobile-specific person not found response
         #
