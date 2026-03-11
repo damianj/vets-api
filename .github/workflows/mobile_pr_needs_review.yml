@@ -5,6 +5,9 @@ on:
       - 'modules/mobile/**'
     types: [ready_for_review]
 
+permissions:
+  pull-requests: read
+
 jobs:
   notify_mobile_team:
     runs-on: ubuntu-latest
