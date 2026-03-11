@@ -1,0 +1,68 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: "<CLAIMS_API_BD_URL>/services/benefits-documents/v1/claim-letters/search"
+    body:
+      encoding: UTF-8
+      string: '{"data":{"docTypeIds":[34,859,184],"fileNumber":"796378782"}}'
+    headers:
+      Authorization: Bearer <TOKEN>
+      User-Agent:
+      - "<FARADAY_VERSION>"
+      Content-Type:
+      - application/json
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Tue, 10 Mar 2026 16:30:32 GMT
+      Content-Type:
+      - application/json
+      Connection:
+      - keep-alive
+      Ratelimit-Remaining:
+      - '59'
+      Ratelimit-Reset:
+      - '29'
+      X-Ratelimit-Limit-Minute:
+      - '60'
+      X-Ratelimit-Remaining-Minute:
+      - '59'
+      Ratelimit-Limit:
+      - '60'
+      X-Oneagent-Js-Injection:
+      - 'true'
+      Server-Timing:
+      - dtRpid;desc="-909214941", dtSInfo;desc="0"
+      X-Envoy-Upstream-Service-Time:
+      - '415'
+      Strict-Transport-Security:
+      - max-age=16000000; includeSubDomains; preload;
+      - max-age=31536000; includeSubDomains; preload
+      Access-Control-Allow-Origin:
+      - "*"
+      Correlation-Id:
+      - feaf3cea-13e6-453c-b4c5-2c418d7cd82b#735839
+      Cache-Control:
+      - ''
+      - no-cache, no-store
+      X-Frame-Options:
+      - SAMEORIGIN
+      Pragma:
+      - no-cache
+      Transfer-Encoding:
+      - chunked
+    body:
+      encoding: ASCII-8BIT
+      string: '{"data":{"documents":[{"docTypeId":34,"subject":null,"documentUuid":"42819128-0aff-4b23-ab46-1a9445a209d7","originalFileName":"9dc6cfbb-6b52-4984-a8a0-1085f0eef918_2122akasp.pdf","documentTypeLabel":"Correspondence","trackedItemId":null,"uploadedDateTime":"2019-11-07T17:14:21Z","receivedAt":"2018-12-29"},{"docTypeId":859,"subject":null,"documentUuid":"5c415b15-a068-4e03-ae85-18027f21dcee","originalFileName":"SUBSEQUENT_DEVELOPMENT-600896182-28857726","documentTypeLabel":"Subsequent
+        Development Letter","trackedItemId":null,"uploadedDateTime":"2026-02-13T19:54:25Z","receivedAt":"2026-02-17"},{"docTypeId":184,"subject":null,"documentUuid":"f03b6611-fbaa-4366-a94d-e5f802f7207e","originalFileName":"20211130143609_letter.pdf","documentTypeLabel":"Notification
+        Letter (e.g. VA 20-8993, VA 21-0290, PCGL)","trackedItemId":null,"uploadedDateTime":"2021-11-30T19:36:09Z","receivedAt":"2021-12-01"},{"docTypeId":34,"subject":null,"documentUuid":"8116b5a3-ab99-4935-acb9-996906710068","originalFileName":"3d0146a4-2580-436a-9233-bd217a66ee28_2122Aks6.pdf","documentTypeLabel":"Correspondence","trackedItemId":null,"uploadedDateTime":"2019-11-12T18:26:26Z","receivedAt":"2018-12-29"},{"docTypeId":34,"subject":null,"documentUuid":"aab809d4-f14a-4807-80af-3f8a22458343","originalFileName":"3d0146a4-2580-436a-9233-bd217a66ee28_2122Aks4.pdf","documentTypeLabel":"Correspondence","trackedItemId":null,"uploadedDateTime":"2019-11-12T18:03:13Z","receivedAt":"2018-12-29"}]}}'
+  recorded_at: Tue, 10 Mar 2026 16:30:32 GMT
+recorded_with: VCR 6.4.0

@@ -14,15 +14,20 @@ describe ClaimsApi::BD do
   let(:claim) { create(:auto_established_claim, evss_id: 600_400_688, id: '581128c6-ad08-4b1e-8b82-c3640e829fb3') }
   let(:body) { 'test body' }
 
-  before do
-    allow_any_instance_of(ClaimsApi::V2::BenefitsDocuments::Service)
-      .to receive(:get_auth_token).and_return('some-value-here')
+  # Conditionally stub auth token for tests that need it (marked with :stub_bd_auth metadata)
+  # NOTE: When re-recording VCR cassettes, temporarily set stub_bd_auth: false on the relevant describe block
+  before do |example|
+    if example.metadata[:stub_bd_auth]
+      allow_any_instance_of(ClaimsApi::V2::BenefitsDocuments::Service)
+        .to receive(:get_auth_token).and_return('some-value-here')
+    end
   end
 
   describe 'disability comp (doc_type: L122), and other attachments (doc_type: L023)' do
     let(:pdf_path) { 'modules/claims_api/spec/fixtures/21-526EZ.pdf' }
 
-    describe '#upload' do
+    # To re-record VCR cassettes: change :stub_bd_auth to stub_bd_auth: false
+    describe '#upload', :stub_bd_auth do
       it 'uploads a document to BD' do
         VCR.use_cassette('claims_api/bd/upload') do
           result = subject.upload(claim:, pdf_path:, doc_type: 'L122')
@@ -60,7 +65,8 @@ describe ClaimsApi::BD do
       end
     end
 
-    describe '#search', vcr: 'claims_api/v2/claims_show' do
+    # To re-record VCR cassettes: change :stub_bd_auth to stub_bd_auth: false
+    describe '#search', :stub_bd_auth, vcr: 'claims_api/v2/claims_show' do
       let(:claim_id) { '600397218' }
       let(:file_number) { '796378782' }
 
@@ -69,6 +75,47 @@ describe ClaimsApi::BD do
 
         expect(result).to be_a Hash
         expect(result[:data][:documents]).to be_truthy
+      end
+    end
+
+    # To re-record VCR cassettes: change :stub_bd_auth to stub_bd_auth: false
+    describe '#claim_letters_search', :stub_bd_auth do
+      let(:file_number) { '796378782' }
+      let(:doc_type_ids) { [34, 859, 184] }
+
+      it 'returns documents matching the requested docTypeIds', vcr: 'claims_api/bd/claim_letters_search_with_ids' do
+        result = subject.claim_letters_search(file_number, doc_type_ids)
+        documents = result[:data][:documents]
+
+        expect(documents).not_to be_empty
+        returned_doc_type_ids = documents.map { |doc| doc[:docType] }.uniq.compact
+        expect(returned_doc_type_ids).to all(be_in(doc_type_ids))
+      end
+
+      it 'returns documents without specifying docTypeIds', vcr: 'claims_api/bd/claim_letters_search_without_ids' do
+        result = subject.claim_letters_search(file_number, [])
+        documents = result[:data][:documents]
+        expect(documents).to be_a Array
+        expect(documents).not_to be_empty
+      end
+
+      it 'returns documents with documentUuid and trackedItemId', vcr: 'claims_api/bd/claim_letters_search_with_ids' do
+        result = subject.claim_letters_search(file_number, doc_type_ids)
+        documents = result[:data][:documents]
+
+        expect(documents).not_to be_empty
+        first_doc = documents.first
+        expect(first_doc).to have_key(:documentUuid)
+        expect(first_doc).to have_key(:trackedItemId)
+        expect(first_doc).to have_key(:originalFileName)
+      end
+
+      it 'handles errors gracefully', vcr: 'claims_api/bd/claim_letters_search_with_ids' do
+        allow_any_instance_of(Faraday::Connection).to receive(:post).and_raise(StandardError.new('API Error'))
+
+        result = subject.claim_letters_search(file_number, doc_type_ids)
+
+        expect(result).to eq({})
       end
     end
 
@@ -201,7 +248,8 @@ describe ClaimsApi::BD do
       end
     end
 
-    context 'when the upstream service is down' do
+    # To re-record VCR cassettes: change :stub_bd_auth to stub_bd_auth: false
+    context 'when the upstream service is down', :stub_bd_auth do
       let(:client) { instance_double(Faraday::Connection) }
       let(:response) { instance_double(Faraday::Response, body: 'failed to request: timeout') }
 
@@ -265,7 +313,8 @@ describe ClaimsApi::BD do
       end
     end
 
-    context 'when the upstream service is down' do
+    # To re-record VCR cassettes: change :stub_bd_auth to stub_bd_auth: false
+    context 'when the upstream service is down', :stub_bd_auth do
       let(:client) { instance_double(Faraday::Connection) }
       let(:response) { instance_double(Faraday::Response, body: 'failed to request: timeout') }
       let(:claim_id) { '600397218' }
