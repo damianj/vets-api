@@ -71,7 +71,6 @@ RSpec.describe EducationBenefitsClaims::SubmissionHandler do
 
   describe '#on_success' do
     it 'sends a received email' do
-      expect(notification).to receive(:deliver).with(:received)
       expect(instance.handle(:success)).to be true
     end
   end
