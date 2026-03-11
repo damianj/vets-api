@@ -2892,9 +2892,6 @@ features:
   benefits_intake_submission_status_job:
     actor_type: user
     description: Batch process FormSubmissionAttempts using ::BenefitsIntake::SubmissionStatusJob
-  kafka_producer:
-    actor_type: cookie_id
-    description: Enables the Kafka producer for the VA.gov platform
   show_about_yellow_ribbon_program:
     actor_type: user
     description: If enabled, show additional info about the yellow ribbon program

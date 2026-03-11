@@ -13,7 +13,7 @@ module Kafka
     attr_reader :producer
 
     def initialize
-      setup_producer if Flipper.enabled?(:kafka_producer)
+      setup_producer
     end
 
     private
