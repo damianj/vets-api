@@ -2,6 +2,7 @@
 
 require 'rails_helper'
 require 'lighthouse/healthcare_cost_and_coverage/configuration'
+require 'medical_copays/cerner_facilities'
 
 RSpec.describe 'V1::MedicalCopays', type: :request do
   include ActiveSupport::Testing::TimeHelpers
@@ -110,6 +111,7 @@ RSpec.describe 'V1::MedicalCopays', type: :request do
     it 'returns copay detail for authenticated user' do
       VCR.use_cassette('lighthouse/hcc/copay_detail_success', vcr_options) do
         allow(Auth::ClientCredentials::JWTGenerator).to receive(:generate_token).and_return('fake-jwt')
+        allow(MedicalCopays::CernerFacilities).to receive(:cerner_copay_user?).and_return(false)
 
         get '/v1/medical_copays/4-1abZUKu7LnbcQc'
 
@@ -171,6 +173,7 @@ RSpec.describe 'V1::MedicalCopays', type: :request do
     it 'handles auth error' do
       VCR.use_cassette('lighthouse/hcc/auth_error', vcr_options) do
         allow(Auth::ClientCredentials::JWTGenerator).to receive(:generate_token).and_return('fake-jwt')
+        allow(MedicalCopays::CernerFacilities).to receive(:cerner_copay_user?).and_return(false)
 
         # Block the invoice GET (the unhandled request) without referencing Invoice::Service
         allow_any_instance_of(Lighthouse::HealthcareCostAndCoverage::Configuration)
@@ -183,6 +186,51 @@ RSpec.describe 'V1::MedicalCopays', type: :request do
         errors = body['errors']
 
         expect(errors.first.keys).to match_array(%w[title detail status code])
+      end
+    end
+
+    it 'includes isCerner false for non-cerner user' do
+      VCR.use_cassette('lighthouse/hcc/copay_detail_success', vcr_options) do
+        allow(Auth::ClientCredentials::JWTGenerator).to receive(:generate_token).and_return('fake-jwt')
+        allow(MedicalCopays::CernerFacilities).to receive(:cerner_copay_user?).and_return(false)
+
+        get '/v1/medical_copays/4-1abZUKu7LnbcQc'
+
+        expect(response).to have_http_status(:ok)
+        response_body = JSON.parse(response.body)
+        expect(response_body['isCerner']).to be false
+      end
+    end
+
+    # Cerner users receive the VBS response shape (matching V0) rather than
+    # the JSON:API structure used for Lighthouse responses above.
+    context 'cerner user' do
+      let(:copay_detail) { { data: { 'id' => 'abc-123', 'pSStatementVal' => 'test' }, status: 200 } }
+
+      before do
+        allow(MedicalCopays::CernerFacilities).to receive(:cerner_copay_user?).and_return(true)
+      end
+
+      it 'returns vbs response with isCerner true' do
+        allow_any_instance_of(MedicalCopays::VBS::Service).to receive(:get_copay_by_id)
+          .with('abc-123')
+          .and_return(copay_detail)
+
+        get '/v1/medical_copays/abc-123'
+
+        expect(response).to have_http_status(:ok)
+        response_body = JSON.parse(response.body)
+        expect(response_body['isCerner']).to be true
+        expect(response_body['data']['id']).to eq('abc-123')
+      end
+
+      it 'returns 404 when statement not found' do
+        allow_any_instance_of(MedicalCopays::VBS::Service).to receive(:get_copay_by_id)
+          .and_raise(MedicalCopays::VBS::Service::StatementNotFound)
+
+        get '/v1/medical_copays/nonexistent-id'
+
+        expect(response).to have_http_status(:not_found)
       end
     end
   end

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'medical_copays/cerner_facilities'
+
 module V1
   class MedicalCopaysController < ApplicationController
     service_tag 'debt-resolution'
@@ -36,9 +38,17 @@ module V1
     end
 
     def show
-      copay_detail = medical_copay_service.get_detail(id: params[:id])
+      if cerner_copay_user?
+        copay = vbs_service.get_copay_by_id(params[:id])
+        copay[:isCerner] = true
 
-      render json: Lighthouse::HCC::CopayDetailSerializer.new(copay_detail)
+        render json: copay
+      else
+        copay_detail = medical_copay_service.get_detail(id: params[:id])
+        serialized = Lighthouse::HCC::CopayDetailSerializer.new(copay_detail).serializable_hash
+
+        render json: serialized.merge(isCerner: false)
+      end
     end
 
     private
@@ -57,6 +67,14 @@ module V1
 
     def vbs_service
       MedicalCopays::VBS::Service.build(user: current_user)
+    end
+
+    def cerner_copay_user?
+      MedicalCopays::CernerFacilities.cerner_copay_user?(current_user)
+    end
+
+    def not_found
+      render json: nil, status: :not_found
     end
   end
 end

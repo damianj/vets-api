@@ -175,7 +175,10 @@ class Swagger::V1::Requests::MedicalCopays
 
   swagger_path '/v1/medical_copays/{id}' do
     operation :get do
-      key :description, 'Fetch detailed medical copay invoice by ID (HCCC-backed)'
+      key :description, 'Fetch detailed medical copay invoice by ID. Response includes an isCerner boolean. ' \
+                        'When isCerner is true, the response body matches the V0 VBS copay detail schema ' \
+                        '(see /v0/medical_copays/{id}). When isCerner is false, the response follows the ' \
+                        'JSON:API structure documented below.'
       key :operationId, 'getMedicalCopayById'
       key :tags, %w[medical_copays]
 
@@ -190,9 +193,17 @@ class Swagger::V1::Requests::MedicalCopays
       end
 
       response 200 do
-        key :description, 'Successful copay detail lookup'
+        key :description, 'Successful copay detail lookup. Non-Cerner users receive the JSON:API ' \
+                          'structure below. Cerner users receive the VBS response shape (see V0 schema) ' \
+                          'with an additional isCerner: true field.'
 
         schema do
+          property :isCerner,
+                   type: :boolean,
+                   description: 'Whether the user is associated with a Cerner facility. ' \
+                                'Determines the response shape.',
+                   example: false
+
           # JSON:API top-level data (single resource)
           property :data, type: :object do
             property :id, type: :string, example: '675-K3FD983'
