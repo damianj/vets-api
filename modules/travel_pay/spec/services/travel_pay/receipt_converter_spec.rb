@@ -116,22 +116,53 @@ RSpec.describe TravelPay::ReceiptConverter do
     end
 
     context 'when conversion fails' do
-      let(:params) do
-        {
-          'expenseReceipt' => {
-            'fileName' => 'receipt.heic',
-            'contentType' => 'image/heic',
-            'fileData' => 'invalid-base64-data!!!',
-            'length' => '500'
+      context 'due to invalid Base64' do
+        let(:params) do
+          {
+            'expenseReceipt' => {
+              'fileName' => 'receipt.heic',
+              'contentType' => 'image/heic',
+              'fileData' => 'invalid-base64-data!!!',
+              'length' => '500'
+            }
           }
-        }
+        end
+
+        it 'raises UnprocessableEntity and logs the error on decode failure' do
+          expect(Rails.logger).to receive(:error)
+            .with(/HEIC conversion failed: ArgumentError - invalid base64/)
+
+          expect { converter.convert_if_heic(params) }
+            .to raise_error(Common::Exceptions::UnprocessableEntity)
+        end
       end
 
-      it 'raises UnprocessableEntity and logs the error' do
-        expect(Rails.logger).to receive(:error).with(/HEIC conversion failed/)
+      context 'due to forced conversion failure' do
+        let(:valid_base64_data) { Base64.strict_encode64('fake image data') }
 
-        expect { converter.convert_if_heic(params) }
-          .to raise_error(Common::Exceptions::UnprocessableEntity)
+        let(:params) do
+          {
+            'expenseReceipt' => {
+              'fileName' => 'receipt.heic',
+              'contentType' => 'image/heic',
+              'fileData' => valid_base64_data,
+              'length' => '500'
+            }
+          }
+        end
+
+        before do
+          # Force convert_image_to_jpg to fail
+          allow(MiniMagick::Image).to receive(:open).and_raise(StandardError.new('boom!'))
+        end
+
+        it 'raises UnprocessableEntity and logs the error with class and message' do
+          expect(Rails.logger).to receive(:error)
+            .with('HEIC conversion failed: StandardError - boom!')
+
+          expect { converter.convert_if_heic(params) }
+            .to raise_error(Common::Exceptions::UnprocessableEntity)
+        end
       end
     end
 

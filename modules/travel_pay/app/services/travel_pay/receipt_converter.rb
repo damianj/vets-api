@@ -35,8 +35,8 @@ module TravelPay
       params.merge('expenseReceipt' => converted_receipt)
     rescue Common::Exceptions::UnprocessableEntity
       raise
-    rescue => _e
-      error_message = 'HEIC conversion failed'
+    rescue => e
+      error_message = "HEIC conversion failed: #{e.class} - #{e.message}"
       Rails.logger.error(error_message)
       raise Common::Exceptions::UnprocessableEntity.new(detail: error_message)
     end
@@ -76,12 +76,19 @@ module TravelPay
     # @param binary_data [String] binary image data
     # @return [String] JPG binary data
     def convert_image_to_jpg(binary_data)
-      image = MiniMagick::Image.read(binary_data)
-      image.format('jpg')
+      image = nil
+      Tempfile.create(['receipt', '.heic']) do |file|
+        file.binmode
+        file.write(binary_data)
+        file.flush
 
-      File.binread(image.path)
-    ensure
-      image&.destroy! if defined?(image) && image
+        image = MiniMagick::Image.open(file.path)
+        image.format('jpg')
+
+        File.binread(image.path)
+      ensure
+        image&.destroy! if defined?(image) && image
+      end
     end
   end
 end
