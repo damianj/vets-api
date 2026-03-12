@@ -6,8 +6,69 @@ require 'form21p530a/monitor'
 RSpec.describe Form21p530a::Monitor do
   subject(:monitor) { described_class.new }
 
-  let(:stats_key) { described_class::STATS_KEY }
+  let(:claim_stats_key) { described_class::CLAIM_STATS_KEY }
   let(:form_id) { described_class::FORM_ID }
+
+  it 'extends Logging::BaseMonitor' do
+    expect(described_class.ancestors).to include(Logging::BaseMonitor)
+  end
+
+  describe '#track_submission_begun' do
+    let(:claim) { instance_double(SavedClaim::Form21p530a, confirmation_number: 'V-TEST-12345', guid: 'abc-123') }
+
+    it 'increments StatsD metric with tags' do
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.submission.begun",
+        hash_including(tags: array_including('service:form21p530a', 'action:create', 'status:begun'))
+      )
+      monitor.track_submission_begun(claim, user_uuid: 'user-123')
+    end
+  end
+
+  describe '#track_submission_success' do
+    let(:claim) { instance_double(SavedClaim::Form21p530a, confirmation_number: 'V-TEST-12345', guid: 'abc-123') }
+
+    it 'increments StatsD metrics with tags' do
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.submission.success",
+        hash_including(tags: array_including('service:form21p530a', 'action:create', 'status:success'))
+      )
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.request",
+        hash_including(tags: array_including('service:form21p530a', 'status_code:200', 'action:create'))
+      )
+      monitor.track_submission_success(claim, user_uuid: 'user-123')
+    end
+  end
+
+  describe '#track_submission_failure' do
+    let(:claim) { instance_double(SavedClaim::Form21p530a, confirmation_number: 'V-TEST-12345', guid: 'abc-123') }
+    let(:error) { StandardError.new('Test error') }
+
+    it 'increments StatsD metrics with tags' do
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.submission.failure",
+        hash_including(tags: array_including('service:form21p530a', 'action:create', 'status:failure',
+                                             'error_class:StandardError'))
+      )
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.request",
+        hash_including(tags: array_including('service:form21p530a', 'status_code:500', 'action:create'))
+      )
+      monitor.track_submission_failure(claim, error, user_uuid: 'user-123')
+    end
+  end
+
+  describe '#track_request_code' do
+    it 'increments StatsD metric with dynamic tags' do
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.request",
+        hash_including(tags: array_including('service:form21p530a', 'form_id:21P-530A', 'function:track_request_code',
+                                             'status_code:200'))
+      )
+      monitor.track_request_code(200)
+    end
+  end
 
   describe '#track_request_validation_error' do
     let(:request) do
@@ -29,7 +90,7 @@ RSpec.describe Form21p530a::Monitor do
 
       it 'increments StatsD metric with correct tags' do
         expect(StatsD).to receive(:increment).with(
-          "#{stats_key}.validation_error",
+          "#{claim_stats_key}.validation_error",
           hash_including(tags: array_including('service:form21p530a'))
         )
 
@@ -38,7 +99,7 @@ RSpec.describe Form21p530a::Monitor do
 
       it 'logs validation error with warn level' do
         expect(Rails.logger).to receive(:warn).with(
-          "Form21p530a::Monitor #{form_id} Committee validation failed",
+          "form21p530a:#{form_id} Committee validation failed",
           hash_including(
             context: hash_including(
               form_id:,
@@ -230,6 +291,171 @@ RSpec.describe Form21p530a::Monitor do
 
         monitor.track_request_validation_error(error:, request:)
       end
+    end
+  end
+
+  describe '#track_submission_begun (comprehensive)' do
+    let(:claim) { SavedClaim::Form21p530a.new(form: '{}', guid: SecureRandom.uuid) }
+    let(:user_uuid) { 'test-user-uuid-123' }
+
+    it 'increments StatsD metric' do
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.submission.begun",
+        hash_including(tags: array_including('service:form21p530a', 'action:create', 'status:begun'))
+      )
+
+      monitor.track_submission_begun(claim, user_uuid:)
+    end
+
+    it 'logs at info level with claim context' do
+      expect(Rails.logger).to receive(:info).with(
+        anything,
+        hash_including(
+          context: hash_including(
+            user_uuid:,
+            claim_guid: claim.guid
+          )
+        )
+      )
+
+      monitor.track_submission_begun(claim, user_uuid:)
+    end
+
+    it 'works without user_uuid' do
+      expect(StatsD).to receive(:increment)
+      expect(Rails.logger).to receive(:info)
+
+      monitor.track_submission_begun(claim)
+    end
+  end
+
+  describe '#track_submission_success (comprehensive)' do
+    let(:claim) { SavedClaim::Form21p530a.new(form: '{}', guid: SecureRandom.uuid) }
+    let(:user_uuid) { 'test-user-uuid-456' }
+
+    it 'increments StatsD metrics' do
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.submission.success",
+        hash_including(tags: array_including('service:form21p530a', 'action:create', 'status:success'))
+      )
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.request",
+        hash_including(tags: array_including('service:form21p530a', 'status_code:200', 'action:create'))
+      )
+
+      monitor.track_submission_success(claim, user_uuid:)
+    end
+
+    it 'logs at info level with claim context' do
+      allow(StatsD).to receive(:increment)
+      expect(Rails.logger).to receive(:info).at_least(:once).with(
+        anything,
+        hash_including(
+          context: hash_including(
+            user_uuid:,
+            claim_guid: claim.guid
+          )
+        )
+      )
+
+      monitor.track_submission_success(claim, user_uuid:)
+    end
+  end
+
+  describe '#track_submission_failure (comprehensive)' do
+    let(:claim) { SavedClaim::Form21p530a.new(form: '{}', guid: SecureRandom.uuid) }
+    let(:error) { StandardError.new('Test error message') }
+    let(:user_uuid) { 'test-user-uuid-789' }
+
+    it 'increments StatsD metrics' do
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.submission.failure",
+        hash_including(tags: array_including('service:form21p530a', 'action:create', 'status:failure',
+                                             'error_class:StandardError'))
+      )
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.request",
+        hash_including(tags: array_including('service:form21p530a', 'status_code:500', 'action:create'))
+      )
+
+      monitor.track_submission_failure(claim, error, user_uuid:)
+    end
+
+    it 'logs at error level with error context' do
+      allow(StatsD).to receive(:increment)
+      expect(Rails.logger).to receive(:error).at_least(:once).with(
+        anything,
+        hash_including(
+          context: hash_including(
+            user_uuid:,
+            claim_guid: claim.guid
+          )
+        )
+      )
+
+      monitor.track_submission_failure(claim, error, user_uuid:)
+    end
+  end
+
+  describe '#track_request_code (comprehensive)' do
+    it 'increments StatsD metric' do
+      allow(Rails.logger).to receive(:info)
+
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.request",
+        hash_including(tags: array_including('service:form21p530a', 'status_code:200', 'action:create'))
+      )
+
+      monitor.track_request_code(200, action: 'create', user_uuid: 'test-uuid')
+    end
+
+    it 'logs at info level with request context' do
+      allow(StatsD).to receive(:increment)
+
+      expect(Rails.logger).to receive(:info).with(
+        anything,
+        hash_including(
+          context: hash_including(
+            code: 200,
+            action: 'create',
+            user_uuid: 'test-user-uuid'
+          )
+        )
+      )
+
+      monitor.track_request_code(200, action: 'create', user_uuid: 'test-user-uuid')
+    end
+
+    it 'works with minimal parameters' do
+      allow(Rails.logger).to receive(:info)
+
+      expect(StatsD).to receive(:increment).with(
+        "#{claim_stats_key}.request",
+        anything
+      )
+
+      monitor.track_request_code(422)
+    end
+
+    it 'includes action in context when provided' do
+      allow(StatsD).to receive(:increment)
+
+      expect(Rails.logger).to receive(:info) do |_, payload|
+        expect(payload[:context][:action]).to eq('download_pdf')
+      end
+
+      monitor.track_request_code(500, action: 'download_pdf')
+    end
+
+    it 'includes claim_guid in context when provided' do
+      allow(StatsD).to receive(:increment)
+      claim_guid = SecureRandom.uuid
+
+      expect(Rails.logger).to receive(:info) do |_, payload|
+        expect(payload[:context][:claim_guid]).to eq(claim_guid)
+      end
+
+      monitor.track_request_code(200, claim_guid:)
     end
   end
 end
