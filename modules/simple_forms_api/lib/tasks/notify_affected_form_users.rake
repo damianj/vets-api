@@ -115,7 +115,7 @@ namespace :va_notify do
   end
 
   def enqueue_notifications(affected_users, template_id:)
-    batch    = Sidekiq::Batch.new
+    batch = Sidekiq::Batch.new
     throttle = Sidekiq::Limiter.concurrent('va_notify_affected_form_users', 15, wait_timeout: 5, lock_timeout: 30)
 
     batch.description = "_is_valid bug notification — #{affected_users.count} users — #{Time.current.iso8601}"
@@ -123,20 +123,32 @@ namespace :va_notify do
     batch.jobs do
       affected_users.each do |user|
         throttle.within_limit do
-          VANotify::EmailJob.perform_async(
-            user[:email],
-            template_id,
-            {
-              'first_name' => user[:first_name].to_s,
-              'form_full_name' => user[:metadata][:full_name],
-              'form_plain_name' => user[:metadata][:plain_name],
-              'updated_at' => user[:updated_at].strftime('%B %d, %Y')
-            }
-          )
+          VANotify::EmailJob.perform_async(*email_args(user, template_id))
         end
       end
     end
 
     puts "Batch #{batch.bid} created — #{affected_users.count} jobs enqueued"
+  end
+
+  def email_args(user, template_id)
+    [
+      user[:email],
+      template_id,
+      { 'first_name' => user[:first_name].to_s, 'form_full_name' => user[:metadata][:full_name],
+        'form_plain_name' => user[:metadata][:plain_name], 'updated_at' => user[:updated_at].strftime('%B %d, %Y') },
+      Settings.vanotify.services.va_gov.api_key,
+      {
+        callback_metadata: {
+          notification_type: 'other',
+          in_progress_form_id: user[:form_id],
+          form_number: user[:form_type],
+          statsd_tags: {
+            'service' => 'veteran-facing-forms',
+            'function' => '_is_valid bug notification'
+          }
+        }
+      }
+    ]
   end
 end

@@ -69,16 +69,13 @@ RSpec.describe 'va_notify:notify_affected_form_users', type: :task do
 
   def stub_batch_and_throttle
     batch    = double('Sidekiq::Batch', bid: 'test-bid-123')
-    throttle = double('Sidekiq::Limiter::Concurrent')
+    throttle = instance_double(Sidekiq::Limiter::Concurrent)
 
     allow(Sidekiq::Batch).to receive(:new).and_return(batch)
-    without_partial_double_verification do
-      allow(Sidekiq::Limiter).to receive(:concurrent).and_return(throttle)
-    end
+    allow(Sidekiq::Limiter).to receive(:concurrent).and_return(throttle)
     allow(batch).to receive(:'description=')
     allow(batch).to receive(:jobs).and_yield
     allow(throttle).to receive(:within_limit).and_yield
-    allow(VANotify::EmailJob).to receive(:perform_async)
 
     [batch, throttle]
   end
@@ -167,16 +164,17 @@ RSpec.describe 'va_notify:notify_affected_form_users', type: :task do
     end
     let(:user_without_first_name) { user.merge(first_name: nil) }
 
-    before { stub_batch_and_throttle }
+    before do
+      stub_batch_and_throttle
+    end
 
     it 'throttles to 15 concurrent jobs' do
-      without_partial_double_verification do
-        expect(Sidekiq::Limiter).to receive(:concurrent).with(
-          'va_notify_affected_form_users',
-          15,
-          hash_including(:wait_timeout, :lock_timeout)
-        )
-      end
+      allow(VANotify::EmailJob).to receive(:perform_async)
+      expect(Sidekiq::Limiter).to receive(:concurrent).with(
+        'va_notify_affected_form_users',
+        15,
+        hash_including(:wait_timeout, :lock_timeout)
+      )
       enqueue_notifications([user], template_id: 'test-template-id')
     end
 
@@ -189,16 +187,39 @@ RSpec.describe 'va_notify:notify_affected_form_users', type: :task do
           'form_full_name' => 'Dependency Claim (VA Form 21-2680)',
           'form_plain_name' => 'Dependency Claim',
           'updated_at' => user[:updated_at].strftime('%B %d, %Y')
-        }
+        },
+        anything,
+        anything
       )
       enqueue_notifications([user], template_id: 'test-template-id')
     end
 
     it 'falls back to empty string when first_name is nil' do
       expect(VANotify::EmailJob).to receive(:perform_async).with(
-        anything, anything, hash_including('first_name' => '')
+        anything, anything, hash_including('first_name' => ''), anything, anything
       )
       enqueue_notifications([user_without_first_name], template_id: 'test-template-id')
+    end
+
+    it 'includes callback_metadata with in_progress_form_id, form_number, and function' do
+      expect(VANotify::EmailJob).to receive(:perform_async).with(
+        anything,
+        anything,
+        anything,
+        anything,
+        {
+          callback_metadata: {
+            notification_type: 'other',
+            in_progress_form_id: user[:form_id],
+            form_number: user[:form_type],
+            statsd_tags: {
+              'service' => 'veteran-facing-forms',
+              'function' => '_is_valid bug notification'
+            }
+          }
+        }
+      )
+      enqueue_notifications([user], template_id: 'test-template-id')
     end
   end
 end
