@@ -26,7 +26,12 @@ RSpec.describe 'V0::Form210779',
         expect(metrics.collect(&:source)).to include(
           'saved_claim.create:1|c|#form_id:21-0779,doctype:222',
           'shared.sidekiq.default.Lighthouse_SubmitBenefitsIntakeClaim.enqueue:1|c',
-          'api.form210779.success:1|c|#form:21-0779',
+          'api.form210779.submission.begun:1|c|#service:form210779,function:track_submission_begun,' \
+          'action:create,status:begun,form_id:21-0779',
+          'api.form210779.submission.success:1|c|#service:form210779,function:track_submission_success,' \
+          'action:create,status:success,form_id:21-0779',
+          'api.form210779.request:1|c|#service:form210779,function:track_request_code,' \
+          'status_code:200,action:create,form_id:21-0779',
           'api.rack.request:1|c|#controller:v0/form210779,action:create,source_app:21-0779-nursing-home-information,' \
           'status:200'
         )
@@ -43,9 +48,16 @@ RSpec.describe 'V0::Form210779',
             })
       end
       expect(metrics.collect(&:source)).to include(
+        'api.form210779.pdf_generation.success:1|c|#service:form210779,function:track_pdf_generation_success,' \
+        'action:download_pdf,status:success,form_id:21-0779',
+        'api.form210779.request:1|c|#service:form210779,function:track_request_code,' \
+        'status_code:200,action:download_pdf,form_id:21-0779',
         'api.rack.request:1|c|#controller:v0/form210779,action:download_pdf,' \
         'source_app:21-0779-nursing-home-information,status:200'
       )
+      # Check for duration metric (type 'ms' for measure)
+      duration_metrics = metrics.select { |m| m.name == 'api.form210779.pdf_generation.duration' }
+      expect(duration_metrics).not_to be_empty
 
       expect(response).to have_http_status(:ok)
       expect(response.content_type).to eq('application/pdf')
@@ -61,6 +73,10 @@ RSpec.describe 'V0::Form210779',
             })
       end
       expect(metrics.collect(&:source)).to include(
+        'api.form210779.pdf_generation.failure:1|c|#service:form210779,function:track_pdf_generation_failure,' \
+        'action:download_pdf,status:failure,form_id:21-0779',
+        'api.form210779.request:1|c|#service:form210779,function:track_request_code,' \
+        'status_code:500,action:download_pdf,form_id:21-0779',
         'api.rack.request:1|c|#controller:v0/form210779,action:download_pdf,' \
         'source_app:21-0779-nursing-home-information,status:500'
       )
