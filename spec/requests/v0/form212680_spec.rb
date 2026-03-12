@@ -29,7 +29,12 @@ RSpec.describe 'V0::Form212680', type: :request do
         expect(response).to have_http_status(:ok)
         expect(metrics.collect(&:source)).to include(
           'saved_claim.create:1|c|#form_id:21-2680,doctype:540',
-          'api.form212680.success:1|c|#form:21-2680',
+          'api.form212680.submission.begun:1|c|#service:form212680,' \
+          'function:track_submission_begun,action:create,form_id:21-2680',
+          'api.form212680.submission.success:1|c|#service:form212680,' \
+          'function:track_submission_success,action:create,status:success,form_id:21-2680',
+          'api.form212680.request:1|c|#service:form212680,' \
+          'function:track_request_code,status_code:200,action:create,form_id:21-2680',
           'api.rack.request:1|c|#controller:v0/form212680,action:create,' \
           'source_app:21-2680-house-bound-status,status:200'
         )
@@ -47,6 +52,10 @@ RSpec.describe 'V0::Form212680', type: :request do
       end
       expect(metrics.collect(&:source)).to include(
         'saved_claim.create:1|c|#form_id:21-2680,doctype:540',
+        'api.form212680.pdf_generation.success:1|c|#service:form212680,' \
+        'function:track_pdf_generation_success,action:download_pdf,status:success,form_id:21-2680',
+        'api.form212680.request:1|c|#service:form212680,' \
+        'function:track_request_code,status_code:200,action:download_pdf,form_id:21-2680',
         'api.rack.request:1|c|#controller:v0/form212680,action:download_pdf,' \
         'source_app:21-2680-house-bound-status,status:200'
       )
@@ -65,6 +74,11 @@ RSpec.describe 'V0::Form212680', type: :request do
             })
       end
       expect(metrics.collect(&:source)).to include(
+        'api.form212680.pdf_generation.failure:1|c|#service:form212680,' \
+        'function:track_pdf_generation_failure,action:download_pdf,status:failure,' \
+        'error_class:StandardError,form_id:21-2680',
+        'api.form212680.request:1|c|#service:form212680,' \
+        'function:track_request_code,status_code:500,action:download_pdf,form_id:21-2680',
         'api.rack.request:1|c|#controller:v0/form212680,action:download_pdf,' \
         'source_app:21-2680-house-bound-status,status:500'
       )
