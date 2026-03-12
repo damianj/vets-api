@@ -24,44 +24,7 @@ module MyHealth
       end
 
       def renewable(item)
-        return item.is_renewable if item.respond_to?(:is_renewable) && !item.is_renewable.nil?
-
-        # UHD prescriptions have disp_status attribute
-        return false unless item.respond_to?(:disp_status)
-
-        disp_status = item.disp_status
-
-        # For UHD prescriptions, check dispenses array for expiration date
-        refill_history_expired_date = if item.respond_to?(:dispenses) && item.dispenses.present?
-                                        item.dispenses.first&.dig(:expiration_date)&.to_date
-                                      end
-
-        expired_date = refill_history_expired_date || item.expiration_date&.to_date
-        not_refillable = ['false'].include?(item.is_refillable.to_s)
-
-        if item.refill_remaining.to_i.zero? && not_refillable
-          return true if disp_status&.downcase == 'active'
-
-          # Check dispenses for non-empty records
-          has_dispenses = item.respond_to?(:dispenses) && item.dispenses.present? && !item.dispenses.all?(&:empty?)
-
-          return true if disp_status&.downcase == 'active: parked' && has_dispenses
-        end
-
-        # NOTE: When V2StatusMapping is enabled, "Expired" is mapped to "Inactive"
-        expired_or_inactive = %w[Expired Inactive].include?(disp_status)
-        if expired_or_inactive && expired_date.present? && within_cut_off_date?(expired_date) && not_refillable
-          return true
-        end
-
-        false
-      end
-
-      private
-
-      def within_cut_off_date?(date)
-        zero_date = Date.new(0, 1, 1)
-        date.present? && date != zero_date && date >= Time.zone.today - 120.days
+        item.respond_to?(:is_renewable) && item.is_renewable == true
       end
     end
 

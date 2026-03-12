@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
+require_relative 'renewal_window'
+
 module UnifiedHealthData
   module Adapters
     class VistaPrescriptionAdapter
+      include RenewalWindow
       # Parses a VistA medication record into a UnifiedHealthData::Prescription
       #
       # @param medication [Hash] Raw medication data from VistA
@@ -46,7 +49,7 @@ module UnifiedHealthData
           dispensed_date: convert_to_iso8601(medication['dispensedDate'], field_name: 'dispensed_date'),
           station_number: medication['stationNumber'],
           is_refillable: medication['isRefillable'],
-          is_renewable: medication['isRenewable'],
+          is_renewable: extract_is_renewable(medication),
           cmop_ndc_number: medication['cmopNdcNumber']
         }
       end
@@ -155,6 +158,34 @@ module UnifiedHealthData
         return nil if last_name.blank? && first_name.blank?
 
         [last_name, first_name].compact.join(', ')
+      end
+
+      # Computes renewability per spec instead of trusting upstream isRenewable.
+      # A VistA prescription is renewable if it is a VA prescription AND:
+      #   - Active with zero refills remaining, OR
+      #   - Expired within the last 120 days
+      def extract_is_renewable(medication)
+        return false if medication['prescriptionSource'] == 'NV'
+
+        disp_status = medication['dispStatus']
+
+        refill_remaining = medication['refillRemaining']
+        return true if disp_status == 'Active' && !refill_remaining.nil? && refill_remaining.to_i.zero?
+
+        if disp_status == 'Expired'
+          expiration_time = parse_expiration_time(medication['expirationDate'])
+          return true if expiration_time.present? && within_renewal_window_days?(expiration_time)
+        end
+
+        false
+      end
+
+      def parse_expiration_time(date_string)
+        return nil if date_string.blank?
+
+        Time.zone.parse(date_string.to_s)
+      rescue ArgumentError
+        nil
       end
     end
   end

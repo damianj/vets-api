@@ -271,9 +271,9 @@ module MyHealth
       def apply_renewable_filter(prescriptions, is_renewable)
         filter_value = is_renewable[:eq] == 'true'
         if filter_value
-          prescriptions.select { |item| item.respond_to?(:is_renewable) && item.is_renewable == true }
+          prescriptions.select { |item| item.is_renewable == true }
         else
-          prescriptions.reject { |item| item.respond_to?(:is_renewable) && item.is_renewable == true }
+          prescriptions.reject { |item| item.is_renewable == true }
         end
       end
 
@@ -338,8 +338,7 @@ module MyHealth
       end
 
       def count_renewable_medications(list)
-        # Renewable: is_renewable field is true
-        list.count { |rx| rx.respond_to?(:is_renewable) && rx.is_renewable == true }
+        list.count { |rx| rx.is_renewable == true }
       end
 
       def count_transferred_medications(list)

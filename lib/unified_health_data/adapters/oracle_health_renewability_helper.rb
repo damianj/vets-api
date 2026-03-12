@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'renewal_window'
+
 module UnifiedHealthData
   module Adapters
     # Determines Oracle Health prescription renewability using gate-check logic.
@@ -14,6 +16,8 @@ module UnifiedHealthData
     #   - parse_expiration_date_utc(resource) - From FhirHelpers
     #   - prescription_expired?(resource) - From FhirHelpers
     module OracleHealthRenewabilityHelper
+      include RenewalWindow
+
       # Determines if a medication is renewable.
       # All gate conditions must pass for renewal eligibility.
       #
@@ -50,16 +54,13 @@ module UnifiedHealthData
         resource.dig('dispenseRequest', 'validityPeriod', 'end').present?
       end
 
-      # Checks if within 120-day renewal window from expiration
+      # Checks if within renewal window from expiration
       #
       # @param resource [Hash] FHIR MedicationRequest resource
       # @return [Boolean] true if within renewal window
       def within_renewal_window?(resource)
         expiration_date = parse_expiration_date_utc(resource)
-        return false if expiration_date.nil?
-
-        days_since_expiration = (Time.current.utc - expiration_date) / 1.day
-        days_since_expiration <= 120
+        within_renewal_window_days?(expiration_date)
       end
 
       # Checks if refills exhausted or prescription expired

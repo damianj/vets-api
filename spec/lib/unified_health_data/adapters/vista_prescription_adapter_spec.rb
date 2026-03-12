@@ -5,6 +5,8 @@ require 'unified_health_data/models/prescription'
 require 'unified_health_data/adapters/prescriptions_adapter'
 
 describe UnifiedHealthData::Adapters::VistaPrescriptionAdapter do
+  include ActiveSupport::Testing::TimeHelpers
+
   subject { described_class.new }
 
   let(:base_vista_medication) do
@@ -191,35 +193,112 @@ describe UnifiedHealthData::Adapters::VistaPrescriptionAdapter do
       end
     end
 
-    context 'with isRenewable field' do
-      let(:vista_medication_with_renewable) do
-        base_vista_medication.merge('isRenewable' => true)
-      end
-
-      it 'passes through the isRenewable field' do
-        result = subject.parse(vista_medication_with_renewable)
-
+    context 'with isRenewable computation' do
+      it 'returns true for Active status with zero refills remaining' do
+        medication = base_vista_medication.merge(
+          'dispStatus' => 'Active',
+          'refillRemaining' => 0,
+          'prescriptionSource' => 'RX',
+          'isRenewable' => false
+        )
+        result = subject.parse(medication)
         expect(result.is_renewable).to be true
       end
-    end
 
-    context 'with isRenewable false' do
-      let(:vista_medication_not_renewable) do
-        base_vista_medication.merge('isRenewable' => false)
-      end
-
-      it 'passes through false value for isRenewable' do
-        result = subject.parse(vista_medication_not_renewable)
-
+      it 'returns false for Active status with refills remaining' do
+        medication = base_vista_medication.merge(
+          'dispStatus' => 'Active',
+          'refillRemaining' => 3,
+          'prescriptionSource' => 'RX',
+          'isRenewable' => true
+        )
+        result = subject.parse(medication)
         expect(result.is_renewable).to be false
       end
-    end
 
-    context 'without isRenewable field' do
-      it 'sets is_renewable to nil when not provided' do
-        result = subject.parse(base_vista_medication)
+      it 'returns false for Active status with nil refillRemaining' do
+        medication = base_vista_medication.merge(
+          'dispStatus' => 'Active',
+          'refillRemaining' => nil,
+          'prescriptionSource' => 'RX'
+        )
+        result = subject.parse(medication)
+        expect(result.is_renewable).to be false
+      end
 
-        expect(result.is_renewable).to be_nil
+      it 'returns true for Expired status within 120-day window' do
+        medication = base_vista_medication.merge(
+          'dispStatus' => 'Expired',
+          'expirationDate' => 90.days.ago.utc.strftime('%a, %d %b %Y %H:%M:%S %Z'),
+          'prescriptionSource' => 'RX'
+        )
+        result = subject.parse(medication)
+        expect(result.is_renewable).to be true
+      end
+
+      it 'returns false for Expired status beyond 120-day window' do
+        medication = base_vista_medication.merge(
+          'dispStatus' => 'Expired',
+          'expirationDate' => 121.days.ago.utc.strftime('%a, %d %b %Y %H:%M:%S %Z'),
+          'prescriptionSource' => 'RX'
+        )
+        result = subject.parse(medication)
+        expect(result.is_renewable).to be false
+      end
+
+      it 'returns true for Expired status at exactly 120-day boundary' do
+        travel_to Time.zone.parse('2026-01-15T12:00:00Z') do
+          medication = base_vista_medication.merge(
+            'dispStatus' => 'Expired',
+            'expirationDate' => 'Wed, 17 Sep 2025 12:00:00 UTC',
+            'prescriptionSource' => 'RX'
+          )
+          result = subject.parse(medication)
+          expect(result.is_renewable).to be true
+        end
+      end
+
+      it 'returns false for Discontinued status regardless of upstream isRenewable' do
+        medication = base_vista_medication.merge(
+          'dispStatus' => 'Discontinued',
+          'refillRemaining' => 0,
+          'prescriptionSource' => 'RX',
+          'isRenewable' => true
+        )
+        result = subject.parse(medication)
+        expect(result.is_renewable).to be false
+      end
+
+      %w[Hold Suspended].each do |status|
+        it "returns false for #{status} status" do
+          medication = base_vista_medication.merge(
+            'dispStatus' => status,
+            'refillRemaining' => 0,
+            'prescriptionSource' => 'RX'
+          )
+          result = subject.parse(medication)
+          expect(result.is_renewable).to be false
+        end
+      end
+
+      it 'returns false for Non-VA prescriptions' do
+        medication = base_vista_medication.merge(
+          'dispStatus' => 'Active',
+          'refillRemaining' => 0,
+          'prescriptionSource' => 'NV'
+        )
+        result = subject.parse(medication)
+        expect(result.is_renewable).to be false
+      end
+
+      it 'returns false when dispStatus is nil' do
+        medication = base_vista_medication.merge(
+          'dispStatus' => nil,
+          'refillRemaining' => 0,
+          'prescriptionSource' => 'RX'
+        )
+        result = subject.parse(medication)
+        expect(result.is_renewable).to be false
       end
     end
 

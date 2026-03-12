@@ -44,8 +44,8 @@ RSpec.describe MyHealth::PrescriptionHelperV2 do
   describe 'MyHealth::PrescriptionHelperV2::Filtering' do
     describe '#filter_data_by_refill_and_renew' do
       it 'includes items that are refillable' do
-        refillable_item = build_prescription(is_refillable: true, is_renewable: false)
-        non_refillable_item = build_prescription(is_refillable: false, is_renewable: false)
+        refillable_item = build_prescription(is_refillable: true, refill_remaining: 3)
+        non_refillable_item = build_prescription(is_refillable: false, disp_status: 'Discontinued')
         data = [refillable_item, non_refillable_item]
 
         result = helper.filter_data_by_refill_and_renew(data)
@@ -54,9 +54,9 @@ RSpec.describe MyHealth::PrescriptionHelperV2 do
         expect(result).not_to include(non_refillable_item)
       end
 
-      it 'includes items that are renewable' do
-        renewable_item = build_prescription(is_refillable: false, is_renewable: true)
-        non_renewable_item = build_prescription(is_refillable: false, is_renewable: false)
+      it 'includes items that are renewable (is_renewable: true)' do
+        renewable_item = build_prescription(is_renewable: true, is_refillable: false)
+        non_renewable_item = build_prescription(is_renewable: false, is_refillable: false)
         data = [renewable_item, non_renewable_item]
 
         result = helper.filter_data_by_refill_and_renew(data)
@@ -103,117 +103,24 @@ RSpec.describe MyHealth::PrescriptionHelperV2 do
     end
 
     describe '#renewable' do
-      it 'returns true when is_renewable is true (Oracle Health)' do
+      it 'returns true when is_renewable is true' do
         prescription = build_prescription(is_renewable: true)
-
         expect(helper.renewable(prescription)).to be true
       end
 
-      it 'returns false when is_renewable is false (Oracle Health)' do
+      it 'returns false when is_renewable is false' do
         prescription = build_prescription(is_renewable: false)
-
         expect(helper.renewable(prescription)).to be false
       end
 
-      it 'falls through to legacy logic when is_renewable is nil' do
-        prescription = build_prescription(is_renewable: nil, disp_status: 'Active', is_refillable: false)
-
-        expect(helper.renewable(prescription)).to be true
-      end
-
-      it 'returns true for Expired status within cutoff (legacy VistA)' do
-        prescription = build_prescription(
-          is_renewable: nil,
-          disp_status: 'Expired',
-          expiration_date: 90.days.ago.to_date,
-          is_refillable: false
-        )
-
-        expect(helper.renewable(prescription)).to be true
-      end
-
-      it 'returns true for Inactive status within cutoff (V2StatusMapping)' do
-        # When V2StatusMapping is enabled, "Expired" gets mapped to "Inactive"
-        prescription = build_prescription(
-          is_renewable: nil,
-          disp_status: 'Inactive',
-          expiration_date: 90.days.ago.to_date,
-          is_refillable: false
-        )
-
-        expect(helper.renewable(prescription)).to be true
-      end
-
-      it 'returns false for Inactive status outside cutoff' do
-        prescription = build_prescription(
-          is_renewable: nil,
-          disp_status: 'Inactive',
-          expiration_date: 121.days.ago.to_date,
-          is_refillable: false
-        )
-
+      it 'returns false when is_renewable is nil' do
+        prescription = build_prescription(is_renewable: nil)
         expect(helper.renewable(prescription)).to be false
       end
 
-      it 'returns true for Active status with zero refills' do
-        prescription = build_prescription(
-          is_renewable: nil,
-          disp_status: 'Active',
-          refill_remaining: 0,
-          is_refillable: false
-        )
-
-        expect(helper.renewable(prescription)).to be true
-      end
-
-      it 'returns false for non-renewable statuses' do
-        %w[Discontinued Transferred Unknown].each do |status|
-          prescription = build_prescription(is_renewable: nil, disp_status: status)
-          expect(helper.renewable(prescription)).to be false
-        end
-      end
-
-      context 'when disp_status is Active: Parked with nil dispenses' do
-        it 'does not raise and returns false' do
-          prescription = build_prescription(
-            is_renewable: nil,
-            disp_status: 'Active: Parked',
-            is_refillable: false,
-            refill_remaining: 0,
-            dispenses: nil
-          )
-
-          expect { helper.renewable(prescription) }.not_to raise_error
-          expect(helper.renewable(prescription)).to be false
-        end
-      end
-
-      context 'when disp_status is Active: Parked with empty dispenses' do
-        it 'returns false' do
-          prescription = build_prescription(
-            is_renewable: nil,
-            disp_status: 'Active: Parked',
-            is_refillable: false,
-            refill_remaining: 0,
-            dispenses: [{}]
-          )
-
-          expect(helper.renewable(prescription)).to be false
-        end
-      end
-
-      context 'when disp_status is Active: Parked with non-empty dispenses' do
-        it 'returns true' do
-          prescription = build_prescription(
-            is_renewable: nil,
-            disp_status: 'Active: Parked',
-            is_refillable: false,
-            refill_remaining: 0,
-            dispenses: [{ expiration_date: Time.zone.today.to_s }]
-          )
-
-          expect(helper.renewable(prescription)).to be true
-        end
+      it 'returns false when item does not respond to is_renewable' do
+        item = OpenStruct.new(id: '1')
+        expect(helper.renewable(item)).to be false
       end
     end
   end

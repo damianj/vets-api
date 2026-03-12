@@ -2018,18 +2018,19 @@ describe UnifiedHealthData::Service, type: :service do
       #
       context 'is_renewable attribute' do
         context 'VistA prescriptions' do
-          it 'passes through isRenewable from the API response' do
+          it 'computes is_renewable based on dispStatus and refillRemaining instead of upstream isRenewable' do
             VCR.use_cassette('unified_health_data/get_prescriptions_success') do
               prescriptions = service.get_prescriptions
 
-              # 26305871: dispStatus='Active', isRenewable=true in cassette
+              # 26305871: dispStatus='Active', refillRemaining=5, upstream isRenewable=true
+              # Computed: false (has refills remaining)
               vista_prescription = prescriptions.find { |p| p.prescription_id == '26305871' }
-              expect(vista_prescription.is_renewable).to be true
+              expect(vista_prescription.is_renewable).to be false
 
-              # 26305874: dispStatus='Discontinued', isRenewable=true in cassette
-              # (VistA determines renewability server-side, so discontinued can still be renewable)
+              # 26305874: dispStatus='Discontinued', refillRemaining=4, upstream isRenewable=true
+              # Computed: false (discontinued is never renewable)
               discontinued_vista = prescriptions.find { |p| p.prescription_id == '26305874' }
-              expect(discontinued_vista.is_renewable).to be true
+              expect(discontinued_vista.is_renewable).to be false
             end
           end
 
