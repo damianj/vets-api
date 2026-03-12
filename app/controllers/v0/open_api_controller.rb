@@ -21,7 +21,7 @@ module V0
     private
 
     def openapi_spec
-      path = Rails.public_path.join('openapi.json')
+      path = Rails.root.join('config', 'openapi', 'openapi.json')
       return unless File.exist?(path)
 
       cache_key = "openapi_spec_#{File.mtime(path).to_i}"

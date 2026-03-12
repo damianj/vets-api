@@ -224,10 +224,13 @@ Rails.application.routes.draw do
     get 'header_status', to: 'admin#header_status'
     get 'healthcheck', to: 'example#healthcheck', as: :healthcheck
     get 'startup_healthcheck', to: 'example#startup_healthcheck', as: :startup_healthcheck
-    get 'openapi', to: 'open_api#index'
+    # OpenAPI and Swagger documentation - only accessible in development/test environments
+    unless %w[production staging].include?(Settings.vsp_environment)
+      get 'openapi', to: 'open_api#index'
 
-    # Adds Swagger UI to /v0/swagger - serves Swagger 2.0 / OpenAPI 3.0 docs
-    mount Rswag::Ui::Engine => 'swagger'
+      # Adds Swagger UI to /v0/swagger - serves Swagger 2.0 / OpenAPI 3.0 docs
+      mount Rswag::Ui::Engine => 'swagger'
+    end
 
     post 'event_bus_gateway/send_email', to: 'event_bus_gateway#send_email'
     post 'event_bus_gateway/send_push', to: 'event_bus_gateway#send_push'
@@ -344,7 +347,8 @@ Rails.application.routes.draw do
 
     resources :backend_statuses, only: %i[index]
 
-    resources :apidocs, only: [:index]
+    # Swagger 2.0 API documentation - only accessible in development/test environments
+    resources :apidocs, only: [:index] unless %w[production staging].include?(Settings.vsp_environment)
 
     get 'feature_toggles', to: 'feature_toggles#index'
 
@@ -385,7 +389,8 @@ Rails.application.routes.draw do
   # end /v0
 
   namespace :v1, defaults: { format: 'json' } do
-    resources :apidocs, only: [:index]
+    # Swagger 2.0 API documentation - only accessible in development/test environments
+    resources :apidocs, only: [:index] unless %w[production staging].include?(Settings.vsp_environment)
 
     namespace :profile do
       resource :military_info, only: :show, defaults: { format: :json }

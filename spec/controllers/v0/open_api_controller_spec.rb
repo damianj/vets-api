@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe V0::OpenApiController, type: :controller do
   describe '#index' do
-    let(:openapi_file_path) { Rails.public_path.join('openapi.json') }
+    let(:openapi_file_path) { Rails.root.join('config', 'openapi', 'openapi.json') }
 
     context 'when OpenAPI file exists' do
       it 'returns a successful response' do
