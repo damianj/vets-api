@@ -1782,6 +1782,8 @@ module DependentsBenefits
               extract_country(child['address'])
           end
 
+          child['living_with'] = extract_middle_i(child, 'living_with')
+
           expand_child_status(child)
           expand_child_previously_married(child)
         end

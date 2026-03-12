@@ -207,7 +207,7 @@
           "state": "NH",
           "postal_code": "03301"
         },
-        "living_with": { "first": "test", "last": "person" },
+        "living_with": { "first": "test", "middle": "middle", "last": "person" },
         "does_child_have_disability": true,
         "biological_parent_name": { "first": "bio", "middle": "log", "last": "cal" },
         "biological_parent_ssn": "000000000",

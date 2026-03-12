@@ -407,7 +407,7 @@ RSpec.describe DependentsBenefits::BenefitsIntake::LighthouseSubmission do
       let(:stamped_path3) { 'tmp/stamped3.pdf' }
 
       before do
-        allow(PDFUtilities::DatestampPdf).to receive(:new).with(stamped_path2).and_return(datestamp_pdf_instance3)
+        allow(PDFUtilities::DatestampPdf).to receive(:new).with(pdf_path).and_return(datestamp_pdf_instance3)
         allow(datestamp_pdf_instance3).to receive(:run).and_return(stamped_path3)
       end
 
@@ -439,7 +439,7 @@ RSpec.describe DependentsBenefits::BenefitsIntake::LighthouseSubmission do
       let(:stamped_path3) { 'tmp/stamped3.pdf' }
 
       before do
-        allow(PDFUtilities::DatestampPdf).to receive(:new).with(stamped_path2).and_return(datestamp_pdf_instance3)
+        allow(PDFUtilities::DatestampPdf).to receive(:new).with(pdf_path).and_return(datestamp_pdf_instance3)
         allow(datestamp_pdf_instance3).to receive(:run).and_return(stamped_path3)
       end
 
@@ -458,7 +458,7 @@ RSpec.describe DependentsBenefits::BenefitsIntake::LighthouseSubmission do
       let(:stamped_path3) { 'tmp/stamped3.pdf' }
 
       before do
-        allow(PDFUtilities::DatestampPdf).to receive(:new).with(stamped_path2).and_return(datestamp_pdf_instance3)
+        allow(PDFUtilities::DatestampPdf).to receive(:new).with(pdf_path).and_return(datestamp_pdf_instance3)
         allow(datestamp_pdf_instance3).to receive(:run).and_return(stamped_path3)
       end
 

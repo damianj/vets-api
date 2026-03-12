@@ -91,16 +91,15 @@ module DependentsBenefits
       # @return [String] Path to the final stamped PDF file
       def process_pdf(pdf_path, timestamp = nil, form_id = nil)
         template = template_for_form(form_id)
-        stamped_path1 = PDFUtilities::DatestampPdf.new(pdf_path).run(
-          text: 'VA.GOV', x: 5, y: 5, timestamp:, template:
-        )
-        stamped_path2 = PDFUtilities::DatestampPdf.new(stamped_path1).run(
-          text: 'FDC Reviewed - va.gov Submission', x: 400, y: 770, text_only: true, template:
-        )
-        if form_id.present?
-          stamped_pdf_with_form(form_id, stamped_path2, timestamp)
+        if form_id.blank?
+          stamped_path1 = PDFUtilities::DatestampPdf.new(pdf_path).run(
+            text: 'VA.GOV', x: 5, y: 5, timestamp:, template:
+          )
+          PDFUtilities::DatestampPdf.new(stamped_path1).run(
+            text: 'FDC Reviewed - va.gov Submission', x: 400, y: 770, text_only: true, template:
+          )
         else
-          stamped_path2
+          stamped_pdf_with_form(form_id, pdf_path, timestamp)
         end
       end
 
