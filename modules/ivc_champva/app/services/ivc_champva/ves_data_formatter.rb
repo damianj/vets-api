@@ -25,11 +25,11 @@ module IvcChampva
       'other' => 'OTHER'
     }.freeze
 
-    SSN_PATTERN = /^\d{9}$/
-    MEDICARE_BENE_ID_PATTERN = /^[a-zA-Z0-9]{1,11}$/
+    SSN_PATTERN = /\A\d{9}\z/
+    MEDICARE_BENE_ID_PATTERN = /\A[a-zA-Z0-9]{1,11}\z/
     EMAIL_PATTERN = URI::MailTo::EMAIL_REGEXP
-    PHONE_PATTERN = /^[0-9+]+$/
-    DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+    PHONE_PATTERN = /\A[0-9+]+\z/
+    DATE_PATTERN = /\A\d{4}-\d{2}-\d{2}\z/
 
     # @return [IvcChampva::VesRequest]
     def self.format_for_request(parsed_form_data)
@@ -512,7 +512,7 @@ module IvcChampva
       return ssn unless digits.length == 9
 
       # regex from VES swagger
-      return nil unless digits.match?(/^(?!(000|666|9))\d{3}(?!00)\d{2}(?!0000)\d{4}$/)
+      return nil unless digits.match?(/\A(?!(000|666|9))\d{3}(?!00)\d{2}(?!0000)\d{4}\z/)
 
       digits
     end
@@ -528,7 +528,7 @@ module IvcChampva
       return date_string if date_string.match?(DATE_PATTERN)
 
       # MM-DD-YYYY or MM/DD/YYYY -> YYYY-MM-DD
-      if (match = date_string.match(%r{^(\d{2})[-/](\d{2})[-/](\d{4})$}))
+      if (match = date_string.match(%r{\A(\d{2})[-/](\d{2})[-/](\d{4})\z}))
         return "#{match[3]}-#{match[1]}-#{match[2]}"
       end
 
