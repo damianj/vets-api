@@ -997,8 +997,8 @@ describe UnifiedHealthData::Service, type: :service do
         expect(result[:records]).to be_an(Array)
       end
 
-      it 'excludes notes with blank or invalid dates and logs a warning' do
-        # Disable logging to simplify test
+      it 'excludes notes with blank or invalid dates' do
+        # Disable diagnostic logging to simplify test
         allow(Flipper).to receive(:enabled?)
           .with(:mhv_medical_records_clinical_notes_diagnostic, anything)
           .and_return(false)
@@ -1008,13 +1008,16 @@ describe UnifiedHealthData::Service, type: :service do
 
         # Create mock notes with various date conditions
         note_with_blank_date = instance_double(
-          UnifiedHealthData::ClinicalNotes, id: 'blank-date-note', date: nil, source: 'vista'
+          UnifiedHealthData::ClinicalNotes,
+          id: 'blank-date-note', date: nil, source: 'vista', note_type: 'progress_note'
         )
         note_with_invalid_date = instance_double(
-          UnifiedHealthData::ClinicalNotes, id: 'invalid-date-note', date: 'not-a-date', source: 'vista'
+          UnifiedHealthData::ClinicalNotes,
+          id: 'invalid-date-note', date: 'not-a-date', source: 'vista', note_type: 'consult_result'
         )
         note_with_valid_date = instance_double(
-          UnifiedHealthData::ClinicalNotes, id: 'valid-note', date: '2024-12-15T10:00:00Z', source: 'oracle-health'
+          UnifiedHealthData::ClinicalNotes,
+          id: 'valid-note', date: '2024-12-15T10:00:00Z', source: 'oracle-health', note_type: 'progress_note'
         )
 
         # Stub the service to return our test notes
@@ -1027,15 +1030,51 @@ describe UnifiedHealthData::Service, type: :service do
           [note_with_blank_date, note_with_invalid_date, note_with_valid_date]
         )
 
-        # Expect warning to be logged for invalid date (allow other warn calls like high_filter_rate)
         allow(Rails.logger).to receive(:warn)
-        expect(Rails.logger).to receive(:warn).with(/excluding note due to invalid date.*invalid-date-note/i)
 
         notes = service.get_care_summaries_and_notes(start_date: '2024-12-01', end_date: '2024-12-31')[:records]
 
         # Only the valid note should be returned
         expect(notes.size).to eq(1)
         expect(notes.first.id).to eq('valid-note')
+      end
+
+      it 'logs per-item exclusion details when diagnostic toggle is enabled' do
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_clinical_notes_diagnostic, anything)
+          .and_return(true)
+
+        note_with_blank_date = instance_double(
+          UnifiedHealthData::ClinicalNotes,
+          id: 'blank-date-note', date: nil, source: 'vista', note_type: 'progress_note',
+          loinc_codes: []
+        )
+        note_with_valid_date = instance_double(
+          UnifiedHealthData::ClinicalNotes,
+          id: 'valid-note', date: '2024-12-15T10:00:00Z', source: 'oracle-health', note_type: 'progress_note',
+          loinc_codes: ['11506-3']
+        )
+
+        allow_any_instance_of(UnifiedHealthData::Client)
+          .to receive(:get_notes_by_date)
+          .and_return(sample_client_response)
+        allow(service).to receive(:parse_notes).and_return(
+          [note_with_blank_date, note_with_valid_date]
+        )
+        allow(Rails.logger).to receive(:warn)
+
+        service.get_care_summaries_and_notes(start_date: '2024-12-01', end_date: '2024-12-31')
+
+        expect(Rails.logger).to have_received(:info).with(
+          hash_including(
+            resource: 'clinical_notes',
+            action: 'filter',
+            stage: 'date_range_exclusion',
+            reason: 'blank_date',
+            record_id: 'blank-date-note',
+            source: 'vista'
+          )
+        )
       end
     end
 
@@ -1245,7 +1284,7 @@ describe UnifiedHealthData::Service, type: :service do
           )
         )
 
-        # Service concern: log_notes_index_metrics fires
+        # Service concern: log_notes_index_metrics and log_raw_source_counts both fire with action: 'index'
         expect(Rails.logger).to have_received(:info).with(
           hash_including(
             service: 'medical_records',
@@ -1253,7 +1292,7 @@ describe UnifiedHealthData::Service, type: :service do
             action: 'index',
             log_level_context: 'diagnostic'
           )
-        )
+        ).at_least(:once)
       end
 
       it 'activates diagnostic logging in the adapter via global fallback' do

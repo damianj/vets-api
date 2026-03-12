@@ -275,6 +275,63 @@ RSpec.describe UnifiedHealthData::Concerns::ClinicalNotesLogging do
     end
   end
 
+  describe '#log_raw_source_counts' do
+    before do
+      allow(Flipper).to receive(:enabled?)
+        .with(:mhv_medical_records_clinical_notes_diagnostic, user)
+        .and_return(true)
+    end
+
+    it 'logs raw entry counts per source from the SCDF body' do
+      body = {
+        'vista' => { 'entry' => Array.new(5) },
+        'oracle-health' => { 'entry' => Array.new(3) }
+      }
+
+      instance.send(:log_raw_source_counts, body)
+
+      expect(Rails.logger).to have_received(:info).with(
+        hash_including(
+          service: 'medical_records',
+          resource: 'clinical_notes',
+          action: 'index',
+          stage: 'raw_from_scdf',
+          vista_entry_count: 5,
+          oracle_health_entry_count: 3,
+          total_entry_count: 8,
+          log_level_context: 'diagnostic'
+        )
+      )
+    end
+
+    it 'handles missing source entries as zero' do
+      body = { 'vista' => {} }
+
+      instance.send(:log_raw_source_counts, body)
+
+      expect(Rails.logger).to have_received(:info).with(
+        hash_including(
+          vista_entry_count: 0,
+          oracle_health_entry_count: 0,
+          total_entry_count: 0
+        )
+      )
+    end
+
+    it 'does not log when diagnostic toggle is disabled' do
+      allow(Flipper).to receive(:enabled?)
+        .with(:mhv_medical_records_clinical_notes_diagnostic, user)
+        .and_return(false)
+      allow(Flipper).to receive(:enabled?)
+        .with(:mhv_medical_records_diagnostic_logging, user)
+        .and_return(false)
+
+      instance.send(:log_raw_source_counts, { 'vista' => { 'entry' => [1] } })
+
+      expect(Rails.logger).not_to have_received(:info)
+    end
+  end
+
   describe '#warn_high_filter_rate' do
     it 'warns when more than 50% of notes are filtered' do
       instance.send(:warn_high_filter_rate, 10, 4)
@@ -288,6 +345,21 @@ RSpec.describe UnifiedHealthData::Concerns::ClinicalNotesLogging do
           filter_rate: 60.0,
           doc_ref_count: 10,
           returned_count: 4
+        )
+      )
+    end
+
+    it 'includes source_breakdown fields when provided' do
+      breakdown = { vista_doc_refs: 6, oh_doc_refs: 4, vista_returned: 2, oh_returned: 2 }
+      instance.send(:warn_high_filter_rate, 10, 4, source_breakdown: breakdown)
+
+      expect(Rails.logger).to have_received(:warn).with(
+        hash_including(
+          anomaly: 'high_filter_rate',
+          vista_doc_refs: 6,
+          oh_doc_refs: 4,
+          vista_returned: 2,
+          oh_returned: 2
         )
       )
     end
@@ -330,6 +402,19 @@ RSpec.describe UnifiedHealthData::Concerns::ClinicalNotesLogging do
       )
     end
 
+    it 'includes source_breakdown fields when provided' do
+      breakdown = { 'vista' => 2, 'oracle-health' => 1 }
+      instance.send(:warn_date_parse_failures, 3, 20, source_breakdown: breakdown)
+
+      expect(Rails.logger).to have_received(:warn).with(
+        hash_including(
+          anomaly: 'elevated_date_parse_failures',
+          'vista' => 2,
+          'oracle-health' => 1
+        )
+      )
+    end
+
     it 'emits a StatsD increment for the anomaly' do
       instance.send(:warn_date_parse_failures, 3, 20)
 
@@ -343,6 +428,108 @@ RSpec.describe UnifiedHealthData::Concerns::ClinicalNotesLogging do
       expect(Rails.logger).not_to have_received(:warn)
       expect(StatsD).not_to have_received(:increment)
         .with('api.uhd.clinical_notes.anomaly.date_parse_failures')
+    end
+  end
+
+  describe '#log_note_excluded_by_date' do
+    before do
+      allow(Flipper).to receive(:enabled?)
+        .with(:mhv_medical_records_clinical_notes_diagnostic, user)
+        .and_return(true)
+    end
+
+    let(:note) do
+      instance_double(
+        UnifiedHealthData::ClinicalNotes,
+        id: 'note-123',
+        date: '2024-06-15T10:00:00Z',
+        note_type: 'physician_procedure_note',
+        source: 'vista'
+      )
+    end
+
+    it 'logs with blank_date reason' do
+      blank_note = instance_double(
+        UnifiedHealthData::ClinicalNotes,
+        id: 'blank-note', date: nil, note_type: 'consult_result', source: 'oracle-health'
+      )
+
+      instance.send(:log_note_excluded_by_date, blank_note, reason: 'blank_date')
+
+      expect(Rails.logger).to have_received(:info).with(
+        hash_including(
+          resource: 'clinical_notes',
+          action: 'filter',
+          stage: 'date_range_exclusion',
+          reason: 'blank_date',
+          record_id: 'blank-note',
+          note_date: nil,
+          note_type: 'consult_result',
+          source: 'oracle-health',
+          log_level_context: 'diagnostic'
+        )
+      )
+    end
+
+    it 'logs with out_of_range reason' do
+      instance.send(:log_note_excluded_by_date, note, reason: 'out_of_range')
+
+      expect(Rails.logger).to have_received(:info).with(
+        hash_including(
+          reason: 'out_of_range',
+          record_id: 'note-123',
+          note_date: '2024-06-15T10:00:00Z',
+          source: 'vista'
+        )
+      )
+    end
+
+    it 'logs with unparseable_date reason' do
+      instance.send(:log_note_excluded_by_date, note, reason: 'unparseable_date')
+
+      expect(Rails.logger).to have_received(:info).with(
+        hash_including(
+          reason: 'unparseable_date',
+          record_id: 'note-123'
+        )
+      )
+    end
+
+    it 'emits StatsD increment with reason and source tags' do
+      instance.send(:log_note_excluded_by_date, note, reason: 'out_of_range')
+
+      expect(StatsD).to have_received(:increment).with(
+        'api.uhd.clinical_notes.filter.date_range_exclusion',
+        tags: ['reason:out_of_range', 'source:vista']
+      )
+    end
+
+    it 'uses unknown source when note source is nil' do
+      nil_source_note = instance_double(
+        UnifiedHealthData::ClinicalNotes,
+        id: 'x', date: nil, note_type: nil, source: nil
+      )
+
+      instance.send(:log_note_excluded_by_date, nil_source_note, reason: 'blank_date')
+
+      expect(StatsD).to have_received(:increment).with(
+        'api.uhd.clinical_notes.filter.date_range_exclusion',
+        tags: ['reason:blank_date', 'source:unknown']
+      )
+    end
+
+    it 'does not log when diagnostic toggle is disabled' do
+      allow(Flipper).to receive(:enabled?)
+        .with(:mhv_medical_records_clinical_notes_diagnostic, user)
+        .and_return(false)
+      allow(Flipper).to receive(:enabled?)
+        .with(:mhv_medical_records_diagnostic_logging, user)
+        .and_return(false)
+
+      instance.send(:log_note_excluded_by_date, note, reason: 'out_of_range')
+
+      expect(Rails.logger).not_to have_received(:info)
+      expect(StatsD).not_to have_received(:increment)
     end
   end
 end

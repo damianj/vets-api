@@ -147,6 +147,7 @@ module UnifiedHealthData
         warnings = extract_warnings(body)
 
         remap_vista_uid(body)
+        log_raw_source_counts(body)
         combined_records = fetch_combined_records(body)
         doc_ref_records = combined_records.select { |record| record['resource']['resourceType'] == 'DocumentReference' }
         parsed_notes = parse_notes(doc_ref_records)
@@ -404,38 +405,49 @@ module UnifiedHealthData
     def log_care_summaries_metrics(doc_ref_records, parsed_notes, start_date, end_date)
       clinical_notes_logging_enabled? && log_notes_response_count(doc_ref_records.size, parsed_notes.size)
       clinical_notes_logging_enabled? && log_notes_index_metrics(parsed_notes, start_date, end_date)
-      warn_high_filter_rate(doc_ref_records.size, parsed_notes.size)
+
+      doc_ref_tally = doc_ref_records.tally { |r| r['source'] }
+      returned_tally = parsed_notes.tally(&:source)
+      source_breakdown = {
+        vista_doc_refs: doc_ref_tally[SourceConstants::VISTA] || 0,
+        oh_doc_refs: doc_ref_tally[SourceConstants::ORACLE_HEALTH] || 0,
+        vista_returned: returned_tally[SourceConstants::VISTA] || 0,
+        oh_returned: returned_tally[SourceConstants::ORACLE_HEALTH] || 0
+      }
+      warn_high_filter_rate(doc_ref_records.size, parsed_notes.size, source_breakdown:)
     end
 
     # Keeps only parsed notes whose date falls within [start_date, end_date] (inclusive).
     # Filtering on parsed notes (same objects we return) so the response is guaranteed correct.
     # Tracks date-parse failures and emits an aggregated warning when the count exceeds threshold.
-    def filter_parsed_notes_by_date_range(notes, start_date, end_date)
-      return notes if notes.blank?
-      return notes if start_date.blank? || end_date.blank?
+    def filter_parsed_notes_by_date_range(notes, start_date, end_date) # rubocop:disable Metrics/MethodLength
+      return notes if notes.blank? || start_date.blank? || end_date.blank?
 
       start_d = DateTime.parse(start_date.to_s).to_date
       end_d = DateTime.parse(end_date.to_s).to_date
-
       date_parse_failure_count = 0
+      source_failures = Hash.new(0)
 
       filtered = notes.select do |note|
-        next false if note.blank? || note.date.blank?
+        if note.blank? || note.date.blank?
+          log_note_excluded_by_date(note, reason: 'blank_date')
+          next false
+        end
 
         note_date = DateTime.parse(note.date.to_s).to_date
-        note_date >= start_d && note_date <= end_d
+        in_range = note_date >= start_d && note_date <= end_d
+        log_note_excluded_by_date(note, reason: 'out_of_range') unless in_range
+        in_range
       rescue ArgumentError, TypeError
         date_parse_failure_count += 1
-        Rails.logger.warn(
-          'UnifiedHealthData::Service#filter_parsed_notes_by_date_range ' \
-          "excluding note due to invalid date. note_id=#{note&.id.inspect} " \
-          "note_date=#{note&.date.inspect}"
-        )
+        source_failures[note&.source || 'unknown'] += 1
+        log_note_excluded_by_date(note, reason: 'unparseable_date')
         false
       end
 
-      warn_date_parse_failures(date_parse_failure_count, notes.size) if date_parse_failure_count.positive?
-
+      if date_parse_failure_count.positive?
+        warn_date_parse_failures(date_parse_failure_count, notes.size, source_breakdown: source_failures)
+      end
       filtered
     end
 
