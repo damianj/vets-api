@@ -3,6 +3,8 @@
 module VRE
   module Ch31CaseMilestones
     class Configuration < VRE::Configuration
+      self.read_timeout = 30
+
       def connection
         @conn ||= Faraday.new(base_path, headers: base_request_headers, request: request_options) do |faraday|
           faraday.use(:breakers, service_name:)
