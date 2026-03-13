@@ -11,6 +11,10 @@ RSpec.describe 'IvcChampva::V1::Forms::VesUploads', type: :request do
     double('IvcChampva::VesRequest',
            application_uuid: 'test-uuid',
            transaction_uuid: 'fake-id',
+           form_type: 'vha_10_10d',
+           form_1010d?: true,
+           form_1010dx?: false,
+           form_7959c?: false,
            to_json: '{}',
            subforms?: false,
            subforms: [])
@@ -23,6 +27,9 @@ RSpec.describe 'IvcChampva::V1::Forms::VesUploads', type: :request do
   before do
     @original_aws_config = Aws.config.dup
     Aws.config.update(stub_responses: true)
+
+    # Default all Flipper flags to false, then override specific ones in contexts
+    allow(Flipper).to receive(:enabled?).and_return(false)
 
     # Mock VES-related methods
     allow(IvcChampva::VesDataFormatter).to receive(:format_for_request).and_return(ves_request)
@@ -233,6 +240,10 @@ RSpec.describe 'IvcChampva::V1::Forms::VesUploads', type: :request do
       double('VesOhiRequest',
              application_uuid: 'parent-app-uuid',
              transaction_uuid: nil,
+             form_type: 'vha_10_7959c',
+             form_1010d?: false,
+             form_1010dx?: false,
+             form_7959c?: true,
              to_json: '{"type": "ohi"}')
     end
 
@@ -248,218 +259,31 @@ RSpec.describe 'IvcChampva::V1::Forms::VesUploads', type: :request do
       allow(IvcChampvaForm).to receive(:where).and_return([])
     end
 
-    describe '#submit_ves_request (original - no subforms)' do
-      it 'submits only the primary form' do
-        allow(ves_request).to receive(:transaction_uuid=)
-
-        controller.send(:submit_ves_request, ves_request, metadata)
-
-        expect(ves_client).to have_received(:submit_1010d).once
-      end
-
-      it 'returns the primary response' do
-        allow(ves_request).to receive(:transaction_uuid=)
-
-        result = controller.send(:submit_ves_request, ves_request, metadata)
-
-        expect(result).to eq(success_response)
-      end
-
-      context 'when request is nil' do
-        it 'returns nil without attempting submission' do
-          result = controller.send(:submit_ves_request, nil, metadata)
-
-          expect(result).to be_nil
-          expect(ves_client).not_to have_received(:submit_1010d)
-        end
-      end
-    end
-
-    describe '#submit_ves_request_with_subforms (enhanced - with subform support)' do
-      context 'when request has no subforms' do
-        it 'submits only the primary form' do
-          allow(ves_request).to receive(:transaction_uuid=)
-
-          controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-
-          expect(ves_client).to have_received(:submit_1010d).once
-        end
-
-        it 'returns the primary response' do
-          allow(ves_request).to receive(:transaction_uuid=)
-
-          result = controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-
-          expect(result).to eq(success_response)
-        end
-      end
-
-      context 'when request has subforms and primary succeeds' do
-        before do
-          ves_request.add_subform('vha_10_7959c', mock_ohi_request)
-          allow(ves_request).to receive(:transaction_uuid=)
-          allow(ves_client).to receive(:submit_7959c).and_return(success_response)
-        end
-
-        it 'submits the primary form first' do
-          controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-
-          expect(ves_client).to have_received(:submit_1010d).ordered
-        end
-
-        it 'submits each subform after primary succeeds' do
-          controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-
-          expect(ves_client).to have_received(:submit_7959c).with(anything, mock_ohi_request)
-        end
-
-        it 'generates fresh transaction_uuid for each subform' do
-          expect(mock_ohi_request).to receive(:transaction_uuid=).with(a_string_matching(/\A[0-9a-f-]{36}\z/))
-
-          controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-        end
-
-        it 'returns the primary response even when subforms exist' do
-          result = controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-
-          expect(result).to eq(success_response)
-        end
-      end
-
-      context 'when request has subforms but primary fails' do
-        before do
-          ves_request.add_subform('vha_10_7959c', mock_ohi_request)
-          allow(ves_request).to receive(:transaction_uuid=)
-          allow(ves_client).to receive(:submit_1010d).and_return(failure_response)
-          allow(ves_client).to receive(:submit_7959c) # Stub but don't expect it to be called
-        end
-
-        it 'does not submit subforms when primary fails' do
-          controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-
-          expect(ves_client).not_to have_received(:submit_7959c)
-        end
-
-        it 'returns the failed primary response' do
-          result = controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-
-          expect(result).to eq(failure_response)
-        end
-      end
-
-      context 'when request is nil' do
-        it 'returns nil without attempting submission' do
-          result = controller.send(:submit_ves_request_with_subforms, nil, metadata)
-
-          expect(result).to be_nil
-          expect(ves_client).not_to have_received(:submit_1010d)
-        end
-      end
-
-      context 'with multiple subforms' do
-        let(:mock_ohi_request2) do
-          double('VesOhiRequest2',
-                 application_uuid: 'parent-app-uuid',
-                 transaction_uuid: nil,
-                 to_json: '{"type": "ohi2"}')
-        end
-
-        before do
-          ves_request.add_subform('vha_10_7959c', mock_ohi_request)
-          ves_request.add_subform('vha_10_7959c', mock_ohi_request2)
-          allow(ves_request).to receive(:transaction_uuid=)
-          allow(mock_ohi_request2).to receive(:transaction_uuid=)
-          allow(ves_client).to receive(:submit_7959c).and_return(success_response)
-        end
-
-        it 'submits all subforms' do
-          controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-
-          expect(ves_client).to have_received(:submit_7959c).twice
-        end
-
-        context 'when one subform fails' do
-          before do
-            allow(ves_client).to receive(:submit_7959c)
-              .with(anything, mock_ohi_request)
-              .and_raise(StandardError.new('first subform failed'))
-            allow(ves_client).to receive(:submit_7959c)
-              .with(anything, mock_ohi_request2)
-              .and_return(success_response)
-          end
-
-          it 'continues submitting remaining subforms' do
-            allow(Rails.logger).to receive(:error)
-
-            controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-
-            expect(ves_client).to have_received(:submit_7959c).with(anything, mock_ohi_request2)
-          end
-
-          it 'logs the error for the failed subform' do
-            expect(Rails.logger).to receive(:error).at_least(:once)
-
-            controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-          end
-
-          it 'marks record for retry when subform fails' do
-            allow(Rails.logger).to receive(:error)
-            mock_form = instance_double(IvcChampvaForm, update: true)
-            allow(IvcChampvaForm).to receive(:where).with(form_uuid: 'test-form-uuid').and_return([mock_form])
-
-            controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-
-            expect(mock_form).to have_received(:update).with(
-              hash_including(ves_status: 'internal_server_error')
-            )
-          end
-        end
-
-        context 'when subform returns non-200 response' do
-          before do
-            allow(ves_client).to receive(:submit_7959c)
-              .with(anything, mock_ohi_request)
-              .and_return(failure_response)
-            allow(ves_client).to receive(:submit_7959c)
-              .with(anything, mock_ohi_request2)
-              .and_return(success_response)
-          end
-
-          it 'marks record for retry' do
-            mock_form = instance_double(IvcChampvaForm, update: true)
-            allow(IvcChampvaForm).to receive(:where).with(form_uuid: 'test-form-uuid').and_return([mock_form])
-
-            controller.send(:submit_ves_request_with_subforms, ves_request, metadata)
-
-            expect(mock_form).to have_received(:update).with(
-              hash_including(ves_status: 'internal_server_error')
-            )
-          end
-        end
-      end
-    end
-
     describe '#send_to_ves_by_form_type' do
-      it 'routes vha_10_10d to submit_1010d' do
-        allow(ves_request).to receive(:transaction_uuid).and_return('test-uuid')
+      it 'routes 10-10D requests to submit_1010d' do
+        allow(ves_request).to receive_messages(transaction_uuid: 'test-uuid', form_1010d?: true, form_1010dx?: false,
+                                               form_7959c?: false)
 
-        controller.send(:send_to_ves_by_form_type, ves_client, ves_request, 'vha_10_10d')
+        controller.send(:send_to_ves_by_form_type, ves_client, ves_request)
 
         expect(ves_client).to have_received(:submit_1010d).with('test-uuid', ves_request)
       end
 
-      it 'routes vha_10_7959c to submit_7959c' do
+      it 'routes OHI requests to submit_7959c' do
         allow(ves_client).to receive(:submit_7959c).and_return(success_response)
-        allow(mock_ohi_request).to receive(:transaction_uuid).and_return('ohi-uuid')
+        allow(mock_ohi_request).to receive_messages(transaction_uuid: 'ohi-uuid')
 
-        controller.send(:send_to_ves_by_form_type, ves_client, mock_ohi_request, 'vha_10_7959c')
+        controller.send(:send_to_ves_by_form_type, ves_client, mock_ohi_request)
 
         expect(ves_client).to have_received(:submit_7959c).with('ohi-uuid', mock_ohi_request)
       end
 
       it 'raises ArgumentError for unknown form types' do
+        unknown_request = double('UnknownRequest', form_1010d?: false, form_1010dx?: false, form_7959c?: false,
+                                                   form_type: 'unknown_form')
+
         expect do
-          controller.send(:send_to_ves_by_form_type, ves_client, ves_request, 'unknown_form')
+          controller.send(:send_to_ves_by_form_type, ves_client, unknown_request)
         end.to raise_error(ArgumentError, /Unknown VES form type/)
       end
     end

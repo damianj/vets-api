@@ -40,6 +40,9 @@ RSpec.describe 'IVC CHAMPVA Integration Failure Scenarios', type: :request do
     # Mock AWS to avoid real S3 calls
     Aws.config.update(stub_responses: true)
 
+    # Default all Flipper flags to false, then override specific ones in contexts
+    allow(Flipper).to receive(:enabled?).and_return(false)
+
     # Ensure we're in non-production environment for VES integration
     allow(Settings).to receive(:vsp_environment).and_return('staging')
 
@@ -47,6 +50,11 @@ RSpec.describe 'IVC CHAMPVA Integration Failure Scenarios', type: :request do
     ves_request = instance_double(IvcChampva::VesRequest,
                                   transaction_uuid: 'test-uuid',
                                   application_uuid: 'app-uuid',
+                                  form_type: 'vha_10_10d',
+                                  form_1010d?: true,
+                                  form_1010dx?: false,
+                                  form_7959c?: false,
+                                  subforms?: false,
                                   to_json: '{"test": "data"}')
     allow(ves_request).to receive(:transaction_uuid=)
     allow(IvcChampva::VesDataFormatter).to receive(:format_for_request)
@@ -66,7 +74,7 @@ RSpec.describe 'IVC CHAMPVA Integration Failure Scenarios', type: :request do
   describe 'VES Integration Failure Scenarios' do
     context 'when VES API fails' do
       before do
-        allow(Flipper).to receive(:enabled?).with(:champva_send_to_ves, user).and_return(true)
+        allow(Flipper).to receive(:enabled?).with(:champva_send_to_ves, anything).and_return(true)
         # Mock VES to fail with any error (connection, HTTP, timeout, etc.)
         stub_request(:post, %r{.*/ves-vfmp-app-svc/champva-applications})
           .to_raise(Faraday::ConnectionFailed.new('Connection refused'))
@@ -91,7 +99,7 @@ RSpec.describe 'IVC CHAMPVA Integration Failure Scenarios', type: :request do
 
     context 'when VES API returns HTTP error' do
       before do
-        allow(Flipper).to receive(:enabled?).with(:champva_send_to_ves, user).and_return(true)
+        allow(Flipper).to receive(:enabled?).with(:champva_send_to_ves, anything).and_return(true)
         stub_request(:post, %r{.*/ves-vfmp-app-svc/champva-applications})
           .to_return(status: 500, body: 'Internal Server Error')
         allow(Rails.logger).to receive(:error)

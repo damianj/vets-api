@@ -110,6 +110,46 @@ RSpec.describe IvcChampva::VesRequest do
     end
   end
 
+  describe '#form_1010d?' do
+    it 'returns true when no subforms exist' do
+      request = described_class.new(valid_params)
+
+      expect(request.form_1010d?).to be(true)
+    end
+
+    it 'returns false when subforms exist (is extended form)' do
+      request = described_class.new(valid_params)
+      mock_ohi_request = double('VesOhiRequest')
+      request.add_subform('vha_10_7959c', mock_ohi_request)
+
+      expect(request.form_1010d?).to be(false)
+    end
+  end
+
+  describe '#form_1010dx?' do
+    it 'returns false when no subforms exist' do
+      request = described_class.new(valid_params)
+
+      expect(request.form_1010dx?).to be(false)
+    end
+
+    it 'returns true when subforms exist' do
+      request = described_class.new(valid_params)
+      mock_ohi_request = double('VesOhiRequest')
+      request.add_subform('vha_10_7959c', mock_ohi_request)
+
+      expect(request.form_1010dx?).to be(true)
+    end
+  end
+
+  describe '#form_7959c?' do
+    it 'returns false for VesRequest' do
+      request = described_class.new(valid_params)
+
+      expect(request.form_7959c?).to be(false)
+    end
+  end
+
   describe '#to_json' do
     it 'does NOT include subforms in the JSON output' do
       request = described_class.new(valid_params)

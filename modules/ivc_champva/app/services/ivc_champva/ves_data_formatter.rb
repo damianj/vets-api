@@ -490,11 +490,6 @@ module IvcChampva
       end
     end
 
-    def self.validate_date_format(value, field_name)
-      return if value.blank?
-      raise ArgumentError, "#{field_name} must be in YYYY-MM-DD format" unless value.to_s.match?(DATE_PATTERN)
-    end
-
     # ============================================================================
     # Data formatting methods
     # ============================================================================

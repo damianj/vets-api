@@ -17,6 +17,8 @@ module IvcChampva
   #   parent_request.add_subform('vha_10_7959c', ohi_request)
   #
   class VesOhiRequest
+    include VesFormModel
+
     FORM_TYPE = 'vha_10_7959c'
     APPLICATION_TYPE = 'CHAMPVA_INS_APPLICATION'
 
@@ -43,6 +45,11 @@ module IvcChampva
     # @return [String] the form type constant
     def form_type
       FORM_TYPE
+    end
+
+    # VesFormModel override
+    def form_7959c?
+      true
     end
 
     ##

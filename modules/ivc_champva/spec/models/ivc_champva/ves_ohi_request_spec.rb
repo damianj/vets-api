@@ -50,6 +50,24 @@ RSpec.describe IvcChampva::VesOhiRequest do
     end
   end
 
+  describe '#form_1010d?' do
+    it 'returns false for VesOhiRequest' do
+      expect(described_class.new.form_1010d?).to be(false)
+    end
+  end
+
+  describe '#form_1010dx?' do
+    it 'returns false for VesOhiRequest' do
+      expect(described_class.new.form_1010dx?).to be(false)
+    end
+  end
+
+  describe '#form_7959c?' do
+    it 'returns true for VesOhiRequest' do
+      expect(described_class.new.form_7959c?).to be(true)
+    end
+  end
+
   describe '#to_json' do
     it 'serializes to valid JSON with camelCase keys matching VES swagger' do
       request = described_class.new(
