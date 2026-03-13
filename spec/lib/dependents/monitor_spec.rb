@@ -539,17 +539,43 @@ RSpec.describe Dependents::Monitor do
       allow(Rails.logger).to receive(:info)
 
       expect(StatsD).to receive(:increment).with(metric, tags: ["form_id:#{form_id}"])
-      expect(Rails.logger).to receive(:info).with('Pension-related claim submitted: 686c-674', {
-                                                    service: 'dependents-application',
-                                                    claim: claim_v2,
-                                                    user_account_uuid: nil,
-                                                    tags: ["form_id:#{form_id}", 'service:dependents-application'],
-                                                    statsd: metric,
-                                                    form_id:,
-                                                    form_type: '686c-674'
-                                                  })
+      expect(Rails.logger).to receive(:info).with(
+        "Pension-related claim submitted: 686c-674 for claim: #{claim_v2.id}", {
+          service: 'dependents-application',
+          claim: claim_v2,
+          user_account_uuid: nil,
+          tags: ["form_id:#{form_id}", 'service:dependents-application'],
+          statsd: metric,
+          form_id:,
+          form_type: '686c-674',
+          claim_id: claim_v2.id
+        }
+      )
 
       monitor_v2.track_pension_related_submission(form_id:, form_type: '686c-674')
+    end
+
+    it 'does not include claim id suffix when claim id is absent' do
+      form_id = '686C-674-V2'
+      metric = "#{described_class::PENSION_SUBMISSION_STATS_KEY}.686c-674.submitted"
+      monitor_without_claim = described_class.new(nil)
+
+      allow(StatsD).to receive(:increment)
+      allow(Rails.logger).to receive(:info)
+
+      expect(StatsD).to receive(:increment).with(metric, tags: ["form_id:#{form_id}"])
+      expect(Rails.logger).to receive(:info).with('Pension-related claim submitted: 686c-674', {
+                                                    service: 'dependents-application',
+                                                    claim: nil,
+                                                    user_account_uuid: nil,
+                                                    tags: ['form_id:', 'service:dependents-application'],
+                                                    statsd: metric,
+                                                    form_id:,
+                                                    form_type: '686c-674',
+                                                    claim_id: nil
+                                                  })
+
+      monitor_without_claim.track_pension_related_submission(form_id:, form_type: '686c-674')
     end
   end
 
@@ -572,6 +598,47 @@ RSpec.describe Dependents::Monitor do
       expect(monitor_v2).to receive(:track_event).with('info', message, metric, payload)
 
       monitor_v2.track_no_ssn_claims(form_id:, type:)
+    end
+
+    it 'uses provided claim_id when passed' do
+      form_id = '686C-674-V2'
+      type = 'created'
+      explicit_claim_id = 12_345
+      metric = "#{described_class::NO_SSN_SUBMISSION_STATS_KEY}.#{type}"
+      message = "No-SSN claim #{type} for claim: #{explicit_claim_id}"
+      payload = {
+        claim: claim_v2,
+        service: 'dependents-application',
+        tags: ['form_id:686C-674-V2', 'service:dependents-application'],
+        user_account_uuid: nil,
+        statsd: metric,
+        form_id:,
+        claim_id: explicit_claim_id
+      }
+
+      expect(monitor_v2).to receive(:track_event).with('info', message, metric, payload)
+
+      monitor_v2.track_no_ssn_claims(form_id:, type:, claim_id: explicit_claim_id)
+    end
+
+    it 'does not include claim id suffix when claim id is absent' do
+      form_id = '686C-674-V2'
+      type = 'submitted'
+      metric = "#{described_class::NO_SSN_SUBMISSION_STATS_KEY}.#{type}"
+      monitor_without_claim = described_class.new(nil)
+      payload = {
+        claim: nil,
+        service: 'dependents-application',
+        tags: ['form_id:', 'service:dependents-application'],
+        user_account_uuid: nil,
+        statsd: metric,
+        form_id:,
+        claim_id: nil
+      }
+
+      expect(monitor_without_claim).to receive(:track_event).with('info', 'No-SSN claim submitted', metric, payload)
+
+      monitor_without_claim.track_no_ssn_claims(form_id:, type:)
     end
   end
 

@@ -175,9 +175,10 @@ module V0
     def log_submitted(in_progress_form, claim)
       @monitor.track_create_success(in_progress_form, claim, current_user)
       if claim.pension_related_submission?
-        @monitor.track_pension_related_submission(form_id: claim.form_id, form_type: claim.claim_form_type)
+        @monitor.track_pension_related_submission(form_id: claim.form_id, form_type: claim.claim_form_type,
+                                                  claim_id: claim.id)
       end
-      monitor.track_no_ssn_claims(form_id: claim.form_id, type: 'submitted') if claim.no_ssn_claim?
+      @monitor.track_no_ssn_claims(form_id: claim.form_id, type: 'submitted', claim_id: claim.id) if claim.no_ssn_claim?
     end
 
     def create_dependent_service

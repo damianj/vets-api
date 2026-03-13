@@ -84,13 +84,13 @@ RSpec.describe V0::DependentsApplicationsController do
           allow(monitor_double).to receive(:track_create_success)
           allow(monitor_double).to receive(:track_pension_related_submission)
 
-          expect(monitor_double)
-            .to receive(:track_pension_related_submission)
-            .with(form_id: '686C-674-V2', form_type: '686c-674')
-
           VCR.use_cassette('bgs/dependent_service/submit_686c_form') do
             post(:create, params: test_form_v2, as: :json)
           end
+
+          expect(monitor_double)
+            .to have_received(:track_pension_related_submission)
+            .with(form_id: '686C-674-V2', form_type: '686c-674', claim_id: SavedClaim::DependencyClaim.last.id)
         end
       end
 
@@ -122,17 +122,17 @@ RSpec.describe V0::DependentsApplicationsController do
           allow(monitor_double).to receive(:track_create_success)
           allow(monitor_double).to receive(:track_no_ssn_claims)
 
-          expect(monitor_double)
-            .to receive(:track_no_ssn_claims)
-            .with(form_id: '686C-674-V2', type: 'created')
-
-          expect(monitor_double)
-            .to receive(:track_no_ssn_claims)
-            .with(form_id: '686C-674-V2', type: 'submitted')
-
           VCR.use_cassette('bgs/dependent_service/submit_686c_form') do
             post(:create, params: test_form_v2, as: :json)
           end
+
+          expect(monitor_double)
+            .to have_received(:track_no_ssn_claims)
+            .with(form_id: '686C-674-V2', type: 'created')
+
+          expect(monitor_double)
+            .to have_received(:track_no_ssn_claims)
+            .with(form_id: '686C-674-V2', type: 'submitted', claim_id: SavedClaim::DependencyClaim.last.id)
         end
       end
 

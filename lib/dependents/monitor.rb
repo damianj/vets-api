@@ -235,20 +235,24 @@ module Dependents
     # @param form_id [String] The form identifier (e.g., '686C-674-V2')
     # @param form_type [String] The type of form being submitted (e.g., '21-686c', '21-674', '686c-674')
     # @return [void]
-    def track_pension_related_submission(form_id:, form_type:)
+    def track_pension_related_submission(form_id:, form_type:, claim_id: nil)
+      tracked_claim_id = claim_id || @claim_id
       tags = ["form_id:#{form_id}"]
       metric = "#{PENSION_SUBMISSION_STATS_KEY}.#{form_type}.submitted"
-      payload = default_payload.merge({ statsd: metric, form_id:, form_type: })
+      payload = default_payload.merge({ statsd: metric, form_id:, form_type:, claim_id: tracked_claim_id })
+      message_suffix = tracked_claim_id.present? ? " for claim: #{tracked_claim_id}" : ''
 
       StatsD.increment(metric, tags:)
-      Rails.logger.info("Pension-related claim submitted: #{form_type}", payload)
+      Rails.logger.info("Pension-related claim submitted: #{form_type}#{message_suffix}", payload)
     end
 
-    def track_no_ssn_claims(form_id:, type:)
+    def track_no_ssn_claims(form_id:, type:, claim_id: nil)
+      tracked_claim_id = claim_id || @claim_id
       metric = "#{NO_SSN_SUBMISSION_STATS_KEY}.#{type}"
-      payload = default_payload.merge({ statsd: metric, form_id:, claim_id: @claim_id })
+      payload = default_payload.merge({ statsd: metric, form_id:, claim_id: tracked_claim_id })
+      message_suffix = tracked_claim_id.present? ? " for claim: #{tracked_claim_id}" : ''
 
-      track_event('info', "No-SSN claim #{type} for claim: #{@claim_id}", metric, payload)
+      track_event('info', "No-SSN claim #{type}#{message_suffix}", metric, payload)
     end
 
     def track_event(level, message, stats_key, payload = {})
