@@ -10,9 +10,31 @@ module Swagger
         swagger_schema(
           'nodContestableIssues',
           DecisionReview::Schemas::NOD_CONTESTABLE_ISSUES_RESPONSE_200.merge(
-            example: JSON.parse(
-              File.read('spec/fixtures/notice_of_disagreements/NOD_contestable_issues_response_200.json')
-            )
+            example: {
+              'data' => [
+                {
+                  'type' => 'contestableIssue',
+                  'id' => 'string',
+                  'attributes' => {
+                    'ratingIssueReferenceId' => 'string',
+                    'ratingIssueProfileDate' => '2020-08-31',
+                    'ratingIssueDiagnosticCode' => 'string',
+                    'ratingDecisionReferenceId' => 'string',
+                    'decisionIssueId' => 0,
+                    'approxDecisionDate' => '2020-08-31',
+                    'description' => 'string',
+                    'rampClaimId' => 'string',
+                    'titleOfActiveReview' => 'string',
+                    'sourceReviewType' => 'string',
+                    'timely' => true,
+                    'latestIssuesInChain' => [{ 'id' => 19, 'approxDecisionDate' => '2020-08-31' }],
+                    'ratingIssueSubjectText' => 'string',
+                    'ratingIssuePercentNumber' => 'string',
+                    'isRating' => true
+                  }
+                }
+              ]
+            }
           ).except('$schema')
         )
       end
