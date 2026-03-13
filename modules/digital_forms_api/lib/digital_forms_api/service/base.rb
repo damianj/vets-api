@@ -19,18 +19,26 @@ module DigitalFormsApi
 
       # @see Common::Client::Base#perform
       def perform(method, path, params, headers = {}, options = {})
+        start_time = Time.current
+        code = reason = nil
+
         call_location = caller_locations.first # eg. DigitalFormsApi::Service::Files#upload
         headers = headers.merge(request_headers)
-
         requested_api = endpoint || path.split('/').first
-        response = super(method, path, params, headers, options) # returns Faraday::Env
 
-        monitor.track_api_request(method, requested_api, response.status, response.reason_phrase, call_location:)
+        response = super(method, path, params, headers, options) # returns Faraday::Env
+        code = response.try(:status) || 200
+        reason = response.reason_phrase
+
         response
       rescue => e
         code = e.try(:status) || 500
-        monitor.track_api_request(method, requested_api, code, e.message, call_location:)
+        reason = e.message
         raise e
+      ensure
+        duration = (Time.current - start_time) * 1000.0 # milliseconds
+        monitor.track_api_request(method, requested_api, code, reason, duration, call_location:, **context)
+        @context = {} # reset the request context so later tracking is not polluted
       end
 
       private
@@ -54,6 +62,12 @@ module DigitalFormsApi
       # the name for _this_ endpoint
       def endpoint
         nil
+      end
+
+      # a context to accompany the logging for a request
+      # @see DigitalFormsApi::Monitor::Service#track_api_request
+      def context
+        @context.is_a?(Hash) ? @context : {}
       end
     end
 

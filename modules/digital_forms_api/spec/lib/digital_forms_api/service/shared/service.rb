@@ -20,7 +20,8 @@ shared_examples_for 'a DigitalFormsApi::Service class' do
 
       # 'request' is a method within the `super` chain
       expect(service).to receive(:request).with(*args).and_return response
-      expect(monitor).to receive(:track_api_request).with(:get, endpoint, 200, 'OK', call_location: anything)
+      # method, endpoint, code, reason, duration
+      expect(monitor).to receive(:track_api_request).with(:get, endpoint, 200, 'OK', anything, call_location: anything)
 
       service.perform(*args)
     end
@@ -32,7 +33,8 @@ shared_examples_for 'a DigitalFormsApi::Service class' do
 
       # 'request' is a method within the `super` chain
       expect(service).to receive(:request).with(*args).and_raise error
-      expect(monitor).to receive(:track_api_request).with(:get, endpoint, 503, 'VEFSERR40009',
+      # method, endpoint, code, reason, duration
+      expect(monitor).to receive(:track_api_request).with(:get, endpoint, 503, 'VEFSERR40009', anything,
                                                           call_location: anything)
 
       expect { service.perform(*args) }.to raise_error error

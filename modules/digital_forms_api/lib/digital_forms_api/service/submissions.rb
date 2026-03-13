@@ -28,6 +28,14 @@ module DigitalFormsApi
 
         headers = {}
 
+        # @see DigitalFormsApi::Service::Base#context
+        tags = {
+          form_id: metadata[:formId],
+          ep_code: metadata[:epCode],
+          claim_label: metadata[:claimLabel]
+        }
+        @context = tags.merge(tags:)
+
         perform :post, "submissions?dry-run=#{dry_run}", request, headers
       end
 

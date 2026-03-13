@@ -15,14 +15,12 @@ module DigitalFormsApi
       submission = submissions_service.retrieve(params[:id])
       template = forms_service.template('21-686c')
       render json: { submission: submission.body, template: template['formTemplate'] }
-    rescue Common::Client::Errors::ClientError => e
-      if e.status == 404
+    rescue => e
+      if e.is_a?(Common::Client::Errors::ClientError) && e.try(:status) == 404
         render json: { error: 'Not found' }, status: :not_found
       else
         render json: { error: 'Internal server error' }, status: :internal_server_error
       end
-    rescue
-      render json: { error: 'Internal server error' }, status: :internal_server_error
     end
 
     private

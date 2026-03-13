@@ -36,8 +36,12 @@ module DigitalFormsApi
       METRIC = 'module.digital_forms_api.service.request'
       # allowed logging params
       ALLOWLIST = %w[
+        claim_label
         code
+        duration
         endpoint
+        ep_code
+        form_id
         method
         reason
       ].freeze
@@ -53,17 +57,21 @@ module DigitalFormsApi
       # @param method [String|Symbol] eg. get, post, put
       # @param endpoint [String] the requested service endpoint
       # @param code [Integer|String] the response code
-      # @param reason [String] the response `reason_phrase`
+      # @param reason [String] the response `reason_phrase` or the error message
+      # @param duration [Integer] the duration of the request in milliseconds
       # @param call_location [Logging::CallLocation|Thread::Backtrace::Location] calling point to be logged
-      def track_api_request(method, endpoint, code, reason, call_location: nil)
+      def track_api_request(method, endpoint, code, reason, duration, call_location: nil, **context) # rubocop:disable Metrics/ParameterLists
         call_location ||= caller_locations.first
 
         message = format_message("#{code} #{reason}")
-        tags = { method:, code:, endpoint: }
+        tags = { method:, code:, endpoint: }.merge(context[:tags] || {})
+        context = { method:, code:, endpoint:, reason:, duration: }.merge(context)
+        context.delete(:tags) # avoid overwriting the tags arg to `track_request`
 
         level = /^2\d\d$/.match?(code.to_s.strip) ? :info : :error
 
-        track_request(level, message, METRIC, call_location:, reason:, tags: format_tags(tags), **tags)
+        StatsD.measure("#{METRIC}.duration", duration, tags:)
+        track_request(level, message, METRIC, call_location:, tags: format_tags(tags), **context)
       end
     end
   end
