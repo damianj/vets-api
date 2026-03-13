@@ -4,6 +4,7 @@ require_relative 'vista_prescription_adapter'
 require_relative 'oracle_health_prescription_adapter'
 require_relative 'v2_status_mapping'
 require_relative '../source_constants'
+require_relative '../operation_outcome_detector'
 
 module UnifiedHealthData
   module Adapters
@@ -16,8 +17,11 @@ module UnifiedHealthData
         @oracle_adapter = OracleHealthPrescriptionAdapter.new
       end
 
+      # @param body [Hash] The raw UHD response body
+      # @param current_only [Boolean] When true, excludes discontinued/expired meds older than 180 days
+      # @return [Hash] Hash with :prescriptions (Array) and :metadata (Hash) keys
       def parse(body, current_only: false)
-        return [] if body.nil?
+        raise ArgumentError, 'UHD returned an empty response body' if body.nil?
 
         prescriptions = []
 
@@ -37,7 +41,9 @@ module UnifiedHealthData
 
         # Apply V2 status mapping to all prescriptions when Cerner pilot flag is enabled
         # This is the single point where V2 status mapping is applied for both VistA and Oracle Health
-        apply_v2_status_mapping_if_enabled(prescriptions)
+        prescriptions = apply_v2_status_mapping_if_enabled(prescriptions)
+
+        { prescriptions:, metadata: { has_failed_stations: any_source_failed?(body) } }
       end
 
       private
@@ -125,6 +131,38 @@ module UnifiedHealthData
         return prescriptions unless Flipper.enabled?(:mhv_medications_v2_status_mapping, @current_user)
 
         apply_v2_status_mapping_to_all(prescriptions)
+      end
+
+      # Checks whether either data source reported a failure in the UHD response.
+      # VistA: failedStationList is a non-empty string (comma-separated station numbers).
+      # Oracle Health: entry array contains an OperationOutcome resource with error-severity issues.
+      def any_source_failed?(body)
+        vista_failed?(body) || oracle_health_failed?(body)
+      end
+
+      def vista_failed?(body)
+        body.dig(SourceConstants::VISTA, 'failedStationList').present?
+      end
+
+      # Defense-in-depth: today the Client raises UpstreamPartialFailure for
+      # error/fatal OperationOutcomes before the adapter runs, so this branch
+      # is not reachable. We keep it aligned with OperationOutcomeDetector's
+      # ERROR_SEVERITIES so the flag stays correct if that upstream flow changes.
+      def oracle_health_failed?(body)
+        oracle_data = body[SourceConstants::ORACLE_HEALTH]
+        return false if oracle_data.blank?
+
+        entries = oracle_data['entry']
+        return false unless entries.is_a?(Array) && entries.present?
+
+        entries.any? do |e|
+          next false unless e.dig('resource', 'resourceType') == 'OperationOutcome'
+
+          issues = e.dig('resource', 'issue')
+          issues.is_a?(Array) && issues.any? do |i|
+            OperationOutcomeDetector::ERROR_SEVERITIES.include?(i['severity'])
+          end
+        end
       end
     end
   end

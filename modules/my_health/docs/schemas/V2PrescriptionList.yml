@@ -1,0 +1,101 @@
+type: object
+required:
+  - data
+  - meta
+properties:
+  data:
+    type: array
+    items:
+      $ref: "./PrescriptionDetail.yml"
+  links:
+    type: object
+    nullable: true
+    properties:
+      self:
+        type: string
+        example: "https://api.va.gov/my_health/v2/prescriptions?page=1&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+      first:
+        type: string
+        example: "https://api.va.gov/my_health/v2/prescriptions?page=1&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+      prev:
+        type: string
+        nullable: true
+        example: null
+      next:
+        type: string
+        nullable: true
+        example: "https://api.va.gov/my_health/v2/prescriptions?page=2&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+      last:
+        type: string
+        example: "https://api.va.gov/my_health/v2/prescriptions?page=9&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+  meta:
+    type: object
+    required:
+      - filter_count
+      - recently_requested
+      - has_failed_stations
+    properties:
+      has_failed_stations:
+        type: boolean
+        description: Whether any data source (VistA or Oracle Health) had errors or returned incomplete results
+        example: false
+      filter_count:
+        type: object
+        description: Medication counts by filter category
+        properties:
+          all_medications:
+            type: integer
+            example: 25
+          active:
+            type: integer
+            example: 10
+          in_progress:
+            type: integer
+            example: 3
+          shipped:
+            type: integer
+            example: 2
+          renewable:
+            type: integer
+            example: 5
+          inactive:
+            type: integer
+            example: 4
+          transferred:
+            type: integer
+            example: 0
+          status_not_available:
+            type: integer
+            example: 1
+      recently_requested:
+        type: array
+        items:
+          $ref: "./PrescriptionDetail.yml"
+        description: Prescriptions with an in-progress dispensing status
+      sort:
+        type: object
+        properties:
+          dispStatus:
+            type: string
+            enum: [DESC, ASC]
+          dispensedDate:
+            type: string
+            enum: [DESC, ASC]
+          prescriptionName:
+            type: string
+            enum: [DESC, ASC]
+      pagination:
+        type: object
+        properties:
+          currentPage:
+            type: integer
+            example: 1
+          perPage:
+            type: integer
+            example: 10
+          totalPages:
+            type: integer
+            example: 2
+          totalEntries:
+            type: integer
+            example: 15

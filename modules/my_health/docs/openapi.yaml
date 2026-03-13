@@ -1870,7 +1870,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./schemas/PrescriptionList.yml
+                $ref: ./schemas/V1PrescriptionList.yml
           description: OK
         "401":
           content:
@@ -1956,7 +1956,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./schemas/PrescriptionList.yml
+                $ref: ./schemas/V1PrescriptionList.yml
           description: OK
         "401":
           content:
@@ -2283,7 +2283,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./schemas/PrescriptionList.yml
+                $ref: ./schemas/V2PrescriptionList.yml
           description: OK
         "401":
           content:

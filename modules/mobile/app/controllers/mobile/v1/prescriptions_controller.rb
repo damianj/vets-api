@@ -86,7 +86,7 @@ module Mobile
       end
 
       def fetch_prescriptions
-        unified_health_service.get_prescriptions(current_only: true)
+        unified_health_service.get_prescriptions(current_only: true)[:prescriptions]
       end
 
       def filtered_prescriptions(list)

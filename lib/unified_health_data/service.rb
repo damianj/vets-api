@@ -92,7 +92,8 @@ module UnifiedHealthData
     # @param current_only [Boolean] When true, applies filtering logic to exclude:
     #   - Discontinued/expired medications older than 180 days
     #   Defaults to false to return all prescriptions without filtering
-    # @return [Array<UnifiedHealthData::Prescription>] Array of prescription objects
+    # @return [Hash] Hash with :prescriptions (Array<UnifiedHealthData::Prescription>) and
+    #   :metadata (Hash including :has_failed_stations Boolean)
     def get_prescriptions(current_only: false)
       with_monitoring do
         start_date = default_start_date
@@ -101,16 +102,16 @@ module UnifiedHealthData
         body = response.body
 
         adapter = UnifiedHealthData::Adapters::PrescriptionsAdapter.new(@user)
-        prescriptions = adapter.parse(body, current_only:)
+        result = adapter.parse(body, current_only:)
 
         Rails.logger.info(
           message: 'UHD prescriptions retrieved',
-          total_prescriptions: prescriptions.size,
+          total_prescriptions: result[:prescriptions].size,
           current_filtering_applied: current_only,
           service: 'unified_health_data'
         )
 
-        prescriptions
+        result
       end
     end
 

@@ -136,7 +136,7 @@ RSpec.describe 'Mobile::V1::Health::Prescriptions', type: :request do
 
             before do
               allow_any_instance_of(UnifiedHealthData::Service).to receive(:get_prescriptions)
-                .and_return([rx_va, rx_non_va])
+                .and_return({ prescriptions: [rx_va, rx_non_va], metadata: { has_failed_stations: false } })
             end
 
             it 'filters out Non-VA meds and sets hasNonVaMeds meta true' do
@@ -180,7 +180,7 @@ RSpec.describe 'Mobile::V1::Health::Prescriptions', type: :request do
 
             before do
               allow_any_instance_of(UnifiedHealthData::Service).to receive(:get_prescriptions)
-                .and_return([rx_va1, rx_va2])
+                .and_return({ prescriptions: [rx_va1, rx_va2], metadata: { has_failed_stations: false } })
             end
 
             it 'does not set hasNonVaMeds meta flag' do

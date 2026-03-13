@@ -814,7 +814,8 @@ describe UnifiedHealthData::Adapters::VistaPrescriptionAdapter do
 
     it 'parses Vista prescription with complete tracking information' do
       adapter = UnifiedHealthData::Adapters::PrescriptionsAdapter.new(user)
-      prescriptions = adapter.parse(vista_trackable_response)
+      result = adapter.parse(vista_trackable_response)
+      prescriptions = result[:prescriptions]
 
       expect(prescriptions.size).to eq(1)
       prescription = prescriptions.first

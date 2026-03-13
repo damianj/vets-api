@@ -132,7 +132,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'returns prescriptions from both VistA and Oracle Health' do
-        prescriptions = subject.parse(unified_response)
+        prescriptions = subject.parse(unified_response)[:prescriptions]
 
         expect(prescriptions.size).to eq(2)
         expect(prescriptions).to all(be_a(UnifiedHealthData::Prescription))
@@ -145,21 +145,21 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'extracts provider_name from VistA data' do
-        prescriptions = subject.parse(unified_response)
+        prescriptions = subject.parse(unified_response)[:prescriptions]
         vista_prescription = prescriptions.find { |p| p.prescription_id == '28148665' }
 
         expect(vista_prescription.provider_name).to eq('SMITH, JOHN')
       end
 
       it 'extracts provider_name from Oracle Health data' do
-        prescriptions = subject.parse(unified_response)
+        prescriptions = subject.parse(unified_response)[:prescriptions]
         oracle_prescription = prescriptions.find { |p| p.prescription_id == '15208365735' }
 
         expect(oracle_prescription.provider_name).to eq('Doe, Jane, MD')
       end
 
       it 'sets cmop_division_phone correctly for both sources' do
-        prescriptions = subject.parse(unified_response)
+        prescriptions = subject.parse(unified_response)[:prescriptions]
 
         vista_prescription = prescriptions.find { |p| p.prescription_id == '28148665' }
         oracle_prescription = prescriptions.find { |p| p.prescription_id == '15208365735' }
@@ -169,7 +169,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'sets cmop_ndc_number from VistA source and null for Oracle Health source' do
-        prescriptions = subject.parse(unified_response)
+        prescriptions = subject.parse(unified_response)[:prescriptions]
 
         vista_prescription = prescriptions.find { |p| p.prescription_id == '28148665' }
         oracle_prescription = prescriptions.find { |p| p.prescription_id == '15208365735' }
@@ -188,7 +188,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           'oracle-health' => { 'entry' => [] }
         }
 
-        prescriptions = subject.parse(response_with_disp_status)
+        prescriptions = subject.parse(response_with_disp_status)[:prescriptions]
         vista_prescription = prescriptions.first
 
         expect(vista_prescription.disp_status).to eq('Active: Refill in Process')
@@ -199,7 +199,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
         # only when dispStatus is not already set, and not mapped to V2 format
         allow(Flipper).to receive(:enabled?).with(:mhv_medications_v2_status_mapping, anything).and_return(false)
 
-        prescriptions = subject.parse(unified_response)
+        prescriptions = subject.parse(unified_response)[:prescriptions]
         oracle_prescription = prescriptions.find { |p| p.prescription_id == '15208365735' }
 
         # Oracle Health prescription with status='active', 0 refills remaining, no expiration date
@@ -237,12 +237,12 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           end
 
           it 'excludes PF (Partial Fill) prescriptions only' do
-            prescriptions = subject.parse(response_with_pf)
+            prescriptions = subject.parse(response_with_pf)[:prescriptions]
             expect(prescriptions).to be_empty
           end
 
           it 'includes PD (Pending) prescriptions when flag is enabled' do
-            prescriptions = subject.parse(response_with_pd)
+            prescriptions = subject.parse(response_with_pd)[:prescriptions]
             expect(prescriptions.size).to eq(1)
             expect(prescriptions.first.prescription_source).to eq('PD')
           end
@@ -269,7 +269,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           end
 
           it 'excludes both PF and PD prescriptions' do
-            prescriptions = subject.parse(response_with_pf_and_pd)
+            prescriptions = subject.parse(response_with_pf_and_pd)[:prescriptions]
             expect(prescriptions).to be_empty
           end
         end
@@ -277,7 +277,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
 
       context 'with current_only: false (default)' do
         it 'returns all prescriptions without filtering' do
-          prescriptions = subject.parse(unified_response, current_only: false)
+          prescriptions = subject.parse(unified_response, current_only: false)[:prescriptions]
 
           expect(prescriptions.size).to eq(2)
           expect(prescriptions).to all(be_a(UnifiedHealthData::Prescription))
@@ -303,7 +303,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           it 'excludes expired prescriptions older than 180 days' do
             allow(Rails.logger).to receive(:info)
 
-            prescriptions = subject.parse(response_with_old_expired, current_only: true)
+            prescriptions = subject.parse(response_with_old_expired, current_only: true)[:prescriptions]
 
             expect(prescriptions).to be_empty
             expect(Rails.logger).to have_received(:info).with(
@@ -334,7 +334,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             allow(Rails.logger).to receive(:warn)
             allow(Rails.logger).to receive(:info)
 
-            prescriptions = subject.parse(response_with_invalid_date, current_only: true)
+            prescriptions = subject.parse(response_with_invalid_date, current_only: true)[:prescriptions]
 
             expect(prescriptions.size).to eq(1)
             expect(Rails.logger).to have_received(:warn).with(
@@ -347,7 +347,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           it 'includes active prescriptions regardless of expiration date' do
             allow(Rails.logger).to receive(:info)
 
-            prescriptions = subject.parse(unified_response, current_only: true)
+            prescriptions = subject.parse(unified_response, current_only: true)[:prescriptions]
 
             expect(prescriptions.size).to eq(2)
             expect(Rails.logger).to have_received(:info).with(
@@ -372,7 +372,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'returns only VistA prescriptions' do
-        prescriptions = subject.parse(vista_only_response)
+        prescriptions = subject.parse(vista_only_response)[:prescriptions]
 
         expect(prescriptions.size).to eq(1)
         expect(prescriptions.first.prescription_id).to eq('28148665')
@@ -389,7 +389,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           'oracle-health' => nil
         }
 
-        prescriptions = subject.parse(response)
+        prescriptions = subject.parse(response)[:prescriptions]
 
         expect(prescriptions.size).to eq(1)
         expect(prescriptions.first.prescription_name).to eq('METFORMIN 500MG TABLET')
@@ -405,7 +405,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'returns only Oracle Health prescriptions' do
-        prescriptions = subject.parse(oracle_only_response)
+        prescriptions = subject.parse(oracle_only_response)[:prescriptions]
 
         expect(prescriptions.size).to eq(1)
         expect(prescriptions.first.prescription_id).to eq('15208365735')
@@ -414,8 +414,8 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
     end
 
     context 'with nil input' do
-      it 'returns empty array' do
-        expect(subject.parse(nil)).to eq([])
+      it 'raises an ArgumentError' do
+        expect { subject.parse(nil) }.to raise_error(ArgumentError, 'UHD returned an empty response body')
       end
     end
 
@@ -427,14 +427,14 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
         }
       end
 
-      it 'returns empty array' do
-        expect(subject.parse(empty_response)).to eq([])
+      it 'returns empty prescriptions' do
+        expect(subject.parse(empty_response)[:prescriptions]).to eq([])
       end
     end
 
     context 'with Oracle Health data containing multiple MedicationDispense resources' do
       it 'uses the most recent dispensed date based on whenHandedOver' do
-        prescriptions = subject.parse(unified_response)
+        prescriptions = subject.parse(unified_response)[:prescriptions]
         oracle_prescription = prescriptions.find { |p| p.prescription_id == '15208365735' }
 
         # Should use the most recent whenHandedOver date: '2025-01-29T14:30:00Z'
@@ -487,7 +487,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'extracts facility name from dispense location via cache' do
-        prescriptions = subject.parse(response_with_dispense)
+        prescriptions = subject.parse(response_with_dispense)[:prescriptions]
         oracle_prescription = prescriptions.first
 
         expect(oracle_prescription.facility_name).to eq('Portland VA Medical Center')
@@ -524,7 +524,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'excludes inpatient prescriptions' do
-        prescriptions = subject.parse(response_with_inpatient)
+        prescriptions = subject.parse(response_with_inpatient)[:prescriptions]
         expect(prescriptions).to be_empty
       end
     end
@@ -559,7 +559,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'includes outpatient prescriptions' do
-        prescriptions = subject.parse(response_with_outpatient)
+        prescriptions = subject.parse(response_with_outpatient)[:prescriptions]
         expect(prescriptions.size).to eq(1)
         expect(prescriptions.first.category).to eq(['outpatient'])
       end
@@ -595,7 +595,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'includes community prescriptions' do
-        prescriptions = subject.parse(response_with_community)
+        prescriptions = subject.parse(response_with_community)[:prescriptions]
         expect(prescriptions.size).to eq(1)
         expect(prescriptions.first.category).to eq(['community'])
       end
@@ -639,7 +639,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'includes prescriptions with multiple categories' do
-        prescriptions = subject.parse(response_with_multiple_categories)
+        prescriptions = subject.parse(response_with_multiple_categories)[:prescriptions]
         expect(prescriptions.size).to eq(1)
         expect(prescriptions.first.category).to eq(%w[community outpatient])
       end
@@ -683,7 +683,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'excludes prescriptions if any category is inpatient' do
-        prescriptions = subject.parse(response_with_inpatient_and_community)
+        prescriptions = subject.parse(response_with_inpatient_and_community)[:prescriptions]
         expect(prescriptions).to be_empty
       end
     end
@@ -735,7 +735,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'includes dispenses in Vista prescriptions' do
-        prescriptions = subject.parse(response_with_vista_dispenses)
+        prescriptions = subject.parse(response_with_vista_dispenses)[:prescriptions]
 
         expect(prescriptions.size).to eq(1)
         vista_prescription = prescriptions.first
@@ -820,7 +820,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'includes dispenses in Oracle Health prescriptions' do
-        prescriptions = subject.parse(response_with_oracle_dispenses)
+        prescriptions = subject.parse(response_with_oracle_dispenses)[:prescriptions]
 
         expect(prescriptions.size).to eq(1)
         oracle_prescription = prescriptions.first
@@ -849,7 +849,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
 
     context 'with prescriptions without dispenses' do
       it 'includes empty dispenses array for Vista prescriptions without rxRFRecords' do
-        prescriptions = subject.parse(unified_response)
+        prescriptions = subject.parse(unified_response)[:prescriptions]
 
         vista_prescription = prescriptions.find { |p| p.prescription_id == '28148665' }
         expect(vista_prescription.dispenses).to eq([])
@@ -875,7 +875,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           }
         }
 
-        prescriptions = subject.parse(oracle_only_response)
+        prescriptions = subject.parse(oracle_only_response)[:prescriptions]
         expect(prescriptions.size).to eq(1)
         expect(prescriptions.first.dispenses).to eq([])
       end
@@ -904,7 +904,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'handles missing provider data gracefully' do
-        prescriptions = subject.parse(response_with_missing_providers)
+        prescriptions = subject.parse(response_with_missing_providers)[:prescriptions]
 
         expect(prescriptions.size).to eq(2)
         vista_prescription = prescriptions.find { |p| p.prescription_id == '28148665' }
@@ -921,7 +921,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           'oracle-health' => nil
         }
 
-        prescriptions = subject.parse(response)
+        prescriptions = subject.parse(response)[:prescriptions]
         expect(prescriptions.first.provider_name).to eq('SMITH')
       end
 
@@ -932,21 +932,21 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           'oracle-health' => nil
         }
 
-        prescriptions = subject.parse(response)
+        prescriptions = subject.parse(response)[:prescriptions]
         expect(prescriptions.first.provider_name).to eq('JOHN')
       end
     end
 
     context 'dial_cmop_division_phone field' do
       it 'maps dialCmopDivisionPhone from Vista prescriptions' do
-        prescriptions = subject.parse(unified_response)
+        prescriptions = subject.parse(unified_response)[:prescriptions]
         vista_prescription = prescriptions.find { |p| p.prescription_id == '28148665' }
 
         expect(vista_prescription.dial_cmop_division_phone).to eq('555-DIAL')
       end
 
       it 'sets dial_cmop_division_phone to null for Oracle Health prescriptions' do
-        prescriptions = subject.parse(unified_response)
+        prescriptions = subject.parse(unified_response)[:prescriptions]
         oracle_prescription = prescriptions.find { |p| p.prescription_id == '15208365735' }
 
         expect(oracle_prescription.dial_cmop_division_phone).to be_nil
@@ -956,7 +956,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
     context 'with remarks field' do
       context 'VistA prescriptions' do
         it 'includes remarks from VistA data' do
-          prescriptions = subject.parse(unified_response)
+          prescriptions = subject.parse(unified_response)[:prescriptions]
           vista_prescription = prescriptions.find { |p| p.prescription_id == '28148665' }
 
           expect(vista_prescription.remarks).to eq('TEST REMARKS FOR VISTA')
@@ -969,14 +969,14 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             'oracle-health' => nil
           }
 
-          prescriptions = subject.parse(response)
+          prescriptions = subject.parse(response)[:prescriptions]
           expect(prescriptions.first.remarks).to be_nil
         end
       end
 
       context 'Oracle Health prescriptions' do
         it 'concatenates all note.text fields' do
-          prescriptions = subject.parse(unified_response)
+          prescriptions = subject.parse(unified_response)[:prescriptions]
           oracle_prescription = prescriptions.find { |p| p.prescription_id == '15208365735' }
 
           expect(oracle_prescription.remarks).to eq('Take with food. May cause dizziness.')
@@ -995,7 +995,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             }
           }
 
-          prescriptions = subject.parse(response)
+          prescriptions = subject.parse(response)[:prescriptions]
           expect(prescriptions.first.remarks).to be_nil
         end
 
@@ -1013,7 +1013,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             }
           }
 
-          prescriptions = subject.parse(response)
+          prescriptions = subject.parse(response)[:prescriptions]
           expect(prescriptions.first.remarks).to be_nil
         end
 
@@ -1032,7 +1032,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             }
           }
 
-          prescriptions = subject.parse(response)
+          prescriptions = subject.parse(response)[:prescriptions]
           expect(prescriptions.first.remarks).to eq('Single note text')
         end
 
@@ -1055,7 +1055,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             }
           }
 
-          prescriptions = subject.parse(response)
+          prescriptions = subject.parse(response)[:prescriptions]
           expect(prescriptions.first.remarks).to eq('First note Second note Third note')
         end
 
@@ -1078,7 +1078,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             }
           }
 
-          prescriptions = subject.parse(response)
+          prescriptions = subject.parse(response)[:prescriptions]
           expect(prescriptions.first.remarks).to eq('Valid note Another valid note')
         end
 
@@ -1101,10 +1101,84 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             }
           }
 
-          prescriptions = subject.parse(response)
+          prescriptions = subject.parse(response)[:prescriptions]
           expect(prescriptions.first.remarks).to eq('Valid note Another valid note')
         end
       end
+    end
+  end
+
+  describe '#parse metadata' do
+    before do
+      allow(Flipper).to receive(:enabled?).with(:mhv_medications_display_pending_meds, user).and_return(false)
+    end
+
+    it 'returns a hash with prescriptions and metadata keys' do
+      result = subject.parse(unified_response)
+
+      expect(result).to be_a(Hash)
+      expect(result).to have_key(:prescriptions)
+      expect(result).to have_key(:metadata)
+      expect(result[:prescriptions]).to be_an(Array)
+      expect(result[:metadata]).to have_key(:has_failed_stations)
+    end
+
+    it 'returns has_failed_stations: false when no sources failed' do
+      result = subject.parse(unified_response)
+
+      expect(result[:metadata][:has_failed_stations]).to be false
+    end
+
+    it 'returns has_failed_stations: true when VistA has failedStationList' do
+      response_with_failure = {
+        'vista' => {
+          'failedStationList' => 'Station-979,Station-442',
+          'medicationList' => { 'medication' => [vista_medication_data] }
+        },
+        'oracle-health' => { 'entry' => [] }
+      }
+
+      result = subject.parse(response_with_failure)
+
+      expect(result[:metadata][:has_failed_stations]).to be true
+    end
+
+    it 'returns has_failed_stations: true when Oracle Health has error OperationOutcome' do
+      response_with_oh_failure = {
+        'vista' => { 'medicationList' => { 'medication' => [vista_medication_data] } },
+        'oracle-health' => {
+          'entry' => [
+            {
+              'resource' => {
+                'resourceType' => 'OperationOutcome',
+                'id' => 'err-1',
+                'issue' => [
+                  { 'severity' => 'error', 'code' => 'exception', 'diagnostics' => 'Exhausted retry attempts' }
+                ]
+              }
+            }
+          ]
+        }
+      }
+
+      result = subject.parse(response_with_oh_failure)
+
+      expect(result[:metadata][:has_failed_stations]).to be true
+    end
+
+    it 'returns has_failed_stations: false when Oracle Health is empty (patient not registered)' do
+      response_oh_empty = {
+        'vista' => { 'medicationList' => { 'medication' => [vista_medication_data] } },
+        'oracle-health' => {}
+      }
+
+      result = subject.parse(response_oh_empty)
+
+      expect(result[:metadata][:has_failed_stations]).to be false
+    end
+
+    it 'raises an ArgumentError when body is nil' do
+      expect { subject.parse(nil) }.to raise_error(ArgumentError, 'UHD returned an empty response body')
     end
   end
 
@@ -1312,14 +1386,14 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'returns legacy refill_status values for VistA prescriptions' do
-        prescriptions = subject.parse(vista_response)
+        prescriptions = subject.parse(vista_response)[:prescriptions]
 
         statuses = prescriptions.map(&:refill_status)
         expect(statuses).to include('active', 'expired', 'discontinued', 'hold', 'providerHold', 'submitted')
       end
 
       it 'returns legacy refill_status values for Oracle Health prescriptions' do
-        prescriptions = subject.parse(oracle_response)
+        prescriptions = subject.parse(oracle_response)[:prescriptions]
 
         # Oracle adapter normalizes FHIR status to legacy VistA-style status
         statuses = prescriptions.map(&:refill_status)
@@ -1327,7 +1401,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       end
 
       it 'does not apply V2 status mapping to combined prescriptions' do
-        prescriptions = subject.parse(combined_response)
+        prescriptions = subject.parse(combined_response)[:prescriptions]
 
         statuses = prescriptions.map(&:refill_status)
         # Should have legacy statuses, not V2 format
@@ -1346,7 +1420,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           it 'maps Active dispStatus to Active' do
             vista_medication_with_refill_status['dispStatus'] = 'Active'
 
-            result = adapter.parse(vista_only_body)
+            result = adapter.parse(vista_only_body)[:prescriptions]
 
             expect(result.first.disp_status).to eq('Active')
           end
@@ -1354,7 +1428,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           it 'maps Expired dispStatus to Inactive' do
             vista_medication_with_refill_status['dispStatus'] = 'Expired'
 
-            result = adapter.parse(vista_only_body)
+            result = adapter.parse(vista_only_body)[:prescriptions]
 
             expect(result.first.disp_status).to eq('Inactive')
           end
@@ -1362,7 +1436,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           it 'maps Discontinued dispStatus to Inactive' do
             vista_medication_with_refill_status['dispStatus'] = 'Discontinued'
 
-            result = adapter.parse(vista_only_body)
+            result = adapter.parse(vista_only_body)[:prescriptions]
 
             expect(result.first.disp_status).to eq('Inactive')
           end
@@ -1370,7 +1444,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           it 'maps Active: On hold dispStatus to Inactive' do
             vista_medication_with_refill_status['dispStatus'] = 'Active: On hold'
 
-            result = adapter.parse(vista_only_body)
+            result = adapter.parse(vista_only_body)[:prescriptions]
 
             expect(result.first.disp_status).to eq('Inactive')
           end
@@ -1378,7 +1452,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           it 'maps Active: Submitted dispStatus to In progress' do
             vista_medication_with_refill_status['dispStatus'] = 'Active: Submitted'
 
-            result = adapter.parse(vista_only_body)
+            result = adapter.parse(vista_only_body)[:prescriptions]
 
             expect(result.first.disp_status).to eq('In progress')
           end
@@ -1386,7 +1460,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           it 'maps Active: Refill in Process dispStatus to In progress' do
             vista_medication_with_refill_status['dispStatus'] = 'Active: Refill in Process'
 
-            result = adapter.parse(vista_only_body)
+            result = adapter.parse(vista_only_body)[:prescriptions]
 
             expect(result.first.disp_status).to eq('In progress')
           end
@@ -1394,7 +1468,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
           it 'handles unknown dispStatus by returning Status not available' do
             vista_medication_with_refill_status['dispStatus'] = 'SomeUnknownStatus'
 
-            result = adapter.parse(vista_only_body)
+            result = adapter.parse(vista_only_body)[:prescriptions]
 
             expect(result.first.disp_status).to eq('Status not available')
           end
@@ -1405,7 +1479,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             vista_medication_with_refill_status['refillStatus'] = 'active'
             vista_medication_with_refill_status['dispStatus'] = nil
 
-            result = adapter.parse(vista_only_body)
+            result = adapter.parse(vista_only_body)[:prescriptions]
 
             expect(result.first.disp_status).to eq('Active')
           end
@@ -1414,7 +1488,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             vista_medication_with_refill_status['refillStatus'] = 'expired'
             vista_medication_with_refill_status['dispStatus'] = nil
 
-            result = adapter.parse(vista_only_body)
+            result = adapter.parse(vista_only_body)[:prescriptions]
 
             expect(result.first.disp_status).to eq('Inactive')
           end
@@ -1423,7 +1497,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             vista_medication_with_refill_status['refillStatus'] = 'discontinued'
             vista_medication_with_refill_status['dispStatus'] = nil
 
-            result = adapter.parse(vista_only_body)
+            result = adapter.parse(vista_only_body)[:prescriptions]
 
             expect(result.first.disp_status).to eq('Inactive')
           end
@@ -1432,7 +1506,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             vista_medication_with_refill_status['refillStatus'] = 'hold'
             vista_medication_with_refill_status['dispStatus'] = nil
 
-            result = adapter.parse(vista_only_body)
+            result = adapter.parse(vista_only_body)[:prescriptions]
 
             expect(result.first.disp_status).to eq('Inactive')
           end
@@ -1441,7 +1515,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
             vista_medication_with_refill_status['refillStatus'] = 'submitted'
             vista_medication_with_refill_status['dispStatus'] = nil
 
-            result = adapter.parse(vista_only_body)
+            result = adapter.parse(vista_only_body)[:prescriptions]
 
             expect(result.first.disp_status).to eq('In progress')
           end
@@ -1452,7 +1526,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
         it 'maps active (with refills) to Active' do
           oracle_medication_request['status'] = 'active'
 
-          result = adapter.parse(oracle_only_body)
+          result = adapter.parse(oracle_only_body)[:prescriptions]
 
           expect(result.first.disp_status).to eq('Active')
         end
@@ -1460,7 +1534,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
         it 'maps on-hold to Inactive (V2 mapped from Active: On hold)' do
           oracle_medication_request['status'] = 'on-hold'
 
-          result = adapter.parse(oracle_only_body)
+          result = adapter.parse(oracle_only_body)[:prescriptions]
 
           expect(result.first.disp_status).to eq('Inactive')
         end
@@ -1468,7 +1542,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
         it 'maps stopped/discontinued to Inactive' do
           oracle_medication_request['status'] = 'stopped'
 
-          result = adapter.parse(oracle_only_body)
+          result = adapter.parse(oracle_only_body)[:prescriptions]
 
           expect(result.first.disp_status).to eq('Inactive')
         end
@@ -1476,7 +1550,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
 
       context 'combined VistA and Oracle Health prescriptions' do
         it 'applies V2 status mapping to ALL prescriptions from both sources' do
-          result = adapter.parse(combined_body)
+          result = adapter.parse(combined_body)[:prescriptions]
 
           # All prescriptions should have V2 status values
           v2_statuses = ['Active', 'In progress', 'Inactive', 'Transferred', 'Status not available']
@@ -1494,13 +1568,13 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
                                            'medication' => [vista_medication_with_refill_status]
                                          }
                                        }
-                                     })
+                                     })[:prescriptions]
 
           oracle_only = adapter.parse({
                                         'oracle-health' => {
                                           'entry' => [{ 'resource' => oracle_medication_request }]
                                         }
-                                      })
+                                      })[:prescriptions]
 
           # Both should have V2 status values
           v2_statuses = ['Active', 'In progress', 'Inactive', 'Transferred', 'Status not available']
@@ -1520,7 +1594,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
                                        'medication' => [vista_medication_with_refill_status]
                                      }
                                    }
-                                 })
+                                 })[:prescriptions]
 
           # V2 mapping: 'Active: Refill in Process' -> 'In progress'
           expect(result.first.disp_status).to eq('In progress')
@@ -1550,7 +1624,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
                                      'medication' => [edge_case_vista_medication]
                                    }
                                  }
-                               })
+                               })[:prescriptions]
 
         # When both are nil, disp_status stays nil (no derivation or mapping happens)
         expect(result.first.disp_status).to be_nil
@@ -1566,7 +1640,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
                                      'medication' => [edge_case_vista_medication]
                                    }
                                  }
-                               })
+                               })[:prescriptions]
 
         # Empty string is treated as blank, stays as-is
         expect(result.first.disp_status).to eq('')
@@ -1582,7 +1656,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
                                      'medication' => [edge_case_vista_medication]
                                    }
                                  }
-                               })
+                               })[:prescriptions]
 
         # Case-insensitive matching: 'ACTIVE' -> 'Active' (V2)
         expect(result.first.disp_status).to eq('Active')

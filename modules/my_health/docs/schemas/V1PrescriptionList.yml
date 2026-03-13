@@ -1,0 +1,98 @@
+type: object
+required:
+  - data
+  - meta
+properties:
+  data:
+    type: array
+    items:
+      $ref: "./PrescriptionDetail.yml"
+  links:
+    type: object
+    nullable: true
+    properties:
+      self:
+        type: string
+        example: "https://api.va.gov/my_health/v1/prescriptions?page=1&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+      first:
+        type: string
+        example: "https://api.va.gov/my_health/v1/prescriptions?page=1&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+      prev:
+        type: string
+        nullable: true
+        example: null
+      next:
+        type: string
+        nullable: true
+        example: "https://api.va.gov/my_health/v1/prescriptions?page=2&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+      last:
+        type: string
+        example: "https://api.va.gov/my_health/v1/prescriptions?page=9&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+  meta:
+    type: object
+    required:
+      - filter_count
+      - recently_requested
+    properties:
+      updated_at:
+        type: string
+        nullable: true
+        description: Timestamp of the last MHV data update
+        example: "2025-06-15T10:30:00Z"
+      failed_station_list:
+        type: string
+        nullable: true
+        description: Comma-separated list of VistA stations that failed to respond
+        example: "Station-979,Station-442"
+      filter_count:
+        type: object
+        description: Medication counts by filter category
+        properties:
+          all_medications:
+            type: integer
+            example: 25
+          active:
+            type: integer
+            example: 10
+          recently_requested:
+            type: integer
+            description: Count of prescriptions with in-progress refill status
+            example: 3
+          renewal:
+            type: integer
+            example: 1
+          non_active:
+            type: integer
+            example: 4
+      recently_requested:
+        type: array
+        items:
+          $ref: "./PrescriptionDetail.yml"
+        description: "Prescriptions with status \"Active: Refill in Process\" or \"Active: Submitted\""
+      sort:
+        type: object
+        properties:
+          dispStatus:
+            type: string
+            enum: [DESC, ASC]
+          dispensedDate:
+            type: string
+            enum: [DESC, ASC]
+          prescriptionName:
+            type: string
+            enum: [DESC, ASC]
+      pagination:
+        type: object
+        properties:
+          currentPage:
+            type: integer
+            example: 1
+          perPage:
+            type: integer
+            example: 10
+          totalPages:
+            type: integer
+            example: 2
+          totalEntries:
+            type: integer
+            example: 15

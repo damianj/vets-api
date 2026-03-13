@@ -1243,6 +1243,33 @@ RSpec.describe 'MyHealth::V2::Prescriptions', type: :request do
     end
   end
 
+  describe 'GET /my_health/v2/prescriptions has_failed_stations meta' do
+    before do
+      allow(Flipper).to receive(:enabled?).with(:mhv_medications_cerner_pilot, anything).and_return(true)
+    end
+
+    it 'includes has_failed_stations: false in meta when all sources succeed' do
+      VCR.use_cassette('unified_health_data/get_prescriptions_success', match_requests_on: %i[method path]) do
+        get('/my_health/v2/prescriptions', headers:)
+
+        json_response = JSON.parse(response.body)
+        expect(json_response['meta']).to have_key('has_failed_stations')
+        expect(json_response['meta']['has_failed_stations']).to be false
+      end
+    end
+
+    it 'includes has_failed_stations: true in meta when VistA has partial failure' do
+      VCR.use_cassette('unified_health_data/get_prescriptions_vista_partial_failure',
+                       match_requests_on: %i[method path]) do
+        get('/my_health/v2/prescriptions', headers:)
+
+        json_response = JSON.parse(response.body)
+        expect(json_response['meta']).to have_key('has_failed_stations')
+        expect(json_response['meta']['has_failed_stations']).to be true
+      end
+    end
+  end
+
   describe 'GET /my_health/v2/prescriptions/list_refillable_prescriptions' do
     context 'when feature flag is disabled' do
       it 'returns forbidden' do

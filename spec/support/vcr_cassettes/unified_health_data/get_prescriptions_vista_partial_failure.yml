@@ -110,6 +110,6 @@ http_interactions:
       - max-age=16000000; includeSubDomains; preload;
     body:
       encoding: ASCII-8BIT
-      string: '{"vista":{},"oracle-health":{}}'
+      string: '{"vista":{"failedStationList":"Station-979,Station-442","successfulStationList":null,"lastUpdatedTime":"Fri, 19 Sep 2025 17:40:22 EST","medicationList":null,"errors":[],"infoMessages":[]},"oracle-health":{}}'
   recorded_at: Fri, 19 Sep 2025 22:40:20 GMT
 recorded_with: VCR 6.3.1

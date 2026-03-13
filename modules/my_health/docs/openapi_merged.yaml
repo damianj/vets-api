@@ -1349,7 +1349,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Errors'
-          description: Bad Gateway – upstream secure messaging service error
+          description: Bad Gateway - upstream service error
       summary: /v1/messaging/messages/oh_sync_status
       parameters:
         - $ref: '#/components/parameters/InflectionHeader'
@@ -1850,7 +1850,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PrescriptionList'
+                $ref: '#/components/schemas/V1PrescriptionList'
           description: OK
         '401':
           content:
@@ -1936,7 +1936,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PrescriptionList'
+                $ref: '#/components/schemas/V1PrescriptionList'
           description: OK
         '401':
           content:
@@ -2262,7 +2262,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PrescriptionList'
+                $ref: '#/components/schemas/V2PrescriptionList'
           description: OK
         '401':
           content:
@@ -3463,7 +3463,7 @@ components:
         category:
           type: string
           description: |
-            Message category. This must be one of the values returned by the
+            Message category. This must be one of the values returned by the 
             <pre>/v1/messaging/messages/categories</pre> endpoint.
           example: OTHER
         body:
@@ -4716,7 +4716,7 @@ components:
             self:
               type: string
               example: https://api.va.gov/my_health/v1/prescriptions/22377949
-    PrescriptionList:
+    V1PrescriptionList:
       type: object
       required:
         - data
@@ -4732,33 +4732,64 @@ components:
           properties:
             self:
               type: string
-              example: https://api.va.gov/my_health/v1/prescriptions?page=1&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+              example: https://api.va.gov/my_health/v1/prescriptions?page=1&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date
             first:
               type: string
-              example: https://api.va.gov/my_health/v1/prescriptions?page=1&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+              example: https://api.va.gov/my_health/v1/prescriptions?page=1&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date
             prev:
               type: string
               nullable: true
-              example: https://api.va.gov/my_health/v1/prescriptions?page=2&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+              example: null
             next:
               type: string
               nullable: true
-              example: https://api.va.gov/my_health/v1/prescriptions?page=2&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+              example: https://api.va.gov/my_health/v1/prescriptions?page=2&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date
             last:
               type: string
-              example: https://api.va.gov/my_health/v1/prescriptions?page=9&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date"
+              example: https://api.va.gov/my_health/v1/prescriptions?page=9&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date
         meta:
           type: object
           required:
-            - sort
-            - pagination
+            - filter_count
+            - recently_requested
           properties:
+            updated_at:
+              type: string
+              nullable: true
+              description: Timestamp of the last MHV data update
+              example: '2025-06-15T10:30:00Z'
+            failed_station_list:
+              type: string
+              nullable: true
+              description: Comma-separated list of VistA stations that failed to respond
+              example: Station-979,Station-442
+            filter_count:
+              type: object
+              description: Medication counts by filter category
+              properties:
+                all_medications:
+                  type: integer
+                  example: 25
+                active:
+                  type: integer
+                  example: 10
+                recently_requested:
+                  type: integer
+                  description: Count of prescriptions with in-progress refill status
+                  example: 3
+                renewal:
+                  type: integer
+                  example: 1
+                non_active:
+                  type: integer
+                  example: 4
+            recently_requested:
+              type: array
+              items:
+                $ref: '#/components/schemas/PrescriptionDetail'
+              description: 'Prescriptions with status "Active: Refill in Process" or "Active: Submitted"'
             sort:
               type: object
-              required:
-                - dispStatus
-                - dispensedDate
-                - prescriptionName
               properties:
                 dispStatus:
                   type: string
@@ -4777,11 +4808,6 @@ components:
                     - ASC
             pagination:
               type: object
-              required:
-                - currentPage
-                - perPage
-                - totalPages
-                - totalEntries
               properties:
                 currentPage:
                   type: integer
@@ -4795,12 +4821,6 @@ components:
                 totalEntries:
                   type: integer
                   example: 15
-            updatedAt:
-              type: string
-              example: Wed, 28 Feb 2024 09:58:42 EST
-            failedStationList:
-              type: string
-              nullable: true
     Prescription:
       type: object
       required:
@@ -5038,6 +5058,114 @@ components:
           - id
           - type
           - attributes
+    V2PrescriptionList:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrescriptionDetail'
+        links:
+          type: object
+          nullable: true
+          properties:
+            self:
+              type: string
+              example: https://api.va.gov/my_health/v2/prescriptions?page=1&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date
+            first:
+              type: string
+              example: https://api.va.gov/my_health/v2/prescriptions?page=1&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date
+            prev:
+              type: string
+              nullable: true
+              example: null
+            next:
+              type: string
+              nullable: true
+              example: https://api.va.gov/my_health/v2/prescriptions?page=2&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date
+            last:
+              type: string
+              example: https://api.va.gov/my_health/v2/prescriptions?page=9&per_page=20&sort%5B%5D=disp_status&sort%5B%5D=prescription_name&sort%5B%5D=dispensed_date
+        meta:
+          type: object
+          required:
+            - filter_count
+            - recently_requested
+            - has_failed_stations
+          properties:
+            has_failed_stations:
+              type: boolean
+              description: Whether any data source (VistA or Oracle Health) had errors or returned incomplete results
+              example: false
+            filter_count:
+              type: object
+              description: Medication counts by filter category
+              properties:
+                all_medications:
+                  type: integer
+                  example: 25
+                active:
+                  type: integer
+                  example: 10
+                in_progress:
+                  type: integer
+                  example: 3
+                shipped:
+                  type: integer
+                  example: 2
+                renewable:
+                  type: integer
+                  example: 5
+                inactive:
+                  type: integer
+                  example: 4
+                transferred:
+                  type: integer
+                  example: 0
+                status_not_available:
+                  type: integer
+                  example: 1
+            recently_requested:
+              type: array
+              items:
+                $ref: '#/components/schemas/PrescriptionDetail'
+              description: Prescriptions with an in-progress dispensing status
+            sort:
+              type: object
+              properties:
+                dispStatus:
+                  type: string
+                  enum:
+                    - DESC
+                    - ASC
+                dispensedDate:
+                  type: string
+                  enum:
+                    - DESC
+                    - ASC
+                prescriptionName:
+                  type: string
+                  enum:
+                    - DESC
+                    - ASC
+            pagination:
+              type: object
+              properties:
+                currentPage:
+                  type: integer
+                  example: 1
+                perPage:
+                  type: integer
+                  example: 10
+                totalPages:
+                  type: integer
+                  example: 2
+                totalEntries:
+                  type: integer
+                  example: 15
     PrescriptionRefillRequest:
       type: array
       description: Array of prescription orders to refill

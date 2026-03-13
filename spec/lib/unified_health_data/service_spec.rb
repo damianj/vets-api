@@ -1813,7 +1813,7 @@ describe UnifiedHealthData::Service, type: :service do
 
       it 'returns prescriptions from both VistA and Oracle Health' do
         VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-          prescriptions = service.get_prescriptions
+          prescriptions = service.get_prescriptions[:prescriptions]
           expect(prescriptions.size).to eq(22)
 
           # Check that prescriptions are UnifiedHealthData::Prescription objects
@@ -1834,7 +1834,7 @@ describe UnifiedHealthData::Service, type: :service do
           # Using a fixed date ensures the 180-day filtering logic is consistent
           Timecop.freeze(Time.zone.parse('2025-11-27')) do
             VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-              filtered_prescriptions = service.get_prescriptions(current_only: true)
+              filtered_prescriptions = service.get_prescriptions(current_only: true)[:prescriptions]
               expect(filtered_prescriptions.size).to eq(22)
             end
           end
@@ -1843,7 +1843,7 @@ describe UnifiedHealthData::Service, type: :service do
 
       it 'properly maps VistA prescription fields' do
         VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-          prescriptions = service.get_prescriptions
+          prescriptions = service.get_prescriptions[:prescriptions]
           vista_prescription = prescriptions.find { |p| p.prescription_id == '26305871' }
 
           expect(vista_prescription.refill_status).to eq('active')
@@ -1861,7 +1861,7 @@ describe UnifiedHealthData::Service, type: :service do
 
       it 'properly maps Oracle Health prescription fields' do
         VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-          prescriptions = service.get_prescriptions
+          prescriptions = service.get_prescriptions[:prescriptions]
           oracle_prescription = prescriptions.find { |p| p.prescription_id == '20848812135' }
 
           expect(oracle_prescription.refill_status).to eq('submitted')
@@ -1888,7 +1888,7 @@ describe UnifiedHealthData::Service, type: :service do
 
       it 'maps completed status to discontinued or expired' do
         VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-          prescriptions = service.get_prescriptions
+          prescriptions = service.get_prescriptions[:prescriptions]
           completed_prescription = prescriptions.find { |p| p.prescription_id == '20848863583' }
 
           expect(completed_prescription.refill_status).to be_in(%w[discontinued expired])
@@ -1899,7 +1899,7 @@ describe UnifiedHealthData::Service, type: :service do
 
       it 'handles different refill statuses correctly' do
         VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-          prescriptions = service.get_prescriptions
+          prescriptions = service.get_prescriptions[:prescriptions]
 
           active_prescription = prescriptions.find { |p| p.prescription_id == '26305871' }
           discontinued_prescription = prescriptions.find { |p| p.prescription_id == '26305874' }
@@ -1911,7 +1911,7 @@ describe UnifiedHealthData::Service, type: :service do
 
       it 'properly handles Oracle Health FHIR features' do
         VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-          prescriptions = service.get_prescriptions
+          prescriptions = service.get_prescriptions[:prescriptions]
 
           # Test prescription with patientInstruction (should prefer over text)
           oracle_prescription_with_patient_instruction = prescriptions.find { |p| p.prescription_id == '20848812135' }
@@ -1928,7 +1928,7 @@ describe UnifiedHealthData::Service, type: :service do
       context 'Task resource parsing' do
         it 'sets refill_status to submitted when a valid Task exists' do
           VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-            prescriptions = service.get_prescriptions
+            prescriptions = service.get_prescriptions[:prescriptions]
             # Prescription 20848812135 has a Task with status='requested' and intent='order'
             submitted_prescription = prescriptions.find { |p| p.prescription_id == '20848812135' }
 
@@ -1938,7 +1938,7 @@ describe UnifiedHealthData::Service, type: :service do
 
         it 'sets disp_status to Active: Submitted when a valid Task exists' do
           VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-            prescriptions = service.get_prescriptions
+            prescriptions = service.get_prescriptions[:prescriptions]
             # Prescription 20848812135 has a Task with status='requested' and intent='order'
             submitted_prescription = prescriptions.find { |p| p.prescription_id == '20848812135' }
 
@@ -1948,7 +1948,7 @@ describe UnifiedHealthData::Service, type: :service do
 
         it 'sets refill_submit_date from Task executionPeriod.start' do
           VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-            prescriptions = service.get_prescriptions
+            prescriptions = service.get_prescriptions[:prescriptions]
             # Prescription 20848812135 has a Task with executionPeriod.start='2025-11-26T15:55:17+00:00'
             submitted_prescription = prescriptions.find { |p| p.prescription_id == '20848812135' }
 
@@ -1958,7 +1958,7 @@ describe UnifiedHealthData::Service, type: :service do
 
         it 'ignores Tasks with failed status' do
           VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-            prescriptions = service.get_prescriptions
+            prescriptions = service.get_prescriptions[:prescriptions]
             # Prescription 20848650695 has multiple Tasks but all have status='failed'
             failed_task_prescription = prescriptions.find { |p| p.prescription_id == '20848650695' }
 
@@ -1971,7 +1971,7 @@ describe UnifiedHealthData::Service, type: :service do
 
         it 'sets disp_status to Active (not Active: Submitted) when Tasks are failed' do
           VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-            prescriptions = service.get_prescriptions
+            prescriptions = service.get_prescriptions[:prescriptions]
             # Prescription 20848650695 has multiple Tasks but all have status='failed'
             failed_task_prescription = prescriptions.find { |p| p.prescription_id == '20848650695' }
 
@@ -1981,7 +1981,7 @@ describe UnifiedHealthData::Service, type: :service do
 
         it 'does not affect prescriptions without any Tasks' do
           VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-            prescriptions = service.get_prescriptions
+            prescriptions = service.get_prescriptions[:prescriptions]
             # VistA prescription 26305871 should have no Task resources
             vista_prescription = prescriptions.find { |p| p.prescription_id == '26305871' }
 
@@ -2020,7 +2020,7 @@ describe UnifiedHealthData::Service, type: :service do
         context 'VistA prescriptions' do
           it 'computes is_renewable based on dispStatus and refillRemaining instead of upstream isRenewable' do
             VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-              prescriptions = service.get_prescriptions
+              prescriptions = service.get_prescriptions[:prescriptions]
 
               # 26305871: dispStatus='Active', refillRemaining=5, upstream isRenewable=true
               # Computed: false (has refills remaining)
@@ -2053,7 +2053,7 @@ describe UnifiedHealthData::Service, type: :service do
 
           it 'returns false when refills remaining > 0 (Gate 6)' do
             VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-              prescriptions = service.get_prescriptions
+              prescriptions = service.get_prescriptions[:prescriptions]
 
               # 20848812135: status='active', intent='order', refills=2, has completed dispenses
               # Fails Gate 6: Still has 2 refills remaining, prescription not expired
@@ -2064,7 +2064,7 @@ describe UnifiedHealthData::Service, type: :service do
 
           it 'returns false when no dispenses exist (Gate 3)' do
             VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-              prescriptions = service.get_prescriptions
+              prescriptions = service.get_prescriptions[:prescriptions]
 
               # 20848639997: status='active', intent='plan', refills=0
               # containedCount=1 but contains Encounter, not MedicationDispense
@@ -2076,7 +2076,7 @@ describe UnifiedHealthData::Service, type: :service do
 
           it 'returns false when status is not active (Gate 1)' do
             VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-              prescriptions = service.get_prescriptions
+              prescriptions = service.get_prescriptions[:prescriptions]
 
               # 20848863583: status='completed', intent='order', refills=0, has dispenses
               # Fails Gate 1: Status is 'completed', not 'active'
@@ -2087,7 +2087,7 @@ describe UnifiedHealthData::Service, type: :service do
 
           it 'returns false when dispense is in-progress (Gate 7 - no active processing)' do
             VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-              prescriptions = service.get_prescriptions
+              prescriptions = service.get_prescriptions[:prescriptions]
 
               # 20849028695: status='active', intent='order', refills=0
               # contained[0] has MedicationDispense with status='in-progress'
@@ -2106,7 +2106,7 @@ describe UnifiedHealthData::Service, type: :service do
           allow(Rails.cache).to receive(:exist?).with('uhd:facility_names:668').and_return(true)
 
           VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-            prescriptions = service.get_prescriptions
+            prescriptions = service.get_prescriptions[:prescriptions]
             oracle_prescription = prescriptions.find { |p| p.prescription_id == '20848812135' }
 
             expect(oracle_prescription.facility_name).to eq('Cached Facility Name')
@@ -2124,7 +2124,7 @@ describe UnifiedHealthData::Service, type: :service do
           allow(mock_client).to receive(:get_facilities).with(facilityIds: 'vha_668').and_return([mock_facility])
 
           VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-            prescriptions = service.get_prescriptions
+            prescriptions = service.get_prescriptions[:prescriptions]
             oracle_prescription = prescriptions.find { |p| p.prescription_id == '20848812135' }
 
             expect(oracle_prescription.facility_name).to eq('API Retrieved Facility')
@@ -2145,7 +2145,7 @@ describe UnifiedHealthData::Service, type: :service do
           allow(mock_client).to receive(:get_facilities).and_raise(StandardError, 'API unavailable')
 
           VCR.use_cassette('unified_health_data/get_prescriptions_success') do
-            prescriptions = service.get_prescriptions
+            prescriptions = service.get_prescriptions[:prescriptions]
             oracle_prescription = prescriptions.find { |p| p.prescription_id == '20848812135' }
 
             expect(oracle_prescription.facility_name).to be_nil
@@ -2178,10 +2178,11 @@ describe UnifiedHealthData::Service, type: :service do
     end
 
     context 'with empty response', :vcr do
-      it 'returns empty array for nil response' do
+      it 'returns empty prescriptions for empty response' do
         VCR.use_cassette('unified_health_data/get_prescriptions_empty') do
           result = service.get_prescriptions
-          expect(result).to eq([])
+          expect(result[:prescriptions]).to eq([])
+          expect(result[:metadata]).to eq({ has_failed_stations: false })
         end
       end
     end
@@ -2205,7 +2206,7 @@ describe UnifiedHealthData::Service, type: :service do
 
       it 'handles Oracle Health-only data without errors' do
         VCR.use_cassette('unified_health_data/get_prescriptions_oracle_only') do
-          prescriptions = service.get_prescriptions
+          prescriptions = service.get_prescriptions[:prescriptions]
           expect(prescriptions.size).to eq(34)
           expect(prescriptions.map(&:prescription_id)).to contain_exactly(
             '15214174591', '15215168033', '15216187241', '15215488543', '15214174423', '15215979885',
@@ -2217,6 +2218,28 @@ describe UnifiedHealthData::Service, type: :service do
             '15214282323', '15214661111', '15214192877',
             '15214103419', '15213928373', '15214166467'
           )
+        end
+      end
+    end
+
+    context 'metadata' do
+      it 'always returns a hash with prescriptions and metadata' do
+        VCR.use_cassette('unified_health_data/get_prescriptions_success') do
+          result = service.get_prescriptions
+
+          expect(result).to be_a(Hash)
+          expect(result[:prescriptions]).to be_an(Array)
+          expect(result[:metadata]).to have_key(:has_failed_stations)
+          expect(result[:metadata][:has_failed_stations]).to be false
+        end
+      end
+
+      it 'returns has_failed_stations: true when VistA has partial failure' do
+        VCR.use_cassette('unified_health_data/get_prescriptions_vista_partial_failure') do
+          result = service.get_prescriptions
+
+          expect(result).to be_a(Hash)
+          expect(result[:metadata][:has_failed_stations]).to be true
         end
       end
     end

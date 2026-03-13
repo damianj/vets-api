@@ -70,7 +70,10 @@ module MyHealth
       def index
         return unless validate_feature_flag
 
-        prescriptions = service.get_prescriptions(current_only: false).compact
+        result = service.get_prescriptions(current_only: false)
+        prescriptions = result[:prescriptions].compact
+        source_metadata = result[:metadata]
+
         recently_requested = get_recently_requested_prescriptions(prescriptions)
         raw_data = prescriptions.dup
         prescriptions = resource_data_modifications(prescriptions).compact
@@ -79,6 +82,7 @@ module MyHealth
         prescriptions, sort_metadata = apply_filters_and_sorting(prescriptions)
 
         records, options = build_response_data(prescriptions, filter_count, recently_requested, sort_metadata)
+        options[:meta] = options[:meta].merge(source_metadata)
 
         log_prescriptions_access
         render json: MyHealth::V2::PrescriptionDetailsSerializer.new(records, options)
@@ -89,7 +93,7 @@ module MyHealth
 
         raise Common::Exceptions::ParameterMissing, 'station_number' if params[:station_number].blank?
 
-        prescriptions = service.get_prescriptions(current_only: false).compact
+        prescriptions = service.get_prescriptions(current_only: false)[:prescriptions].compact
         prescription = prescriptions.find do |p|
           p.prescription_id.to_s == params[:id].to_s &&
             p.station_number.to_s == params[:station_number].to_s
@@ -103,7 +107,7 @@ module MyHealth
       def list_refillable_prescriptions
         return unless validate_feature_flag
 
-        prescriptions = service.get_prescriptions(current_only: false).compact
+        prescriptions = service.get_prescriptions(current_only: false)[:prescriptions].compact
         recently_requested = get_recently_requested_prescriptions(prescriptions)
         refillable_prescriptions = filter_data_by_refill_and_renew(prescriptions)
 
