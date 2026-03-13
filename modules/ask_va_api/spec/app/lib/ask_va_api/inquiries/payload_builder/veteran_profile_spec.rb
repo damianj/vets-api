@@ -101,6 +101,7 @@ RSpec.describe AskVAApi::Inquiries::PayloadBuilder::VeteranProfile do
             street3: 'Building 5',
             unit_number: 'Unit 10'
           },
+          your_branch_of_service: 'Army',
           relationship_to_veteran: "I'm the Veteran",
           business_email: 'business@example.com',
           business_phone: '123-456-7890',
@@ -151,7 +152,7 @@ RSpec.describe AskVAApi::Inquiries::PayloadBuilder::VeteranProfile do
           SchoolState: 'CA',
           SchoolFacilityCode: '123456',
           SchoolId: nil,
-          BranchOfService: nil,
+          BranchOfService: 'Army',
           SSN: '123456799',
           EDIPI: '123',
           ICN: '234',

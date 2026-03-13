@@ -96,6 +96,7 @@ en:
           - :your_postal_code
           - :your_health_facility
           - :your_location_of_residence
+          - :your_branch_of_service
           - :your_role
           - :your_role_education
           - :your_vre_counselor
