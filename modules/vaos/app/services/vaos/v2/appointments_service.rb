@@ -16,6 +16,8 @@ module VAOS
       AVS_BINARY_ERROR_MESSAGE = 'Error retrieving AVS binary'
       AVS_BINARY_EMPTY_MESSAGE = 'Retrieved empty AVS binary'
       MANILA_PHILIPPINES_FACILITY_ID = '358'
+      POST_APPOINTMENT_METRIC = 'api.vaos.post_appointment'
+      VALID_SYSTEM_TYPES = %w[vista cerner hsrm].freeze
 
       APPOINTMENTS_USE_VPG = :va_online_scheduling_use_vpg
       APPOINTMENTS_FETCH_OH_AVS = :va_online_scheduling_add_OH_avs
@@ -282,11 +284,14 @@ module VAOS
       def post_appointment(request_object_body)
         raise ArgumentError, 'no ICN passed in for VAOS::V2::PostAppointment request' if user.icn.blank?
 
+        appt_context = build_appointment_context(request_object_body)
+
         filtered_reason_code_text = filter_reason_code_text(request_object_body)
         request_object_body[:reason_code][:text] = filtered_reason_code_text if filtered_reason_code_text.present?
 
         params = VAOS::V2::AppointmentForm.new(user, request_object_body).params.with_indifferent_access
         params.compact_blank!
+
         with_monitoring do
           response = if params[:status] == 'proposed'
                        create_appointment_request(params)
@@ -311,9 +316,13 @@ module VAOS
           # Remove covid service type per GH#128004
           remove_service_type(new_appointment) if covid?(new_appointment)
           set_type_of_care(new_appointment)
+
+          log_post_appointment_success(appt_context)
+
           OpenStruct.new(new_appointment)
         rescue Common::Exceptions::BackendServiceException => e
           log_direct_schedule_submission_errors(e) if booked?(params)
+          log_post_appointment_failure(appt_context, e)
           raise e
         end
       end
@@ -1868,6 +1877,73 @@ module VAOS
                                                                                                     caller_name)
                                                     })
         }
+      end
+
+      ##
+      # Builds contextual data for appointment logging and metrics.
+      #
+      # @param request_body [Hash] the appointment request body
+      # @return [Hash] context with scheduling_type, kind, system_type, service_type, and facility_id
+      #
+      def build_appointment_context(request_body)
+        # Handle both Hash and ActionController::Parameters
+        body = request_body.to_h.with_indifferent_access
+        {
+          scheduling_type: body[:status] == 'booked' ? 'direct' : 'request',
+          kind: body[:kind] || 'unknown',
+          system_type: normalize_system_type(body[:system_type]),
+          service_type: body[:service_type] || 'unknown',
+          facility_id: body[:location_id] || 'unknown'
+        }
+      end
+
+      ##
+      # Normalizes system_type to an allowlisted value to prevent high-cardinality tags.
+      #
+      # @param value [String, nil] the raw system_type value from the request
+      # @return [String] normalized value: 'vista', 'cerner', 'hsrm', or 'unknown'
+      #
+      def normalize_system_type(value)
+        normalized = value.to_s.downcase.strip.presence
+        VALID_SYSTEM_TYPES.include?(normalized) ? normalized : 'unknown'
+      end
+
+      ##
+      # Records metrics for successful appointment creation.
+      #
+      # @param context [Hash] the appointment context
+      #
+      def log_post_appointment_success(context)
+        tags = build_metric_tags(context)
+        StatsD.increment("#{POST_APPOINTMENT_METRIC}.success", tags:)
+      end
+
+      ##
+      # Records metrics for failed appointment creation.
+      #
+      # @param context [Hash] the appointment context
+      # @param error [Exception] the error that occurred
+      #
+      def log_post_appointment_failure(context, error)
+        tags = build_metric_tags(context)
+        tags << "error_type:#{error.class.name.demodulize.underscore}"
+        StatsD.increment("#{POST_APPOINTMENT_METRIC}.failure", tags:)
+      end
+
+      ##
+      # Builds StatsD tags from appointment context.
+      #
+      # @param context [Hash] the appointment context
+      # @return [Array<String>] array of tag strings for StatsD
+      #
+      def build_metric_tags(context)
+        [
+          "scheduling_type:#{context[:scheduling_type]}",
+          "kind:#{context[:kind]}",
+          "system_type:#{context[:system_type]}",
+          "service_type:#{context[:service_type]}",
+          "facility_id:#{context[:facility_id]}"
+        ]
       end
     end
   end

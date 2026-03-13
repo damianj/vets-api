@@ -85,6 +85,17 @@ describe VAOS::V2::AppointmentsService do
       build(:appointment_form_v2, :community_cares, user:).attributes
     end
 
+    # Shared helper for VCR cassettes commonly used in post_appointment success tests
+    def with_post_appointment_vcr_cassettes(cassette_name = 'post_appointments_va_booked_200_JACQUELINE_M', &block)
+      VCR.use_cassette("vaos/v2/appointments/#{cassette_name}", match_requests_on: %i[method path query]) do
+        VCR.use_cassette('vaos/v2/mobile_facility_service/get_facility_200',
+                         match_requests_on: %i[method path query]) do
+          VCR.use_cassette('vaos/v2/mobile_facility_service/get_clinic_200',
+                           match_requests_on: %i[method path query], &block)
+        end
+      end
+    end
+
     context 'using VAOS' do
       before do
         allow(Flipper).to receive(:enabled?).with(:va_online_scheduling_use_vpg, instance_of(User)).and_return(false)
@@ -142,6 +153,99 @@ describe VAOS::V2::AppointmentsService do
             end
           end
         end
+
+        it 'records metrics with appointment context on success' do
+          with_post_appointment_vcr_cassettes do
+            allow(StatsD).to receive(:increment)
+            expect(StatsD).to receive(:increment).with(
+              'api.vaos.post_appointment.success',
+              tags: array_including(
+                'scheduling_type:direct',
+                'kind:clinic',
+                'facility_id:983'
+              )
+            )
+
+            subject.post_appointment(va_booked_request_body)
+          end
+        end
+
+        it 'includes system_type in metrics when provided in request' do
+          with_post_appointment_vcr_cassettes do
+            request_with_system_type = va_booked_request_body.with_indifferent_access.merge(system_type: 'vista')
+
+            allow(StatsD).to receive(:increment)
+            expect(StatsD).to receive(:increment).with(
+              'api.vaos.post_appointment.success',
+              tags: array_including('system_type:vista')
+            )
+
+            subject.post_appointment(request_with_system_type)
+          end
+        end
+
+        it 'normalizes invalid system_type to unknown for metrics' do
+          with_post_appointment_vcr_cassettes do
+            # Use a malicious/invalid system_type value
+            request_with_invalid_system_type = va_booked_request_body.with_indifferent_access.merge(
+              system_type: 'malicious_value_123'
+            )
+
+            allow(StatsD).to receive(:increment)
+            expect(StatsD).to receive(:increment).with(
+              'api.vaos.post_appointment.success',
+              tags: array_including('system_type:unknown')
+            )
+
+            subject.post_appointment(request_with_invalid_system_type)
+          end
+        end
+
+        it 'normalizes blank system_type to unknown for metrics' do
+          with_post_appointment_vcr_cassettes do
+            # Use a blank system_type value
+            request_with_blank_system_type = va_booked_request_body.with_indifferent_access.merge(
+              system_type: '   '
+            )
+
+            allow(StatsD).to receive(:increment)
+            expect(StatsD).to receive(:increment).with(
+              'api.vaos.post_appointment.success',
+              tags: array_including('system_type:unknown')
+            )
+
+            subject.post_appointment(request_with_blank_system_type)
+          end
+        end
+
+        it 'normalizes system_type case-insensitively' do
+          with_post_appointment_vcr_cassettes do
+            # Use uppercase system_type
+            request_with_uppercase_system_type = va_booked_request_body.with_indifferent_access.merge(
+              system_type: 'CERNER'
+            )
+
+            allow(StatsD).to receive(:increment)
+            expect(StatsD).to receive(:increment).with(
+              'api.vaos.post_appointment.success',
+              tags: array_including('system_type:cerner')
+            )
+
+            subject.post_appointment(request_with_uppercase_system_type)
+          end
+        end
+
+        it 'records scheduling_type:request for proposed appointments' do
+          with_post_appointment_vcr_cassettes('post_appointments_va_proposed_clinic_200') do
+            allow(StatsD).to receive(:increment)
+            expect(StatsD).to receive(:increment).with(
+              'api.vaos.post_appointment.success',
+              tags: array_including('scheduling_type:request')
+            )
+
+            subject.post_appointment(va_proposed_clinic_request_body)
+          end
+        end
       end
 
       context 'when cc appointment create request is valid' do
@@ -178,6 +282,47 @@ describe VAOS::V2::AppointmentsService do
             )
             expect(Rails.logger).to have_received(:warn).with('Direct schedule submission error',
                                                               any_args).at_least(:once)
+          end
+        end
+
+        it 'records metrics with appointment context on failure' do
+          VCR.use_cassette('vaos/v2/appointments/post_appointments_400', match_requests_on: %i[method path query]) do
+            allow(StatsD).to receive(:increment)
+            expect(StatsD).to receive(:increment).with(
+              'api.vaos.post_appointment.failure',
+              tags: array_including(
+                'scheduling_type:direct',
+                'kind:clinic',
+                a_string_matching(/^service_type:/),
+                a_string_matching(/^facility_id:/),
+                a_string_matching(/^error_type:/)
+              )
+            )
+
+            expect { subject.post_appointment(va_booked_request_body) }.to raise_error(
+              Common::Exceptions::BackendServiceException
+            )
+          end
+        end
+      end
+
+      context 'when a request appointment submission fails' do
+        it 'records scheduling_type:request in failure metrics' do
+          VCR.use_cassette('vaos/v2/appointments/post_appointments_400', match_requests_on: %i[method path query]) do
+            allow(StatsD).to receive(:increment)
+            expect(StatsD).to receive(:increment).with(
+              'api.vaos.post_appointment.failure',
+              tags: array_including(
+                'scheduling_type:request',
+                a_string_matching(/^service_type:/),
+                a_string_matching(/^facility_id:/),
+                a_string_matching(/^error_type:/)
+              )
+            )
+
+            expect { subject.post_appointment(va_proposed_clinic_request_body) }.to raise_error(
+              Common::Exceptions::BackendServiceException
+            )
           end
         end
       end

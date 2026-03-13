@@ -305,6 +305,7 @@ module VAOS
             :kind,
             :status,
             :location_id,
+            :system_type,
             :cancellable,
             :clinic,
             :comment,
