@@ -34,10 +34,10 @@ RSpec.describe Mobile::V0::Letter, type: :model do
       end
       let(:user) { build(:user) }
 
-      context 'when fmp_benefits_authorization_letter flag is disabled' do
+      context 'when fmp_benefits_authorization_letter_mobile flag is disabled' do
         before do
-          allow(Flipper).to receive(:enabled?).with(:fmp_benefits_authorization_letter).and_return(false)
-          allow(Flipper).to receive(:enabled?).with(:fmp_benefits_authorization_letter, user).and_return(false)
+          allow(Flipper).to receive(:enabled?).with(:fmp_benefits_authorization_letter_mobile).and_return(false)
+          allow(Flipper).to receive(:enabled?).with(:fmp_benefits_authorization_letter_mobile, user).and_return(false)
         end
 
         it 'returns false' do
@@ -49,10 +49,10 @@ RSpec.describe Mobile::V0::Letter, type: :model do
         end
       end
 
-      context 'when fmp_benefits_authorization_letter flag is enabled' do
+      context 'when fmp_benefits_authorization_letter_mobile flag is enabled' do
         before do
-          allow(Flipper).to receive(:enabled?).with(:fmp_benefits_authorization_letter).and_return(true)
-          allow(Flipper).to receive(:enabled?).with(:fmp_benefits_authorization_letter, user).and_return(true)
+          allow(Flipper).to receive(:enabled?).with(:fmp_benefits_authorization_letter_mobile).and_return(true)
+          allow(Flipper).to receive(:enabled?).with(:fmp_benefits_authorization_letter_mobile, user).and_return(true)
         end
 
         it 'returns true' do
