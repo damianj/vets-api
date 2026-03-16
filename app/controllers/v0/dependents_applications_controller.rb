@@ -46,6 +46,7 @@ module V0
           if claim_info[:proc_state] == 'MANUAL_VAGOV' && claim_info[:participant_id].present?
             user_data = DependentsBenefits::UserData.new(current_user, claim.parsed_form)
             claim.add_veteran_info(JSON.parse(user_data.get_user_json))
+            claim.add_signature_date
 
             submission = submit_via_forms_api(claim, claim_info[:claim_label], claim_info[:participant_id])
             log_submitted(in_progress_form, claim)

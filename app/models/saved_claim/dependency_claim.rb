@@ -107,6 +107,11 @@ class SavedClaim::DependencyClaim < CentralMailClaim
     partitioned_686_674_params[:college_student_data].merge(va_file_number_with_payload).with_indifferent_access
   end
 
+  # this method is for the FDF form viewer
+  def add_signature_date
+    parsed_form.merge!({ 'signatureDate' => created_at.strftime('%Y-%m-%d') })
+  end
+
   def submittable_686?
     # Check to ensure the key exists and has a value
     selectable_options = parsed_form['view:selectable686_options']

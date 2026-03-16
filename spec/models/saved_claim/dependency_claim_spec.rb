@@ -126,6 +126,16 @@ RSpec.describe SavedClaim::DependencyClaim do
           expect(subject.submittable_674?).to be(true)
         end
       end
+
+      describe 'adding signatureDate' do
+        it 'adds signature date appropriately' do
+          subject.save!
+          subject.update(created_at: Time.new(2026, 3, 1).utc)
+          subject.add_signature_date
+          expect(subject.parsed_form).to include('signatureDate')
+          expect(subject.parsed_form['signatureDate']).to eq('2026-03-01')
+        end
+      end
     end
   end
 

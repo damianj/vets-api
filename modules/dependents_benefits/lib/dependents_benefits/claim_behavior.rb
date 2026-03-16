@@ -30,6 +30,11 @@ module DependentsBenefits
       DependentsBenefits::PdfFill::Filler.fill_form(self, actual_file_name, options)
     end
 
+    # adds a signature date attribute into the parsed form for FDF
+    def add_signature_date
+      parsed_form.merge!({ 'signatureDate' => created_at.strftime('%Y-%m-%d') })
+    end
+
     private
 
     # Returns a memoized instance of the DependentsBenefits monitor

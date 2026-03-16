@@ -38,6 +38,17 @@ RSpec.describe DependentsBenefits::ClaimBehavior do
     end
   end
 
+  describe 'adding signatureDate' do
+    it 'adds signature date appropriately' do
+      claim.save!
+      # force created at to be consistent date
+      claim.update(created_at: Time.new(2026, 3, 1).utc)
+      claim.add_signature_date
+      expect(claim.parsed_form).to include('signatureDate')
+      expect(claim.parsed_form['signatureDate']).to eq('2026-03-01')
+    end
+  end
+
   describe '#submitted_to_bgs?' do
     context 'when there is no BGS submission' do
       it 'returns false' do
