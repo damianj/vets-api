@@ -106,4 +106,15 @@ RSpec.describe MedicalExpenseReports::SavedClaim do
       claim.send_email(email_type)
     end
   end
+
+  describe '#to_ibm' do
+    context 'when building structured data raises an error' do
+      it 'logs an error and returns nil' do
+        allow(instance).to receive(:build_ibm_payload).and_raise(StandardError.new('Structured data error'))
+        expect(Rails.logger).to receive(:error)
+          .with('Error building IBM payload: Structured data error', claim_id: instance.id)
+        expect(instance.to_ibm).to be_nil
+      end
+    end
+  end
 end

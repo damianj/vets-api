@@ -1474,7 +1474,7 @@ features:
   medical_expense_reports_submitted_email_notification:
     actor_type: user
     description: Toggle sending of the Submission in Progress email notification
-  medical_expense_reports_govcio_mms:
+  medical_expense_reports_structured_data_transmission:
     actor_type: cookie_id
     enable_in_development: true
     description: "Toggle the sending of data to IBM GOVCIO for form 21p-8416"
@@ -3073,6 +3073,10 @@ features:
   survivors_benefits_form_2025_version_enabled:
     actor_type: user
     description: Enables the use of the 2025 version of the Survivors Benefits form (Form 21P-534EZ)
+  survivors_benefits_structured_data_transmission:
+    actor_type: cookie_id
+    enable_in_development: true
+    description: "Toggle the sending of data to IBM GOVCIO for form (Form 21P-534EZ)"    
   sob_claimant_service:
     actor_type: user
     description: If enabled, use the new claimant service for SOB

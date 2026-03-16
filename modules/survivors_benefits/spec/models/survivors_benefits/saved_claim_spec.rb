@@ -106,4 +106,17 @@ RSpec.describe SurvivorsBenefits::SavedClaim do
       claim.send_email(email_type)
     end
   end
+
+  describe '#to_ibm' do
+    context 'when building structured data raises an error' do
+      it 'logs an error and returns nil' do
+        allow(SurvivorsBenefits::StructuredData::StructuredDataService)
+          .to receive(:new).and_raise(StandardError.new('Structured data error'))
+        expect(Rails.logger).to receive(:error)
+          .with('Error building structured data for IBM submission: Structured data error')
+
+        expect(instance.to_ibm).to be_nil
+      end
+    end
+  end
 end

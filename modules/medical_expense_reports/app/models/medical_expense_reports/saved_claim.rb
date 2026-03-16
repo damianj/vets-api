@@ -115,6 +115,9 @@ module MedicalExpenseReports
     #
     def to_ibm
       build_ibm_payload(parsed_form)
+    rescue => e
+      Rails.logger.error("Error building IBM payload: #{e.message}", claim_id: id)
+      nil
     end
 
     ##

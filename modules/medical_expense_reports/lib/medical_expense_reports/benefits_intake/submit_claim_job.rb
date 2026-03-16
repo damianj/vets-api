@@ -62,17 +62,11 @@ module MedicalExpenseReports
       # @return [String] the intake service UUID for the submission
       def process_submission
         # generate and validate claim pdf documents
-        @form_path = process_document(
-          @claim.to_pdf(
-            @claim.id,
-            extras_redesign: true,
-            omit_esign_stamp: true
-          )
-        )
+        @form_path = process_document(@claim.to_pdf(@claim.id, extras_redesign: true, omit_esign_stamp: true))
         @attachment_paths = @claim.persistent_attachments.map { |pa| process_document(pa.to_pdf) }
         form = @claim.parsed_form
         @metadata = generate_metadata(form)
-        @ibm_payload = @claim.to_ibm # build_ibm_payload(form)
+        @ibm_payload = @claim.to_ibm if Flipper.enabled?(:medical_expense_reports_structured_data_transmission)
 
         # upload must be performed within 15 minutes of this request
         upload_document
@@ -180,17 +174,19 @@ module MedicalExpenseReports
 
         response = @intake_service.perform_upload(**payload)
 
-        govcio_upload if response.success?
+        govcio_upload if response.success? && @ibm_payload.present?
 
         raise MedicalExpenseReportsBenefitIntakeError, response.to_s unless response.success?
       end
 
       # Upload to IBM MMS if the govcio flipper is enabled
       def govcio_upload
-        if Flipper.enabled?(:medical_expense_reports_govcio_mms)
-          ibm_service = Ibm::Service.new
-          ibm_service.upload_form(form: @ibm_payload.to_json, guid: @intake_service.uuid)
-        end
+        return unless Flipper.enabled?(:medical_expense_reports_structured_data_transmission)
+
+        ibm_service = Ibm::Service.new
+        ibm_service.upload_form(form: @ibm_payload.to_json, guid: @intake_service.uuid)
+      rescue => e
+        Rails.logger.error("IBM structured data transmission failed: #{e.message}")
       end
 
       # Insert submission polling entries

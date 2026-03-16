@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'ibm/service'
 require 'lighthouse/benefits_intake/service'
 require 'lighthouse/benefits_intake/metadata'
 require 'survivors_benefits/notification_email'
@@ -43,10 +44,10 @@ module SurvivorsBenefits
         init(saved_claim_id, user_account_uuid)
 
         # generate and validate claim pdf documents
-        @form_path = process_document(@claim.to_pdf(@claim.id, { extras_redesign: true,
-                                                                 omit_esign_stamp: true }))
+        @form_path = process_document(@claim.to_pdf(@claim.id, { extras_redesign: true, omit_esign_stamp: true }))
         @attachment_paths = @claim.persistent_attachments.map { |pa| process_document(pa.to_pdf) }
         @metadata = generate_metadata
+        @ibm_payload = @claim.to_ibm if Flipper.enabled?(:survivors_benefits_structured_data_transmission)
 
         # upload must be performed within 15 minutes of this request
         upload_document
@@ -136,10 +137,27 @@ module SurvivorsBenefits
           metadata: @metadata.to_json,
           attachments: @attachment_paths
         }
+        tracked_payload = payload.merge(
+          ibm_payload_present: @ibm_payload.present?,
+          ibm_payload_field_count: @ibm_payload&.keys&.count
+        )
 
-        monitor.track_submission_attempted(@claim, @intake_service, @user_account_uuid, payload)
+        monitor.track_submission_attempted(@claim, @intake_service, @user_account_uuid, tracked_payload)
+
         response = @intake_service.perform_upload(**payload)
+
+        govcio_upload if response.success?
+
         raise SurvivorsBenefitsBenefitIntakeError, response.to_s unless response.success?
+      end
+
+      def govcio_upload
+        return unless Flipper.enabled?(:survivors_benefits_structured_data_transmission)
+
+        ibm_service = Ibm::Service.new
+        ibm_service.upload_form(form: @ibm_payload.to_json, guid: @intake_service.uuid)
+      rescue => e
+        Rails.logger.error("IBM structured data transmission failed: #{e.message}")
       end
 
       # Insert submission polling entries

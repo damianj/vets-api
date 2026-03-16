@@ -112,6 +112,9 @@ module SurvivorsBenefits
     def to_ibm
       structured_data_service = SurvivorsBenefits::StructuredData::StructuredDataService.new(parsed_form)
       structured_data_service.build_structured_data
+    rescue => e
+      Rails.logger.error("Error building structured data for IBM submission: #{e.message}")
+      nil
     end
   end
 end
