@@ -53,7 +53,7 @@ module IvcChampva
         log_batch_processing(form, batch, elapsed_days)
 
         # Check reporting API to see if this missing status is a false positive
-        next if Flipper.enabled?(:champva_enable_pega_report_check, @current_user) && num_docs_match_reports?(batch)
+        next if num_docs_match_reports?(batch)
 
         send_failure_email_if_threshold_exceeded(form, elapsed_days)
         publish_missing_status_metric(form)

@@ -33,9 +33,7 @@ module IvcChampva
         next if form.nil?
 
         # Check reporting API to see if this missing status is a false positive
-        if Flipper.enabled?(:champva_enable_pega_report_check) && missing_form_status_job.num_docs_match_reports?(batch)
-          next
-        end
+        next if missing_form_status_job.num_docs_match_reports?(batch)
 
         elapsed_minutes = (current_time - form.created_at).to_i / 1.minute
         pega_email_threshold_hours =

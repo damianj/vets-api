@@ -44,7 +44,6 @@ RSpec.describe 'IvcChampva::NotifyPegaMissingFormStatusJob', type: :job do
 
   it 'identifies forms missing a Pega status for enough hours and attempts to notify PEGA' do
     allow(Flipper).to receive(:enabled?).with(:champva_enable_notify_pega_missing_form_status_job).and_return(true)
-    allow(Flipper).to receive(:enabled?).with(:champva_enable_pega_report_check).and_return(false)
 
     threshold_hours = 2
     allow(Settings.vanotify.services.ivc_champva).to receive(:missing_pega_status_email_threshold_hours)
@@ -92,9 +91,8 @@ RSpec.describe 'IvcChampva::NotifyPegaMissingFormStatusJob', type: :job do
     IvcChampva::NotifyPegaMissingFormStatusJob.new.perform
   end
 
-  it 'calls num_docs_match_reports when champva_enable_pega_report_check Flipper flag is enabled' do
+  it 'calls num_docs_match_reports' do
     allow(Flipper).to receive(:enabled?).with(:champva_enable_notify_pega_missing_form_status_job).and_return(true)
-    allow(Flipper).to receive(:enabled?).with(:champva_enable_pega_report_check).and_return(true)
 
     batch = [forms[0]]
     missing_form_status_job = instance_double(IvcChampva::MissingFormStatusJob)
