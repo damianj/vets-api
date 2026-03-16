@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_02_20_132346) do
+ActiveRecord::Schema[7.2].define(version: 2026_03_11_154143) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gin"
   enable_extension "fuzzystrmatch"
@@ -1049,18 +1049,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_02_20_132346) do
     t.uuid "claim_guid", null: false
     t.index ["carma_case_id"], name: "index_form1010cg_submissions_on_carma_case_id", unique: true
     t.index ["claim_guid"], name: "index_form1010cg_submissions_on_claim_guid", unique: true
-  end
-
-  create_table "form1095_bs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "veteran_icn", null: false
-    t.integer "tax_year", null: false
-    t.jsonb "form_data_ciphertext", null: false
-    t.text "encrypted_kms_key"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.boolean "needs_kms_rotation", default: false, null: false
-    t.index ["needs_kms_rotation"], name: "index_form1095_bs_on_needs_kms_rotation"
-    t.index ["veteran_icn", "tax_year"], name: "index_form1095_bs_on_veteran_icn_and_tax_year", unique: true
   end
 
   create_table "form526_job_statuses", id: :serial, force: :cascade do |t|
