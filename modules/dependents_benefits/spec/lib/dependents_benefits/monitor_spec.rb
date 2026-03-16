@@ -37,6 +37,18 @@ RSpec.describe DependentsBenefits::Monitor do
     }.merge(extras))
   end
 
+  describe '#initialize' do
+    it 'logs claim_id not found' do
+      error = StandardError.new('TEST')
+      allow(SavedClaim).to receive(:find).with(23).and_raise(error)
+
+      log = 'Unable to find claim for DependentsBenefits::Monitor'
+      expect(Rails.logger).to receive(:warn).with(log, claim_id: 23, error:)
+
+      described_class.new(23)
+    end
+  end
+
   describe '#track_show404' do
     it 'logs a not found error' do
       log = "#{message_prefix} submission not found"

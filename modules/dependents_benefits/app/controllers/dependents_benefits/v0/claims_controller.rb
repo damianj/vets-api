@@ -41,17 +41,27 @@ module DependentsBenefits
         in_progress_form = current_user ? InProgressForm.form_for_user(claim.form_id, current_user) : nil
         claim.form_start_date = in_progress_form.created_at if in_progress_form
 
-        raise Common::Exceptions::ValidationErrors, claim unless claim.save
+        unless claim.save
+          monitor.track_create_validation_error(in_progress_form, claim, current_user)
+          log_validation_error_to_metadata(in_progress_form, claim)
+          raise Common::Exceptions::ValidationErrors, claim
+        end
+
+        claim_id = claim.id
+
+        if !claim.submittable_686? && !claim.submittable_674?
+          detail = 'Claim is not determinable to be a 686c or 674!'
+          monitor.track_error_event(detail, action: 'create_claim', claim_id:)
+          raise Common::Exceptions::BackendServiceException.new(nil, detail:)
+        end
 
         claim.process_attachments!
         user_data = DependentsBenefits::UserData.new(current_user, claim.parsed_form)
 
         # Matching parent_claim_id and saved_claim_id indicates this is a parent claim
-        SavedClaimGroup.new(claim_group_guid: claim.guid, parent_claim_id: claim.id, saved_claim_id: claim.id,
+        SavedClaimGroup.new(claim_group_guid: claim.guid, parent_claim_id: claim_id, saved_claim_id: claim_id,
                             user_data: user_data.get_user_json).save!
         form_data = claim.parsed_form
-
-        raise Common::Exceptions::ValidationErrors if !claim.submittable_686? && !claim.submittable_674?
 
         # FDF pilot
         # TODO move to separate job (future)
@@ -77,12 +87,12 @@ module DependentsBenefits
         end
 
         # Create a 686c claim for dependent benefits
-        DependentsBenefits::Generators::Claim686cGenerator.new(form_data, claim.id).generate if claim.submittable_686?
+        DependentsBenefits::Generators::Claim686cGenerator.new(form_data, claim_id).generate if claim.submittable_686?
 
         if claim.submittable_674?
           # Create a 674 claim for student benefits
           form_data.dig('dependents_application', 'student_information')&.each do |student|
-            DependentsBenefits::Generators::Claim674Generator.new(form_data, claim.id, student).generate
+            DependentsBenefits::Generators::Claim674Generator.new(form_data, claim_id, student).generate
           end
         end
 
@@ -189,6 +199,23 @@ module DependentsBenefits
       # Creates the BGS dependency verification service for the current user
       def dependency_verification_service
         @dependency_verification_service ||= BGS::DependencyVerificationService.new(current_user)
+      end
+
+      ##
+      # Include validation error on in_progress_form metadata.
+      # `noop` if in_progress_form is `blank?`
+      #
+      # @param in_progress_form [InProgressForm]
+      # @param claim [DependentsBenefits::PrimaryDependencyClaim]
+      #
+      # @return [void]
+      def log_validation_error_to_metadata(in_progress_form, claim)
+        return if in_progress_form.blank?
+
+        metadata = in_progress_form.metadata || {}
+        metadata['submission'] ||= {}
+        metadata['submission']['error_message'] = claim&.errors&.errors&.to_s
+        in_progress_form.update(metadata:)
       end
 
       # Creates a new monitor instance for tracking events

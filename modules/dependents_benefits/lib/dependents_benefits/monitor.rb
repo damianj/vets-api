@@ -182,7 +182,7 @@ module DependentsBenefits
 
       ::SavedClaim.find(claim_id)
     rescue => e
-      Rails.logger.warn('Unable to find claim for DependentsBenefits::Monitor', { claim_id:, e: })
+      Rails.logger.warn('Unable to find claim for DependentsBenefits::Monitor', claim_id:, error: e)
       nil
     end
 

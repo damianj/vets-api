@@ -32,6 +32,9 @@ RSpec.describe DependentsBenefits::ClaimProcessor, type: :model do
   end
 
   describe '#enqueue_submissions' do
+    let!(:parent_group) { create(:parent_claim_group, parent_claim:) }
+    let(:parent_claim_user_uuid) { JSON.parse(parent_group.user_data).dig('veteran_information', 'uuid') }
+
     before do
       allow(DependentsBenefits::Sidekiq::BGS::BGSFormJob).to receive(:perform_async).and_return(true)
       allow(DependentsBenefits::Sidekiq::ClaimsEvidence::ClaimsEvidenceFormJob).to receive(:perform_async).and_return(
@@ -41,14 +44,16 @@ RSpec.describe DependentsBenefits::ClaimProcessor, type: :model do
     end
 
     it 'processes claims' do
-      expect(DependentsBenefits::Sidekiq::BGS::BGSFormJob).to receive(:perform_async).with(parent_claim_id)
-      expect(DependentsBenefits::Sidekiq::ClaimsEvidence::ClaimsEvidenceFormJob).to receive(:perform_async).with(
-        parent_claim_id
-      )
+      jobs = {
+        DependentsBenefits::Sidekiq::BGS::BGSFormJob => [parent_claim_id],
+        DependentsBenefits::Sidekiq::ClaimsEvidence::ClaimsEvidenceFormJob => [parent_claim_id]
+      }
 
-      result = processor.enqueue_submissions
+      jobs.each do |job, args|
+        expect(job).to receive(:perform_async).with(*args)
+      end
 
-      expect(result).to eq({ data: { jobs_enqueued: 2 }, error: nil })
+      processor.enqueue_submissions
     end
 
     it 'monitors submissions' do
@@ -64,7 +69,8 @@ RSpec.describe DependentsBenefits::ClaimProcessor, type: :model do
         action: 'enqueue_success',
         component:,
         parent_claim_id:,
-        jobs_count: 2
+        jobs_count: 2,
+        jobs_list: ['DependentsBenefits::Sidekiq::BGS::BGSFormJob', 'DependentsBenefits::Sidekiq::ClaimsEvidence::ClaimsEvidenceFormJob']
       )
     end
 
@@ -101,7 +107,7 @@ RSpec.describe DependentsBenefits::ClaimProcessor, type: :model do
 
       processor.enqueue_submissions
       expect(mock_monitor).to have_received(:track_info_event).with(
-        "Submitted no-SSN claim: #{parent_claim.id}",
+        'Submitted no-SSN claim',
         action: 'no_ssn_claim.submission',
         component:,
         parent_claim_id:,
@@ -133,6 +139,16 @@ RSpec.describe DependentsBenefits::ClaimProcessor, type: :model do
 
       expect(processor).to receive(:handle_enqueue_failure).with(error)
       expect { processor.enqueue_submissions }.to raise_error(StandardError, 'Enqueue failed')
+    end
+
+    it 'marks in-progress form as pending before enqueueing jobs' do
+      in_progress_form = instance_double(InProgressForm, submission_pending!: true)
+      allow(InProgressForm).to receive(:find_by).with(form_id: '686C-674-V2',
+                                                      user_uuid: parent_claim_user_uuid).and_return(in_progress_form)
+
+      processor.enqueue_submissions
+
+      expect(in_progress_form).to have_received(:submission_pending!)
     end
   end
 
@@ -212,6 +228,7 @@ RSpec.describe DependentsBenefits::ClaimProcessor, type: :model do
 
   describe 'handle_permanent_failure' do
     let!(:parent_group) { create(:parent_claim_group, parent_claim:) }
+    let(:parent_claim_user_uuid) { JSON.parse(parent_group.user_data).dig('veteran_information', 'uuid') }
 
     it 'logs error' do
       processor.send(:handle_permanent_failure, 'Some error message')
@@ -225,10 +242,12 @@ RSpec.describe DependentsBenefits::ClaimProcessor, type: :model do
     end
 
     context 'when parent claim group is not completed' do
-      it 'marks parent claim group as failed and sends backup job' do
+      it 'marks parent claim group as failed, sends backup job, and clears IPF' do
         parent_group.update(status: SavedClaimGroup::STATUSES[:PROCESSING])
         expect(processor).to receive(:mark_parent_claim_group_failed)
         expect(processor).to receive(:send_backup_job)
+        expect(InProgressForm).to receive(:destroy_by).with(user_uuid: parent_claim_user_uuid,
+                                                            form_id: parent_claim.form_id)
         processor.send(:handle_permanent_failure, 'Some error message')
       end
     end
@@ -242,10 +261,14 @@ RSpec.describe DependentsBenefits::ClaimProcessor, type: :model do
       end
     end
 
-    it 'sends error notification email on rescue' do
+    it 'sends error notification email and clears IPF on rescue' do
+      in_progress_form = instance_double(InProgressForm, submission_pending!: true)
       allow(processor).to receive(:mark_parent_claim_group_failed).and_raise(StandardError.new('DB error'))
       allow_any_instance_of(DependentsBenefits::NotificationEmail).to receive(:send_error_notification)
+      allow(InProgressForm).to receive(:find_by).with(form_id: parent_claim.form_id,
+                                                      user_uuid: parent_claim_user_uuid).and_return(in_progress_form)
       expect_any_instance_of(DependentsBenefits::NotificationEmail).to receive(:send_error_notification)
+      expect(in_progress_form).to receive(:submission_pending!)
       expect(mock_monitor).to receive(:log_silent_failure_avoided).with(
         { parent_claim_id:, error: instance_of(StandardError) }
       )
@@ -266,6 +289,7 @@ RSpec.describe DependentsBenefits::ClaimProcessor, type: :model do
 
   describe '#handle_successful_submission' do
     let!(:parent_group) { create(:parent_claim_group, parent_claim:) }
+    let(:parent_claim_user_uuid) { JSON.parse(parent_group.user_data).dig('veteran_information', 'uuid') }
 
     it 'logs start of success check' do
       processor.send(:handle_successful_submission)
@@ -309,9 +333,11 @@ RSpec.describe DependentsBenefits::ClaimProcessor, type: :model do
           parent_group.update(status: SavedClaimGroup::STATUSES[:PROCESSING])
         end
 
-        it 'marks parent claim group as succeeded and sends received notification' do
+        it 'marks parent claim group as succeeded, sends received notification, and clears IPF' do
           expect(processor).to receive(:mark_parent_claim_group_succeeded)
           expect_any_instance_of(DependentsBenefits::NotificationEmail).to receive(:send_received_notification)
+          expect(InProgressForm).to receive(:destroy_by).with(user_uuid: parent_claim_user_uuid,
+                                                              form_id: parent_claim.form_id)
           processor.send(:handle_successful_submission)
         end
 
@@ -361,7 +387,7 @@ RSpec.describe DependentsBenefits::ClaimProcessor, type: :model do
             processor.send(:handle_successful_submission)
 
             expect(mock_monitor).to have_received(:track_info_event).with(
-              "Successful no-SSN claim submission: #{parent_claim_id}",
+              'Successful no-SSN claim submission',
               action: 'no_ssn_claim.submission',
               component:,
               parent_claim_id:,

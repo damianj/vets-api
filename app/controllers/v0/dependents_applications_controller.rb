@@ -68,6 +68,10 @@ module V0
       log_submitted(in_progress_form, claim)
       claim.send_submitted_email(current_user)
 
+      # IPF gets removed after 686c BGS submission here: app/sidekiq/bgs/submit_form686c_v2_job.rb#perform
+      # Or after 674 BGS submission here: app/sidekiq/bgs/submit_form674_v2_job.rb#perform
+      # Or after LH submission if BGS 686c fails here: app/sidekiq/bgs/submit_form686c_v2_job.rb#send_backup_submission
+      # And for 674 here: app/sidekiq/bgs/submit_form674_v2_job.rb#send_backup_submission
       # clear_saved_form(claim.form_id) # We do not want to destroy the InProgressForm for this submission
       render json: SavedClaimSerializer.new(claim)
     rescue => e

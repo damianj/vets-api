@@ -506,6 +506,11 @@ RSpec.describe DependentsBenefits::Sidekiq::DependentSubmissionJob, type: :job d
             )
             job.send(:submit_claim_to_service, claim)
           end
+
+          it 'marks in-progress form as pending' do
+            expect(job).to receive(:mark_in_progress_form_pending)
+            job.send(:submit_claim_to_service, claim)
+          end
         end
       end
 
@@ -581,6 +586,11 @@ RSpec.describe DependentsBenefits::Sidekiq::DependentSubmissionJob, type: :job d
             )
             job.send(:submit_claim_to_service, claim)
           end
+
+          it 'marks in-progress form as pending' do
+            expect(job).to receive(:mark_in_progress_form_pending)
+            job.send(:submit_claim_to_service, claim)
+          end
         end
       end
 
@@ -632,6 +642,11 @@ RSpec.describe DependentsBenefits::Sidekiq::DependentSubmissionJob, type: :job d
 
         it 'marks submission attempt as failed' do
           expect(job).to receive(:mark_submission_attempt_failed).with(submission_attempt, error)
+          job.send(:submit_claim_to_service, claim)
+        end
+
+        it 'marks in-progress form as pending' do
+          expect(job).to receive(:mark_in_progress_form_pending)
           job.send(:submit_claim_to_service, claim)
         end
 
@@ -696,6 +711,71 @@ RSpec.describe DependentsBenefits::Sidekiq::DependentSubmissionJob, type: :job d
       allow(job).to receive(:claim_id).and_return(saved_claim.id)
       result = job.send(:saved_claim)
       expect(result.id).to eq(saved_claim.id)
+    end
+  end
+
+  describe '#mark_in_progress_form_pending' do
+    let!(:parent_claim_group) { create(:parent_claim_group, parent_claim:) }
+    let(:user_uuid) { JSON.parse(parent_claim_group.user_data).dig('veteran_information', 'uuid') }
+    let(:form_id) { parent_claim.form_id }
+
+    before do
+      allow(job).to receive(:parent_claim_id).and_return(parent_claim.id)
+    end
+
+    context 'when form_id and user_uuid are present' do
+      it 'calls InProgressForm.find_by with correct attributes' do
+        in_progress_form = instance_double(InProgressForm, submission_pending!: true)
+        expect(InProgressForm).to receive(:find_by).with(
+          form_id:,
+          user_uuid:
+        ).and_return(in_progress_form)
+        expect(in_progress_form).to receive(:submission_pending!)
+
+        job.send(:mark_in_progress_form_pending)
+      end
+
+      it 'safely handles when InProgressForm is not found' do
+        allow(InProgressForm).to receive(:find_by).with(
+          form_id:,
+          user_uuid:
+        ).and_return(nil)
+
+        expect { job.send(:mark_in_progress_form_pending) }.not_to raise_error
+      end
+    end
+
+    context 'when form_id is blank' do
+      before do
+        allow(job).to receive(:parent_claim).and_return(nil)
+      end
+
+      it 'does not call InProgressForm.find_by' do
+        expect(InProgressForm).not_to receive(:find_by)
+        job.send(:mark_in_progress_form_pending)
+      end
+    end
+
+    context 'when user_uuid is blank' do
+      before do
+        allow(job).to receive(:user_data).and_return({})
+      end
+
+      it 'does not call InProgressForm.find_by' do
+        expect(InProgressForm).not_to receive(:find_by)
+        job.send(:mark_in_progress_form_pending)
+      end
+    end
+
+    context 'when user_data is nil' do
+      before do
+        allow(job).to receive(:user_data).and_return(nil)
+      end
+
+      it 'does not call InProgressForm.find_by' do
+        expect(InProgressForm).not_to receive(:find_by)
+        job.send(:mark_in_progress_form_pending)
+      end
     end
   end
 end

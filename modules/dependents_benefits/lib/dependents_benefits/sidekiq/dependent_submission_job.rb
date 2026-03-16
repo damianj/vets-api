@@ -170,6 +170,7 @@ module DependentsBenefits::Sidekiq
       monitor.track_error_event("Submission attempt failure in #{self.class}",
                                 action: 'claim.error', component:, error: e, parent_claim_id:, saved_claim_id: claim.id)
       mark_submission_attempt_failed(submission_attempt, e)
+      mark_in_progress_form_pending
       DependentsBenefits::ServiceResponse.new(status: false, error: e.message)
     end
 
@@ -337,6 +338,23 @@ module DependentsBenefits::Sidekiq
     # @return [LighthouseFormSubmissionAttempt, BGSFormSubmissionAttempt] The attempt record
     def submission_attempt
       @submission_attempt ||= create_form_submission_attempt
+    end
+
+    # Returns the parent claim
+    #
+    # @return [SavedClaim, nil] The parent SavedClaim record
+    def parent_claim
+      @parent_claim ||= ::SavedClaim.find_by(id: parent_claim_id)
+    end
+
+    # Marks in-progress form as pending after an error
+    # @return [void]
+    def mark_in_progress_form_pending
+      form_id = parent_claim&.form_id
+      user_uuid = user_data&.dig('veteran_information', 'uuid')
+      return if form_id.blank? || user_uuid.blank?
+
+      InProgressForm.find_by(form_id:, user_uuid:)&.submission_pending!
     end
 
     # Generates an OpenStruct representing a user from stored user data

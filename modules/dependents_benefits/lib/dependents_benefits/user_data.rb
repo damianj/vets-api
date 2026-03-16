@@ -25,6 +25,9 @@ module DependentsBenefits
                 :uuid,
                 :va_file_number
 
+    # the structure key the returned data is nested under
+    KEY = 'veteran_information'
+
     # Initializes UserData with information from user and claim data
     #
     # Extracts user information from the authenticated user object, falling back
@@ -35,12 +38,12 @@ module DependentsBenefits
     # @param claim_data [Hash] The claim form data containing veteran information
     # @raise [Common::Exceptions::UnprocessableEntity] if initialization fails
     def initialize(user, claim_data)
-      @first_name = user.first_name.presence || claim_data.dig('veteran_information', 'full_name', 'first')
-      @middle_name = user.middle_name.presence || claim_data.dig('veteran_information', 'full_name', 'middle')
-      @last_name = user.last_name.presence || claim_data.dig('veteran_information', 'full_name', 'last')
+      @first_name = user.first_name.presence || claim_data.dig(KEY, 'full_name', 'first')
+      @middle_name = user.middle_name.presence || claim_data.dig(KEY, 'full_name', 'middle')
+      @last_name = user.last_name.presence || claim_data.dig(KEY, 'full_name', 'last')
       @ssn = user.ssn.presence
       @uuid = user.uuid.presence
-      @birth_date = user.birth_date.presence || claim_data.dig('veteran_information', 'birth_date')
+      @birth_date = user.birth_date.presence || claim_data.dig(KEY, 'birth_date')
       @common_name = user.common_name.presence
       @email = user.email.presence || claim_data.dig('veteran_contact_information', 'email_address')
       @icn = user.icn.presence
@@ -77,7 +80,7 @@ module DependentsBenefits
         'icn' => icn
       }.compact
 
-      { 'veteran_information' => veteran_information }.to_json
+      { KEY => veteran_information }.to_json
     rescue => e
       monitor.track_error_event('DependentsBenefits::UserData#get_user_hash error',
                                 action: 'user_hash.failure', component:, error: e)

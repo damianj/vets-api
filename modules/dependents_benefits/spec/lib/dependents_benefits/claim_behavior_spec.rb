@@ -5,13 +5,18 @@ require 'dependents_benefits/claim_behavior'
 require 'dependents_benefits/monitor'
 
 RSpec.describe DependentsBenefits::ClaimBehavior do
-  before do
-    allow(DependentsBenefits::PdfFill::Filler).to receive(:fill_form).and_return('tmp/pdfs/mock_form_final.pdf')
-  end
-
   let(:claim) { create(:dependents_claim) }
   let(:child_claim) { create(:add_remove_dependents_claim) }
   let(:student_claim) { create(:student_claim) }
+
+  let(:claim_group) { create(:parent_claim_group, parent_claim: claim) }
+
+  let(:monitor_double) { instance_double(DependentsBenefits::Monitor) }
+
+  before do
+    allow(DependentsBenefits::PdfFill::Filler).to receive(:fill_form).and_return('tmp/pdfs/mock_form_final.pdf')
+    allow(DependentsBenefits::Monitor).to receive(:new).and_return(monitor_double)
+  end
 
   describe '#submissions_succeeded?' do
     it 'returns true when both BGS and Claims Evidence submissions succeeded' do
@@ -155,8 +160,6 @@ RSpec.describe DependentsBenefits::ClaimBehavior do
     end
 
     context 'when the form does not match the schema' do
-      let(:monitor_double) { instance_double(DependentsBenefits::Monitor) }
-
       before do
         allow_any_instance_of(DependentsBenefits::PrimaryDependencyClaim)
           .to receive(:validate_schema)
@@ -166,7 +169,6 @@ RSpec.describe DependentsBenefits::ClaimBehavior do
         allow_any_instance_of(DependentsBenefits::PrimaryDependencyClaim)
           .to receive(:validate_form)
           .and_return([])
-        allow(DependentsBenefits::Monitor).to receive(:new).and_return(monitor_double)
         allow(monitor_double).to receive(:track_error_event)
       end
 
@@ -185,7 +187,6 @@ RSpec.describe DependentsBenefits::ClaimBehavior do
 
   describe '#form_schema' do
     context 'when the schema file cannot be loaded' do
-      let(:monitor_double) { instance_double(DependentsBenefits::Monitor) }
       let(:error_message) { 'No such file or directory' }
       let(:form_id) { '21-686C' }
 
@@ -365,10 +366,7 @@ RSpec.describe DependentsBenefits::ClaimBehavior do
     end
 
     context 'when form type is unknown' do
-      let(:monitor_double) { instance_double(DependentsBenefits::Monitor) }
-
       before do
-        allow(DependentsBenefits::Monitor).to receive(:new).and_return(monitor_double)
         allow(claim).to receive(:submittable_686?).and_raise(StandardError.new('Unknown form type'))
         allow(monitor_double).to receive(:track_warning_event)
       end
@@ -395,6 +393,35 @@ RSpec.describe DependentsBenefits::ClaimBehavior do
       expect(claim.parsed_form['veteran_information']['ssn']).to eq('987-65-4321')
       expect(claim.parsed_form['veteran_information']['participant_id']).to eq('P987654321')
       expect(claim.parsed_form['veteran_information']['icn']).to eq('ICN987654321')
+    end
+  end
+
+  describe '#user_data' do
+    it 'merges veteran information into the parsed form' do
+      veteran_info = {
+        'veteran_information' => {
+          'ssn' => '987-65-4321',
+          'participant_id' => 'P987654321',
+          'icn' => 'ICN987654321'
+        }
+      }
+      expect(claim_group).to receive(:user_data).and_return veteran_info.to_json
+      expect(claim).to receive(:child_of_groups).and_return([claim_group])
+      expect(claim).to receive(:add_veteran_info).and_call_original
+
+      claim.user_data
+
+      expect(claim.parsed_form['veteran_information']['ssn']).to eq('987-65-4321')
+      expect(claim.parsed_form['veteran_information']['participant_id']).to eq('P987654321')
+      expect(claim.parsed_form['veteran_information']['icn']).to eq('ICN987654321')
+    end
+
+    it 'logs an error and returns nil if unable to parse' do
+      expect(claim).to receive(:child_of_groups).and_return([])
+      expect(claim_group).not_to receive(:user_data)
+      expect(monitor_double).to receive(:track_error_event)
+
+      claim.user_data
     end
   end
 end

@@ -8,19 +8,21 @@ require 'digital_forms_api/service/submissions'
 RSpec.describe DependentsBenefits::V0::ClaimsController do
   routes { DependentsBenefits::Engine.routes }
 
+  let(:user) { create(:evss_user) }
+  let(:claim) { build(:dependents_claim) }
+  let(:test_form) { build(:dependents_claim).parsed_form }
+  let(:bgs_service) { double('BGS::Services') }
+  let(:bgs_people) { double('BGS::People') }
+  let(:monitor) { DependentsBenefits::Monitor.new }
+
   before do
     allow(DependentsBenefits::PdfFill::Filler).to receive(:fill_form).and_return('tmp/pdfs/mock_form_final.pdf')
     sign_in_as(user)
     allow(Flipper).to receive(:enabled?).with(:dependents_module_enabled, instance_of(User)).and_return(true)
     allow(Flipper).to receive(:enabled?).with(:va_dependents_v3, instance_of(User)).and_return(false)
     allow_any_instance_of(SavedClaim).to receive(:pdf_overflow_tracking)
+    allow(DependentsBenefits::Monitor).to receive(:new).and_return(monitor)
   end
-
-  let(:user) { create(:evss_user) }
-  let(:claim) { build(:dependents_claim) }
-  let(:test_form) { build(:dependents_claim).parsed_form }
-  let(:bgs_service) { double('BGS::Services') }
-  let(:bgs_people) { double('BGS::People') }
 
   describe '#show' do
     context 'with a valid bgs response' do
@@ -123,6 +125,8 @@ RSpec.describe DependentsBenefits::V0::ClaimsController do
       let(:invalid_params) { { dependents_application: {} } }
 
       it 'returns validation errors' do
+        expect(monitor).to receive(:track_create_validation_error)
+
         post(:create, params: invalid_params, as: :json)
         expect(response).to have_http_status(:unprocessable_content)
       end
@@ -131,6 +135,16 @@ RSpec.describe DependentsBenefits::V0::ClaimsController do
         expect do
           post(:create, params: invalid_params, as: :json)
         end.not_to change(DependentsBenefits::PrimaryDependencyClaim, :count)
+      end
+
+      it 'sets metadata error message on the in-progress form' do
+        in_progress_form = create(:in_progress_form, form_id: claim.form_id, user_uuid: user.uuid, metadata: {})
+        allow(InProgressForm).to receive(:form_for_user).and_return(in_progress_form)
+
+        post(:create, params: invalid_params, as: :json)
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(in_progress_form.reload.metadata.dig('submission', 'error_message')).to be_present
       end
     end
 
@@ -185,6 +199,24 @@ RSpec.describe DependentsBenefits::V0::ClaimsController do
 
         post(:create, params: test_form, as: :json)
       end
+    end
+  end
+
+  describe '#log_validation_error_to_metadata' do
+    let(:in_progress_form) { build(:in_progress_form) }
+
+    it 'returns nil for blank in_progress_form' do
+      ['', [], {}, nil].each do |blank|
+        expect(in_progress_form).not_to receive(:update)
+        expect(subject.send(:log_validation_error_to_metadata, blank, claim)).to be_nil
+      end
+    end
+
+    it 'updates metadata for non-blank in_progress_form' do
+      expect(in_progress_form).to receive(:metadata).and_return(in_progress_form.metadata)
+      expect(in_progress_form).to receive(:update)
+
+      subject.send(:log_validation_error_to_metadata, in_progress_form, claim)
     end
   end
 end

@@ -7,6 +7,7 @@ module DependentsBenefits
     #
     module VeteranInformation
       extend ActiveSupport::Concern
+      include DependentsBenefits::DependentsHelper
 
       # Adds veteran information to the parsed form
       #
@@ -16,7 +17,27 @@ module DependentsBenefits
       # @param user_data [Hash] Hash containing veteran information to merge
       # @return [Hash] The updated parsed form with veteran information merged
       def add_veteran_info(user_data)
-        parsed_form.merge!(user_data)
+        @user_data = user_data
+        parsed_form.merge!(user_data.presence || {})
+      end
+
+      # Returns the parsed user data for the form
+      # If not present will retrieve from the latest associated claim group
+      #
+      # @return [Hash] Parsed JSON containing veteran information
+      def user_data
+        if @user_data.blank?
+          @user_data = begin
+            JSON.parse(child_of_groups&.last&.user_data)
+          rescue => e
+            monitor.track_error_event('Dependents Benefits user data could not be parsed to json.',
+                                      action: 'user_data_parse_error', component:, form_id:, error: e.message)
+            nil
+          end
+          add_veteran_info(@user_data)
+        end
+
+        @user_data
       end
 
       # Generates a folder identifier string for organizing veteran claims
