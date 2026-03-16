@@ -76,14 +76,12 @@ module EducationForm
       rescue => e
         StatsD.increment("#{STATSD_FAILURE_METRIC}.general")
         if retry_count < MAX_RETRIES
-          log_exception(DailyExcelFileError.new("Error creating excel files.\n\n#{e}
-                                                 Retry count: #{retry_count}. Retrying..... "))
+          log_exception_to_rails(e)
           retry_count += 1
           sleep(10 * retry_count) # exponential backoff for retries
           retry
         else
-          log_exception(DailyExcelFileError.new("Error creating excel files.
-                                                 Job failed after #{MAX_RETRIES} retries \n\n#{e}"))
+          log_exception_to_rails(e)
         end
       end
       true
@@ -110,8 +108,7 @@ module EducationForm
 
               csv << row_data
             rescue => e
-              log_exception(DailyExcelFileError.new("Failed to add row #{index + 1}:\n"))
-              log_exception(DailyExcelFileError.new("#{e.message}\nRecord: #{record.inspect}"))
+              log_exception_to_rails(e)
               next
             end
           end
@@ -125,15 +122,15 @@ module EducationForm
         csv_contents
       rescue => e
         StatsD.increment("#{STATSD_FAILURE_METRIC}.general")
-        log_exception(DailyExcelFileError.new('Error creating CSV files.'))
+        log_exception_to_rails(e)
 
         if retry_count < MAX_RETRIES
-          log_exception(DailyExcelFileError.new("Retry count: #{retry_count}. Retrying..... "))
+          log_exception_to_rails(DailyExcelFileError.new("Retry count: #{retry_count}. Retrying..... "))
           retry_count += 1
           sleep(5)
           retry
         else
-          log_exception(DailyExcelFileError.new("Job failed after #{MAX_RETRIES} retries \n\n#{e}"))
+          log_exception_to_rails(DailyExcelFileError.new("Job failed after #{MAX_RETRIES} retries \n\n#{e}"))
         end
       end
     end
@@ -150,18 +147,8 @@ module EducationForm
       track_form_type("22-#{data.form_type}")
       form
     rescue => e
-      inform_on_error(data, e)
+      log_exception_to_rails(e)
       nil
-    end
-
-    def inform_on_error(claim, error = nil)
-      StatsD.increment("#{STATSD_KEY}.failed_formatting.22-#{claim.form_type}")
-      exception = if error.present?
-                    FormattingError.new("Could not format #{claim.confirmation_number}.\n\n#{error}")
-                  else
-                    FormattingError.new("Could not format #{claim.confirmation_number}")
-                  end
-      log_exception(exception)
     end
 
     private
@@ -180,10 +167,6 @@ module EducationForm
       StatsD.gauge("#{STATSD_KEY}.transmissions.#{type}", 1)
     end
 
-    def log_exception(exception)
-      log_exception_to_sentry(exception)
-    end
-
     def log_info(message)
       logger.info(message)
     end
@@ -195,12 +178,12 @@ module EducationForm
 
       writer = SFTPWriter::Factory.get_writer(options).new(options, logger:)
       file_size = File.size("tmp/#{filename}")
-      bytes_sent = writer.write(File.open("tmp/#{filename}"), filename)
+      bytes_sent = writer.write(File.read("tmp/#{filename}"), filename)
       log_info("Form 10282 SFTP Upload: wrote #{bytes_sent} bytes of a #{file_size} byte file")
 
       log_info('Form 10282 SFTP Upload: Complete')
     rescue => e
-      log_exception(DailyExcelFileError.new("Failed SFTP upload: #{e.message}"))
+      log_exception_to_rails(e)
       raise
     ensure
       writer&.close

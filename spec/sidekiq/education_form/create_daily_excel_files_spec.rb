@@ -82,7 +82,15 @@ RSpec.describe EducationForm::CreateDailyExcelFiles, form: :education_benefits, 
     end
 
     context 'with records in staging', run_at: '2016-09-16 03:00:00 EDT' do
+      let(:factory_double) { double('SFTPWriter') }
+      let(:writer_double) { double('SFTPWriter') }
+
       before do
+        allow(SFTPWriter::Factory).to receive(:get_writer).and_return(factory_double)
+        allow(factory_double).to receive(:new).and_return(writer_double)
+        allow(writer_double).to receive(:write)
+        allow(writer_double).to receive(:close)
+
         application_form.saved_claim.form = {}.to_json
         create(:va10282)
         ActionMailer::Base.deliveries.clear
@@ -90,9 +98,10 @@ RSpec.describe EducationForm::CreateDailyExcelFiles, form: :education_benefits, 
 
       it 'processes records and uploads to SFTP' do
         with_settings(Settings, hostname: 'staging-api.va.gov') do
-          expect(SFTPWriter::Factory).to receive(:get_writer).and_call_original
+          expect(SFTPWriter::Factory).to receive(:get_writer)
+          expect(writer_double).to receive(:write).with(/Mark Olson/, /22-10282.*\.csv/)
+          expect(writer_double).to receive(:close)
           expect { described_class.new.perform }.to change { EducationBenefitsClaim.unprocessed.count }.from(2).to(0)
-          expect(Dir['tmp/form_10282/*.csv'].count).to eq(1)
         end
       end
     end
