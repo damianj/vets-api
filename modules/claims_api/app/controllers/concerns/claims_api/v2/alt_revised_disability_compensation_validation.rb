@@ -20,7 +20,6 @@ module ClaimsApi
       DISABILITY_COUNT_MAX = 150
       BDD_UPPER_LIMIT = 180
 
-      CLAIM_DATE = Time.find_zone!('Central Time (US & Canada)').today.freeze
       YYYY_YYYYMM_REGEX = '^(?:19|20)[0-9][0-9]$|^(?:19|20)[0-9][0-9]-(0[1-9]|1[0-2])$'.freeze
       YYYY_MM_DD_REGEX = '^(?:[0-9]{4})-(?:0[1-9]|1[0-2])-(?:0[1-9]|[1-2][0-9]|3[0-1])$'.freeze
 
@@ -657,7 +656,7 @@ module ClaimsApi
 
       def duty_end_date_check(max_period)
         Date.strptime(max_period['activeDutyEndDate'],
-                      '%Y-%m-%d') > Date.strptime(CLAIM_DATE.to_s, '%Y-%m-%d') + 180.days
+                      '%Y-%m-%d') > claim_date + 180.days
       end
 
       def alt_rev_validate_service_periods(service_information)
@@ -947,7 +946,6 @@ module ClaimsApi
       end
 
       def alt_rev_validate_claim_process_type_bdd
-        claim_date = Date.parse(CLAIM_DATE.to_s)
         service_information = form_attributes['serviceInformation']
         return unless service_periods_present?(service_information)
 
@@ -964,6 +962,10 @@ module ClaimsApi
             detail: 'Must have an activeDutyEndDate or anticipatedSeparationDate within 180 days from claim date.'
           )
         end
+      end
+
+      def claim_date
+        Time.find_zone!('Central Time (US & Canada)').today
       end
 
       def bdd_claim?
