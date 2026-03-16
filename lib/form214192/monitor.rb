@@ -1,287 +1,32 @@
 # frozen_string_literal: true
 
-require 'logging/base_monitor'
+require 'logging/committee_validation_monitor'
 
 module Form214192
   ##
   # Monitor class for tracking Form 21-4192 validation and submission events
   #
-  # Provides methods for tracking Committee validation failures and other
-  # form-related events with StatsD metrics and structured logging.
-  #
-  class Monitor < ::Logging::BaseMonitor
+  # Inherits shared Committee validation and submission tracking from
+  # Logging::CommitteeValidationMonitor. Overrides hook methods for
+  # form-specific tag differences.
+  class Monitor < ::Logging::CommitteeValidationMonitor
     SERVICE_NAME = 'form214192'
     FORM_ID = '21-4192'
     CLAIM_STATS_KEY = 'api.form214192'
 
-    # Parameters allowed in logs (no PII)
-    ALLOWLIST = %w[
-      action
-      claim_guid
-      code
-      data_pointer
-      duration_ms
-      error_class
-      error_message
-      error_type
-      method
-      path
-      source_app
-      user_uuid
-    ].freeze
-
     def initialize
-      super(SERVICE_NAME, allowlist: ALLOWLIST)
-    end
-
-    ##
-    # Logs Committee request validation failures
-    #
-    # Called when Committee middleware rejects a request that doesn't conform
-    # to the OpenAPI schema. Logs the field path and error type without PII.
-    #
-    # @param error [Committee::InvalidRequest] The validation error from Committee
-    # @param request [Rack::Request] The incoming request
-    def track_request_validation_error(error:, request:)
-      validation_details = extract_validation_details(error)
-
-      submit_event(
-        :warn,
-        "#{message_prefix} Committee validation failed",
-        "#{CLAIM_STATS_KEY}.validation_error",
-        path: request.path,
-        method: request.request_method,
-        source_app: extract_source_app(request),
-        error_type: validation_details[:error_type],
-        data_pointer: validation_details[:data_pointer],
-        tags: ['action:create', "error_type:#{validation_details[:error_type]}"]
-      )
+      super(SERVICE_NAME)
     end
 
     # Required BaseMonitor abstract method implementations
-    def claim_stats_key
-      CLAIM_STATS_KEY
-    end
-
-    def name
-      SERVICE_NAME
-    end
-
-    def form_id
-      FORM_ID
-    end
-
-    ##
-    # Track submission begun in controller
-    # Called when submission processing starts, before validation and persistence
-    #
-    # @param claim [SavedClaim::Form214192]
-    # @param user_uuid [String, nil] Optional user UUID for tracking
-    def track_submission_begun(claim, user_uuid: nil)
-      submit_event(
-        :info,
-        "#{message_prefix} submission begun",
-        "#{CLAIM_STATS_KEY}.submission.begun",
-        claim:,
-        user_uuid:,
-        claim_guid: claim&.guid,
-        tags: ['action:create']
-      )
-    end
-
-    ##
-    # Track successful submission in controller
-    # Called when claim is successfully validated, saved, and attachments processed
-    #
-    # @param claim [SavedClaim::Form214192]
-    # @param user_uuid [String, nil] Optional user UUID for tracking
-    def track_submission_success(claim, user_uuid: nil)
-      submit_event(
-        :info,
-        "#{message_prefix} submission success",
-        "#{CLAIM_STATS_KEY}.submission.success",
-        claim:,
-        user_uuid:,
-        claim_guid: claim&.guid,
-        tags: ['action:create', 'status:success']
-      )
-      track_request_code(200, action: 'create', user_uuid:, claim_guid: claim&.guid)
-    end
-
-    ##
-    # Track submission failure in controller
-    # Called when claim validation or save fails in the controller action
-    #
-    # @param claim [SavedClaim::Form214192]
-    # @param error [Exception]
-    # @param user_uuid [String, nil] Optional user UUID for tracking
-    def track_submission_failure(claim, error, user_uuid: nil)
-      submit_event(
-        :error,
-        "#{message_prefix} submission failure: #{error.class}",
-        "#{CLAIM_STATS_KEY}.submission.failure",
-        claim:,
-        user_uuid:,
-        claim_guid: claim&.guid,
-        error_class: error.class.name,
-        error_message: error.message,
-        tags: ['action:create', 'status:failure', "error_class:#{error.class.name}"]
-      )
-      status_code = infer_status_code(error)
-      track_request_code(status_code, action: 'create', user_uuid:, claim_guid: claim&.guid)
-    end
-
-    ##
-    # Track API response code for distribution analysis
-    # Used to track HTTP response codes (200, 422, 500, etc.) for monitoring
-    #
-    # @param code [Integer] HTTP response code
-    # @param action [String, nil] Optional action name (e.g., 'create', 'download_pdf')
-    # @param user_uuid [String, nil] Optional user UUID for correlation
-    # @param claim_guid [String, nil] Optional claim GUID for correlation
-    def track_request_code(code, action: nil, user_uuid: nil, claim_guid: nil)
-      submit_event(
-        :info,
-        "#{message_prefix} request completed with status #{code}",
-        "#{CLAIM_STATS_KEY}.request",
-        code:,
-        action:,
-        user_uuid:,
-        claim_guid:,
-        tags: ["status_code:#{code}", action ? "action:#{action}" : nil].compact
-      )
-    end
-
-    ##
-    # Track successful PDF generation with timing
-    # Called when PDF is successfully generated and ready to send
-    #
-    # @param start_time [Time] When PDF generation started
-    def track_pdf_generation_success(start_time)
-      duration_ms = (Time.current - start_time) * 1000
-      StatsD.measure("#{CLAIM_STATS_KEY}.pdf_generation.duration", duration_ms)
-
-      submit_event(
-        :info,
-        "#{message_prefix} PDF generation success",
-        "#{CLAIM_STATS_KEY}.pdf_generation.success",
-        duration_ms:,
-        tags: ['action:download_pdf', 'status:success']
-      )
-      track_request_code(200, action: 'download_pdf')
-    end
-
-    ##
-    # Track PDF generation failure
-    # Called when PDF generation fails at any stage
-    #
-    # @param error [Exception] The error that occurred
-    def track_pdf_generation_failure(error)
-      submit_event(
-        :error,
-        "#{message_prefix} PDF generation failure",
-        "#{CLAIM_STATS_KEY}.pdf_generation.failure",
-        error_class: error.class.name,
-        error_message: error.message,
-        tags: ['action:download_pdf', 'status:failure', "error_class:#{error.class.name}"]
-      )
-      status_code = infer_status_code(error)
-      track_request_code(status_code, action: 'download_pdf')
-    end
+    def claim_stats_key = CLAIM_STATS_KEY
+    def name = SERVICE_NAME
+    def form_id = FORM_ID
 
     private
 
-    def message_prefix
-      "#{SERVICE_NAME}:#{FORM_ID}"
-    end
-
-    ##
-    # Infers HTTP status code from error type
-    #
-    # @param error [Exception] The error that occurred
-    # @return [Integer] HTTP status code
-    def infer_status_code(error)
-      case error
-      when Common::Exceptions::ValidationErrors
-        422
-      when Common::Exceptions::RecordNotFound, ActiveRecord::RecordNotFound
-        404
-      else
-        500
-      end
-    end
-
-    ##
-    # Extracts validation details from Committee error without exposing PII
-    #
-    # @param error [Committee::InvalidRequest] The validation error
-    # @return [Hash] Hash with :error_type and :data_pointer
-    def extract_validation_details(error)
-      message = error.message.to_s
-
-      # Debug log for local development (suppressed in production)
-      Rails.logger.debug { "[#{self.class.name}] Committee error: #{message}" }
-
-      {
-        error_type: extract_error_type(message),
-        data_pointer: extract_data_pointer(message)
-      }
-    end
-
-    ##
-    # Extracts the error type from Committee error message
-    #
-    # @param message [String] The error message
-    # @return [String] The error type (e.g., 'pattern', 'required', 'type')
-    def extract_error_type(message)
-      case message
-      when /pattern.*does not match/i
-        'pattern_mismatch'
-      when /required/i
-        'missing_required'
-      when /is not a member of enum/i
-        'invalid_enum'
-      when /expected.*got/i, /type mismatch/i
-        'type_mismatch'
-      when /minimum|maximum/i
-        'out_of_range'
-      when /minLength|maxLength/i
-        'invalid_length'
-      else
-        'validation_error'
-      end
-    end
-
-    ##
-    # Extracts the field path (data pointer) from Committee error message
-    #
-    # Removes PII by extracting only the schema path, not user values.
-    #
-    # @param message [String] The error message
-    # @return [String, nil] The field path or nil if not found
-    def extract_data_pointer(message)
-      # Committee errors often include the path in formats like:
-      # "#/properties/veteranInformation/properties/ssn pattern..."
-      # or "/veteranInformation/ssn"
-      if (match = message.match(%r{#/[^\s]+|/[a-zA-Z][a-zA-Z0-9/]*}))
-        # Clean up the path to remove schema-specific parts
-        path = match[0]
-        path = path.gsub(%r{#/paths/[^/]+/[^/]+/requestBody/content/[^/]+/schema}, '')
-        path = path.gsub('/properties/', '/')
-        path = path.gsub(%r{^/+}, '/')
-        path.presence || 'unknown'
-      else
-        'unknown'
-      end
-    end
-
-    ##
-    # Extracts source app from request headers
-    #
-    # @param request [Rack::Request] The incoming request
-    # @return [String] The source app name or 'unknown'
-    def extract_source_app(request)
-      request.env['SOURCE_APP'] || request.env['HTTP_X_SOURCE_APP'] || 'unknown'
+    def validation_error_tags(validation_details)
+      ['action:create', "error_type:#{validation_details[:error_type]}"]
     end
   end
 end

@@ -9,6 +9,10 @@ RSpec.describe Form214192::Monitor do
   let(:claim_stats_key) { described_class::CLAIM_STATS_KEY }
   let(:form_id) { described_class::FORM_ID }
 
+  it 'extends Logging::CommitteeValidationMonitor' do
+    expect(described_class.ancestors).to include(Logging::CommitteeValidationMonitor)
+  end
+
   describe 'BaseMonitor abstract methods' do
     it 'implements required methods' do
       expect(monitor.claim_stats_key).to eq('api.form214192')
