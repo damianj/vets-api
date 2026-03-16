@@ -129,6 +129,7 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
       before do
         # Ensure business rules filtering doesn't interfere with basic parsing tests
         allow(Flipper).to receive(:enabled?).with(:mhv_medications_display_pending_meds, user).and_return(false)
+        allow(Flipper).to receive(:enabled?).with(:mhv_medications_management_improvements, user).and_return(false)
       end
 
       it 'returns prescriptions from both VistA and Oracle Health' do
@@ -1661,6 +1662,246 @@ describe UnifiedHealthData::Adapters::PrescriptionsAdapter do
         # Case-insensitive matching: 'ACTIVE' -> 'Active' (V2)
         expect(result.first.disp_status).to eq('Active')
       end
+    end
+  end
+
+  shared_context 'shipped tracking test data' do
+    let(:shipped_date) { 5.days.ago.utc.iso8601(3) }
+
+    let(:vista_med_with_tracking) do
+      vista_medication_data.merge(
+        'isTrackable' => true,
+        'dispStatus' => 'Active: Shipped',
+        'trackingInfo' => [
+          {
+            'trackingNumber' => '1Z999AA10123456784',
+            'shippedDate' => shipped_date,
+            'deliveryService' => 'UPS',
+            'otherPrescriptionListIncluded' => []
+          }
+        ],
+        'rxRFRecords' => {
+          'rfRecord' => [
+            {
+              'refillStatus' => 'completed',
+              'dispensedDate' => 10.days.ago.utc.iso8601(3),
+              'refillDate' => 12.days.ago.utc.iso8601(3),
+              'facilityName' => 'SLC4',
+              'sig' => 'TAKE ONE',
+              'quantity' => 30,
+              'prescriptionName' => 'COAL TAR 2.5% TOP SOLN',
+              'id' => 1001,
+              'prescriptionNumber' => '3636485'
+            }
+          ]
+        }
+      )
+    end
+
+    let(:vista_response_with_tracking) do
+      {
+        'vista' => {
+          'medicationList' => {
+            'medication' => [vista_med_with_tracking]
+          }
+        }
+      }
+    end
+  end
+
+  describe 'shipped tracking logic when mhv_medications_management_improvements is enabled' do
+    include_context 'shipped tracking test data'
+
+    before do
+      allow(Flipper).to receive(:enabled?).with(:mhv_medications_display_pending_meds, user).and_return(false)
+      allow(Flipper).to receive(:enabled?).with(:mhv_medications_v2_status_mapping, anything).and_return(false)
+      allow(Flipper).to receive(:enabled?).with(:mhv_medications_management_improvements, user).and_return(true)
+    end
+
+    context 'when shipped within 15-day window' do
+      it 'preserves disp_status as Active: Shipped from source' do
+        result = subject.parse(vista_response_with_tracking)
+        rx = result[:prescriptions].first
+
+        expect(rx.disp_status).to eq('Active: Shipped')
+      end
+
+      it 'preserves is_trackable as true' do
+        result = subject.parse(vista_response_with_tracking)
+        rx = result[:prescriptions].first
+
+        expect(rx.is_trackable).to be true
+      end
+    end
+
+    context 'when shipped beyond 15-day window' do
+      let(:shipped_date) { 20.days.ago.utc.iso8601(3) }
+
+      it 'preserves disp_status as Active: Shipped from source' do
+        result = subject.parse(vista_response_with_tracking)
+        rx = result[:prescriptions].first
+
+        expect(rx.disp_status).to eq('Active: Shipped')
+      end
+
+      it 'sets is_trackable to false' do
+        result = subject.parse(vista_response_with_tracking)
+        rx = result[:prescriptions].first
+
+        expect(rx.is_trackable).to be false
+      end
+    end
+
+    context 'when shipped exactly 15 days ago (boundary)' do
+      let(:frozen_time) { Time.zone.parse('2026-03-12 12:00:00 UTC') }
+      let(:shipped_date) { (frozen_time - 15.days).utc.iso8601(3) }
+
+      it 'preserves is_trackable as true (inclusive boundary)' do
+        Timecop.freeze(frozen_time) do
+          result = subject.parse(vista_response_with_tracking)
+          rx = result[:prescriptions].first
+
+          expect(rx.is_trackable).to be true
+        end
+      end
+    end
+
+    context 'when prescription has no tracking info' do
+      it 'does not modify disp_status or is_trackable' do
+        # Default vista_medication_data has no trackingInfo
+        result = subject.parse(unified_response)
+        vista_rx = result[:prescriptions].find { |p| p.prescription_id == '28148665' }
+
+        expect(vista_rx.disp_status).to be_nil
+        expect(vista_rx.is_trackable).to be false
+      end
+    end
+
+    context 'when prescription has multiple tracking entries' do
+      let(:vista_med_with_multiple_tracking) do
+        vista_med_with_tracking.merge(
+          'trackingInfo' => [
+            {
+              'trackingNumber' => '1Z999AA10123456784',
+              'shippedDate' => 20.days.ago.utc.iso8601(3),
+              'deliveryService' => 'UPS',
+              'otherPrescriptionListIncluded' => []
+            },
+            {
+              'trackingNumber' => '1Z999AA10123456785',
+              'shippedDate' => 3.days.ago.utc.iso8601(3),
+              'deliveryService' => 'USPS',
+              'otherPrescriptionListIncluded' => []
+            }
+          ]
+        )
+      end
+
+      it 'uses the most recent shipped date for the window check' do
+        response = {
+          'vista' => {
+            'medicationList' => {
+              'medication' => [vista_med_with_multiple_tracking]
+            }
+          }
+        }
+
+        result = subject.parse(response)
+        rx = result[:prescriptions].first
+
+        # Most recent is 3 days ago (within window) — is_trackable stays true
+        expect(rx.disp_status).to eq('Active: Shipped')
+        expect(rx.is_trackable).to be true
+      end
+    end
+
+    context 'when tracking has invalid shipped date' do
+      let(:vista_med_with_bad_tracking) do
+        vista_med_with_tracking.merge(
+          'trackingInfo' => [
+            {
+              'trackingNumber' => '1Z999AA10123456784',
+              'shippedDate' => 'not-a-date',
+              'deliveryService' => 'UPS',
+              'otherPrescriptionListIncluded' => []
+            }
+          ]
+        )
+      end
+
+      it 'skips the prescription without error' do
+        response = {
+          'vista' => {
+            'medicationList' => {
+              'medication' => [vista_med_with_bad_tracking]
+            }
+          }
+        }
+
+        result = subject.parse(response)
+        rx = result[:prescriptions].first
+
+        expect(rx.disp_status).to eq('Active: Shipped')
+        expect(rx.is_trackable).to be true
+      end
+    end
+
+    context 'with Oracle Health prescription with tracking' do
+      let(:oracle_med_with_tracking) do
+        oracle_health_medication_data.merge(
+          'contained' => [
+            {
+              'resourceType' => 'MedicationDispense',
+              'id' => 'dispense-1',
+              'whenHandedOver' => '2025-01-15T10:00:00Z',
+              'quantity' => { 'value' => 30 },
+              'location' => { 'display' => 'Main Pharmacy' },
+              'extension' => [
+                {
+                  'url' => 'http://va.gov/fhir/StructureDefinition/shipping-info',
+                  'extension' => [
+                    { 'url' => 'Shipped Date', 'valueString' => 3.days.ago.utc.strftime('%Y-%m-%d %H:%M:%S.0') },
+                    { 'url' => 'Tracking Number', 'valueString' => '1Z999AA10123456784' },
+                    { 'url' => 'Delivery Service', 'valueString' => 'UPS' }
+                  ]
+                }
+              ]
+            }
+          ]
+        )
+      end
+
+      it 'does not apply shipped tracking logic since Oracle Health does not produce Active: Shipped status' do
+        response = {
+          'oracle-health' => {
+            'entry' => [{ 'resource' => oracle_med_with_tracking }]
+          }
+        }
+
+        result = subject.parse(response)
+        rx = result[:prescriptions].first
+
+        expect(rx.disp_status).not_to eq('Active: Shipped')
+        expect(rx.is_trackable).to be true
+      end
+    end
+  end
+
+  describe 'shipped tracking logic when mhv_medications_management_improvements is disabled' do
+    include_context 'shipped tracking test data'
+
+    before do
+      allow(Flipper).to receive(:enabled?).with(:mhv_medications_display_pending_meds, user).and_return(false)
+      allow(Flipper).to receive(:enabled?).with(:mhv_medications_v2_status_mapping, anything).and_return(false)
+      allow(Flipper).to receive(:enabled?).with(:mhv_medications_management_improvements, user).and_return(false)
+    end
+
+    it 'does not apply shipped tracking logic' do
+      result = subject.parse(vista_response_with_tracking)
+      rx = result[:prescriptions].first
+
+      expect(rx.disp_status).to eq('Active: Shipped')
+      expect(rx.is_trackable).to be true
     end
   end
 end

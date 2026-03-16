@@ -11,6 +11,9 @@ module UnifiedHealthData
     class PrescriptionsAdapter
       include V2StatusMapping
 
+      # Number of days after the most recent shipped date during which a prescription remains trackable.
+      SHIPPED_TRACKING_WINDOW_DAYS = 15
+
       def initialize(current_user = nil)
         @current_user = current_user
         @vista_adapter = VistaPrescriptionAdapter.new
@@ -38,6 +41,11 @@ module UnifiedHealthData
 
         # Apply current filtering if requested
         prescriptions = apply_current_filtering(prescriptions) if current_only
+
+        # Apply shipped tracking logic (sets is_trackable to false if shipped beyond 15-day window)
+        if Flipper.enabled?(:mhv_medications_management_improvements, @current_user)
+          apply_shipped_tracking_logic(prescriptions)
+        end
 
         # Apply V2 status mapping to all prescriptions when Cerner pilot flag is enabled
         # This is the single point where V2 status mapping is applied for both VistA and Oracle Health
@@ -121,6 +129,28 @@ module UnifiedHealthData
         end
 
         medication_requests.map { |entry| @oracle_adapter.parse(entry['resource']) }.compact
+      end
+
+      # For prescriptions with disp_status 'Active: Shipped', checks the tracking shipped date
+      # against a 15-day window. If shipped beyond 15 days, sets is_trackable to false.
+      def apply_shipped_tracking_logic(prescriptions)
+        prescriptions.each do |rx|
+          next unless rx.disp_status == 'Active: Shipped'
+
+          most_recent_date = most_recent_shipped_date(rx)
+          next unless most_recent_date
+
+          rx.is_trackable = false unless most_recent_date >= SHIPPED_TRACKING_WINDOW_DAYS.days.ago
+        end
+      end
+
+      def most_recent_shipped_date(rx)
+        dates = rx.tracking.filter_map do |t|
+          Time.zone.parse(t[:complete_date_time])
+        rescue ArgumentError, TypeError
+          nil
+        end
+        dates.max
       end
 
       # Applies V2 status mapping to all prescriptions when V2 status mapping flag is enabled
