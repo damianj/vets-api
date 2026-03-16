@@ -89,21 +89,45 @@ module IvcChampva
         return
       end
 
-      all_successful, last_response = submit_all_ves_requests(ves_client, ves_requests, form_number, record)
+      # Propagate application_uuid from the record to ensure consistency across retries
+      propagate_application_uuid(ves_requests, record.form_uuid)
+
+      all_successful, last_response = submit_all_ves_requests(ves_client, ves_requests, record)
       finalize_record_status(record, ves_requests, all_successful, last_response)
+    end
+
+    ##
+    # Propagates the application_uuid to all VES requests and their subforms.
+    # Uses the record's form_uuid to maintain consistency across retry attempts.
+    #
+    # @param ves_requests [Array] array of VES request objects
+    # @param application_uuid [String] the UUID to propagate
+    def propagate_application_uuid(ves_requests, application_uuid)
+      ves_requests.each do |ves_request|
+        ves_request.application_uuid = application_uuid
+
+        next unless ves_request.respond_to?(:subforms?) && ves_request.subforms?
+
+        ves_request.subforms.each do |subform|
+          subform[:request].application_uuid = application_uuid
+        end
+      end
     end
 
     ##
     # Submits all VES requests and tracks success status.
     #
+    # @param ves_client [IvcChampva::VesApi::Client] the VES API client
+    # @param ves_requests [Array] array of VES request objects
+    # @param record [IvcChampvaForm] the form record (for logging)
     # @return [Array<Boolean, Faraday::Response>] tuple of all_successful flag and last response
-    def submit_all_ves_requests(ves_client, ves_requests, form_number, record)
+    def submit_all_ves_requests(ves_client, ves_requests, record)
       all_successful = true
       last_response = nil
 
       ves_requests.each do |ves_request|
         ves_request.transaction_uuid = SecureRandom.uuid
-        last_response = send_to_ves_by_form_type(ves_client, ves_request, form_number)
+        last_response = send_to_ves_by_form_type(ves_client, ves_request)
         all_successful = false unless last_response&.status == 200
         submit_subforms(ves_client, ves_request, record) if ves_request.respond_to?(:subforms?) && ves_request.subforms?
       rescue => e
@@ -164,20 +188,18 @@ module IvcChampva
     end
 
     ##
-    # Routes the VES submission to the appropriate client method based on form number.
+    # Routes the VES submission to the appropriate client method based on request type.
     #
     # @param ves_client [IvcChampva::VesApi::Client] the VES API client
-    # @param ves_request [Object] the VES request object
-    # @param form_number [String] the form number
+    # @param ves_request [Object] the VES request object (must include VesFormModel)
     # @return [Faraday::Response] the VES API response
-    def send_to_ves_by_form_type(ves_client, ves_request, form_number)
-      case form_number
-      when '10-10D', '10-10D-EXTENDED'
+    def send_to_ves_by_form_type(ves_client, ves_request)
+      if ves_request.form_1010d? || ves_request.form_1010dx?
         ves_client.submit_1010d(ves_request.transaction_uuid, ves_request)
-      when '10-7959C'
+      elsif ves_request.form_7959c?
         ves_client.submit_7959c(ves_request.transaction_uuid, ves_request)
       else
-        raise ArgumentError, "Unknown form type for VES submission: #{form_number}"
+        raise ArgumentError, "Unknown VES form type: #{ves_request.form_type}"
       end
     end
 
@@ -190,7 +212,7 @@ module IvcChampva
     def submit_subforms(ves_client, ves_request, record)
       ves_request.subforms.each do |subform|
         subform[:request].transaction_uuid = SecureRandom.uuid
-        send_to_ves_by_form_type(ves_client, subform[:request], '10-7959C')
+        send_to_ves_by_form_type(ves_client, subform[:request])
       rescue => e
         Rails.logger.error("#{LOG_PREFIX}: Error submitting subform for #{record.form_uuid}", e)
       end

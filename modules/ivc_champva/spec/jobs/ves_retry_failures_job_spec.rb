@@ -27,10 +27,17 @@ RSpec.describe IvcChampva::VesRetryFailuresJob, type: :job do
   end
 
   let(:mock_ves_request) do
-    instance_double(IvcChampva::VesRequest,
-                    transaction_uuid: nil,
-                    'transaction_uuid=' => nil,
-                    subforms?: false)
+    double('VesRequest',
+           transaction_uuid: nil,
+           application_uuid: nil,
+           form_type: 'vha_10_10d',
+           form_1010d?: true,
+           form_1010dx?: false,
+           form_7959c?: false,
+           subforms?: false).tap do |req|
+      allow(req).to receive(:transaction_uuid=)
+      allow(req).to receive(:application_uuid=)
+    end
   end
 
   before do
@@ -169,29 +176,48 @@ RSpec.describe IvcChampva::VesRetryFailuresJob, type: :job do
 
         expect(recent_record).to have_received(:update).with(ves_status: 'ok')
       end
+
+      it 'propagates application_uuid from record.form_uuid' do
+        allow(ves_client).to receive(:submit_1010d).and_return(success_response)
+        expect(mock_ves_request).to receive(:application_uuid=).with('form-123')
+
+        job.resubmit_ves_request(recent_record)
+      end
     end
 
     context 'with request_json for 10-10D-EXTENDED' do
       let(:extended_request_json) { { 'form_number' => '10-10D-EXTENDED', 'applicants' => [] }.to_json }
-      let(:mock_ves_request_with_subforms) do
-        instance_double(IvcChampva::VesRequest,
-                        transaction_uuid: nil,
-                        'transaction_uuid=' => nil,
-                        subforms?: true,
-                        subforms: [{ form_type: 'vha_10_7959c', request: mock_ohi_request }])
-      end
       let(:mock_ohi_request) do
-        instance_double(IvcChampva::VesOhiRequest,
-                        transaction_uuid: nil,
-                        'transaction_uuid=' => nil)
+        double('VesOhiRequest',
+               transaction_uuid: nil,
+               application_uuid: nil,
+               form_type: 'vha_10_7959c',
+               form_1010d?: false,
+               form_1010dx?: false,
+               form_7959c?: true).tap do |req|
+          allow(req).to receive(:transaction_uuid=)
+          allow(req).to receive(:application_uuid=)
+        end
+      end
+      let(:mock_ves_request_with_subforms) do
+        double('VesRequest',
+               transaction_uuid: nil,
+               application_uuid: nil,
+               form_type: 'vha_10_10d',
+               form_1010d?: false,
+               form_1010dx?: true,
+               form_7959c?: false,
+               subforms?: true,
+               subforms: [{ form_type: 'vha_10_7959c', request: mock_ohi_request }]).tap do |req|
+          allow(req).to receive(:transaction_uuid=)
+          allow(req).to receive(:application_uuid=)
+        end
       end
 
       before do
         allow(recent_record).to receive(:request_json).and_return(extended_request_json)
         allow(IvcChampva::VesDataFormatter).to receive(:format_for_extended_request)
           .and_return(mock_ves_request_with_subforms)
-        allow(mock_ves_request_with_subforms).to receive(:transaction_uuid=)
-        allow(mock_ohi_request).to receive(:transaction_uuid=)
         allow(ves_client).to receive(:submit_7959c).and_return(success_response)
       end
 
@@ -276,20 +302,34 @@ RSpec.describe IvcChampva::VesRetryFailuresJob, type: :job do
     context 'with request_json for standalone 10-7959C (OHI)' do
       let(:ohi_request_json) { { 'form_number' => '10-7959C', 'applicants' => [] }.to_json }
       let(:mock_ohi_request1) do
-        instance_double(IvcChampva::VesOhiRequest,
-                        transaction_uuid: nil,
-                        'transaction_uuid=' => nil)
+        double('VesOhiRequest',
+               transaction_uuid: nil,
+               application_uuid: nil,
+               form_type: 'vha_10_7959c',
+               form_1010d?: false,
+               form_1010dx?: false,
+               form_7959c?: true).tap do |req|
+          allow(req).to receive(:transaction_uuid=)
+          allow(req).to receive(:application_uuid=)
+          allow(req).to receive(:respond_to?).with(:subforms?).and_return(false)
+        end
       end
       let(:mock_ohi_request2) do
-        instance_double(IvcChampva::VesOhiRequest,
-                        transaction_uuid: nil,
-                        'transaction_uuid=' => nil)
+        double('VesOhiRequest',
+               transaction_uuid: nil,
+               application_uuid: nil,
+               form_type: 'vha_10_7959c',
+               form_1010d?: false,
+               form_1010dx?: false,
+               form_7959c?: true).tap do |req|
+          allow(req).to receive(:transaction_uuid=)
+          allow(req).to receive(:application_uuid=)
+          allow(req).to receive(:respond_to?).with(:subforms?).and_return(false)
+        end
       end
 
       before do
         allow(recent_record).to receive(:request_json).and_return(ohi_request_json)
-        allow(mock_ohi_request1).to receive(:respond_to?).with(:subforms?).and_return(false)
-        allow(mock_ohi_request2).to receive(:respond_to?).with(:subforms?).and_return(false)
       end
 
       it 'submits all OHI requests when multiple beneficiaries exist' do
