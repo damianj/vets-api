@@ -56,8 +56,9 @@ module BPDS
     # Track submission successful
     #
     # @param claim_id [Integer] the SavedClaim id
-    def track_submit_success(claim_id)
-      context = { claim_id: }
+    # @param bpds_uuid [String, nil] the UUID returned from BPDS
+    def track_submit_success(claim_id, bpds_uuid = nil)
+      context = { claim_id:, bpds_uuid: }
       track_request(
         :info,
         "#{SERVICE_NAME} submit succeeded for saved_claim ##{claim_id}",

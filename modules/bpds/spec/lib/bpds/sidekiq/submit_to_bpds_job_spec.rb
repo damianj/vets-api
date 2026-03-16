@@ -56,7 +56,7 @@ RSpec.describe BPDS::Sidekiq::SubmitToBPDSJob, type: :job do
             response: response.to_json,
             bpds_id: response['uuid']
           )
-          expect(monitor).to have_received(:track_submit_success).with(claim.id)
+          expect(monitor).to have_received(:track_submit_success).with(claim.id, response['uuid'])
         end
       end
 
@@ -70,7 +70,7 @@ RSpec.describe BPDS::Sidekiq::SubmitToBPDSJob, type: :job do
             response: response.to_json,
             bpds_id: response['uuid']
           )
-          expect(monitor).to have_received(:track_submit_success).with(claim.id)
+          expect(monitor).to have_received(:track_submit_success).with(claim.id, response['uuid'])
         end
       end
     end

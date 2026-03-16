@@ -66,9 +66,10 @@ module BPDS
           payload = JSON.parse(KmsEncrypted::Box.new.decrypt(encrypted_payload))
           response = BPDS::Service.new.submit_json(format_claim_form(@saved_claim), @saved_claim.form_id,
                                                    payload['participant_id'], payload['file_number'])
+          bpds_uuid = response['uuid']
           @bpds_submission.submission_attempts.create(status: 'submitted', response: response.to_json,
-                                                      bpds_id: response['uuid'])
-          @monitor.track_submit_success(saved_claim_id)
+                                                      bpds_id: bpds_uuid)
+          @monitor.track_submit_success(saved_claim_id, bpds_uuid)
         rescue => e
           @bpds_submission.submission_attempts.create(status: 'failure', error_message: e.message)
           @monitor.track_submit_failure(saved_claim_id, e)

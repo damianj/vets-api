@@ -40,13 +40,26 @@ RSpec.describe BPDS::Monitor do
   end
 
   describe '#track_submit_success' do
-    it 'tracks the submit success event' do
+    it 'tracks the submit success event with bpds_uuid' do
       expect(monitor).to receive(:track_request).with(
         :info,
         "#{BPDS::Monitor::SERVICE_NAME} submit succeeded for saved_claim ##{claim_id}",
         'api.bpds_service.submit_json.success',
         call_location: instance_of(Thread::Backtrace::Location),
-        claim_id:
+        claim_id:,
+        bpds_uuid:
+      )
+      monitor.track_submit_success(claim_id, bpds_uuid)
+    end
+
+    it 'tracks the submit success event without bpds_uuid' do
+      expect(monitor).to receive(:track_request).with(
+        :info,
+        "#{BPDS::Monitor::SERVICE_NAME} submit succeeded for saved_claim ##{claim_id}",
+        'api.bpds_service.submit_json.success',
+        call_location: instance_of(Thread::Backtrace::Location),
+        claim_id:,
+        bpds_uuid: nil
       )
       monitor.track_submit_success(claim_id)
     end
