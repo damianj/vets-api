@@ -249,6 +249,168 @@ describe VAProfile::ContactInformation::V2::Service do
     end
   end
 
+  describe 'logging' do
+    let(:user) { build(:user, :loa3, vet360_id: '1', icn: '123498767V234859') }
+    let(:service) { described_class.new(user) }
+
+    before do
+      allow(Flipper).to receive(:enabled?)
+        .with(:va_profile_transaction_status_logging)
+        .and_return(true)
+    end
+
+    it 'logs create/update request and response' do
+      response_class = class_double(VAProfile::ContactInformation::V2::EmailTransactionResponse)
+      response = double(transaction: double(id: 'tx-id', status: 'RECEIVED'))
+      redacted_path_matcher = a_string_matching(%r{\A#{Regexp.escape(MPI::Constants::VA_ROOT_OID)}/\[REDACTED_AAID\]/emails\z})
+
+      allow(service).to receive(:verify_user!)
+      allow(service).to receive(:perform).and_return(double)
+      allow(response_class).to receive(:from).and_return(response)
+
+      expect(Rails.logger).to receive(:info).with(
+        hash_including(
+          message: 'VAProfile transaction create/update request',
+          request_method: 'POST',
+          request_path: redacted_path_matcher
+        )
+      )
+      expect(Rails.logger).to receive(:info).with(
+        hash_including(
+          message: 'VAProfile transaction create/update response',
+          transaction_id: 'tx-id',
+          request_path: redacted_path_matcher
+        )
+      )
+
+      service.send(
+        :post_or_put_data,
+        :post,
+        build(:email, source_system_user: user.icn),
+        'emails',
+        response_class
+      )
+    end
+
+    it 'logs status request and failure' do
+      response_class = class_double(VAProfile::ContactInformation::V2::EmailTransactionResponse)
+      error_class = Class.new(StandardError) do
+        attr_accessor :body, :status
+      end
+      error = error_class.new('boom')
+      error.body = { 'messages' => [{ 'code' => 'VET360_ERR', 'key' => 'error' }] }
+      error.status = 500
+
+      allow(service).to receive(:perform).and_raise(error)
+      allow(service).to receive(:handle_error).and_raise(error)
+
+      expect(Rails.logger).to receive(:info).with(
+        hash_including(
+          message: 'VAProfile transaction status request',
+          request_path: 'emails/status/123'
+        )
+      )
+      expect(Rails.logger).to receive(:warn).with(
+        hash_including(
+          message: 'VAProfile transaction status request failed',
+          request_path: 'emails/status/123'
+        )
+      )
+
+      expect do
+        service.send(:get_transaction_status, 'emails/status/123', response_class)
+      end.to raise_error(StandardError, 'boom')
+    end
+
+    it 'logs create/update request failure' do
+      response_class = class_double(VAProfile::ContactInformation::V2::EmailTransactionResponse)
+      error_class = Class.new(StandardError) do
+        attr_accessor :body, :status
+      end
+      error = error_class.new('boom')
+      error.body = { 'messages' => [{ 'code' => 'VET360_ERR', 'key' => 'error' }] }
+      error.status = 500
+      redacted_path_matcher = a_string_matching(%r{\A#{Regexp.escape(MPI::Constants::VA_ROOT_OID)}/\[REDACTED_AAID\]/emails\z})
+
+      allow(service).to receive(:verify_user!)
+      allow(service).to receive(:perform).and_raise(error)
+      allow(service).to receive(:handle_error).and_raise(error)
+
+      expect(Rails.logger).to receive(:info).with(
+        hash_including(
+          message: 'VAProfile transaction create/update request',
+          request_method: 'POST',
+          request_path: redacted_path_matcher
+        )
+      )
+      expect(Rails.logger).to receive(:warn).with(
+        hash_including(
+          message: 'VAProfile transaction create/update request failed',
+          request_method: 'POST',
+          request_path: redacted_path_matcher,
+          error_class: error.class.to_s,
+          error_status: 500,
+          error_code: 'VET360_ERR',
+          error_key: 'error'
+        )
+      )
+
+      expect do
+        service.send(
+          :post_or_put_data,
+          :post,
+          build(:email, source_system_user: user.icn),
+          'emails',
+          response_class
+        )
+      end.to raise_error(StandardError, 'boom')
+    end
+
+    it 'logs create/update request failure when error body is not a hash' do
+      response_class = class_double(VAProfile::ContactInformation::V2::EmailTransactionResponse)
+      error_class = Class.new(StandardError) do
+        attr_accessor :body, :status
+      end
+      error = error_class.new('boom')
+      error.body = 'unexpected body format'
+      error.status = 500
+      redacted_path_matcher = a_string_matching(%r{\A#{Regexp.escape(MPI::Constants::VA_ROOT_OID)}/\[REDACTED_AAID\]/emails\z})
+
+      allow(service).to receive(:verify_user!)
+      allow(service).to receive(:perform).and_raise(error)
+      allow(service).to receive(:handle_error).and_raise(error)
+
+      expect(Rails.logger).to receive(:info).with(
+        hash_including(
+          message: 'VAProfile transaction create/update request',
+          request_method: 'POST',
+          request_path: redacted_path_matcher
+        )
+      )
+      expect(Rails.logger).to receive(:warn).with(
+        hash_including(
+          message: 'VAProfile transaction create/update request failed',
+          request_method: 'POST',
+          request_path: redacted_path_matcher,
+          error_class: error.class.to_s,
+          error_status: 500,
+          error_code: nil,
+          error_key: nil
+        )
+      )
+
+      expect do
+        service.send(
+          :post_or_put_data,
+          :post,
+          build(:email, source_system_user: user.icn),
+          'emails',
+          response_class
+        )
+      end.to raise_error(StandardError, 'boom')
+    end
+  end
+
   describe '#put_telephone' do
     let(:telephone) { build(:telephone, source_system_user: user.icn) }
 

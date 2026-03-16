@@ -62,6 +62,12 @@ module AsyncTransaction
         transaction_record = find_transaction!(user.uuid, tx_id)
         return transaction_record if transaction_record.finished?
 
+        elapsed_seconds = (Time.zone.now - transaction_record.created_at).round(3)
+        first_check = transaction_record.updated_at == transaction_record.created_at
+
+        log_transaction_status_refresh(transaction_record, elapsed_seconds, first_check)
+        log_first_transaction_status_check(transaction_record, elapsed_seconds, first_check)
+
         api_response = Base.fetch_transaction(transaction_record, service)
         update_transaction_from_api(transaction_record, api_response)
       end
@@ -119,17 +125,98 @@ module AsyncTransaction
       # @param service [VAProfile::ContactInformation::V2::Service] an initialized VAProfile client
       # @return [Array] An array with any outstanding transactions refreshed. Empty if none.
       def self.refresh_transaction_statuses(user, service)
-        last_ongoing_transactions_for_user(user).each_with_object([]) do |transaction, array|
+        transactions = last_ongoing_transactions_for_user(user)
+
+        log_batch_candidates(user, transactions)
+
+        transactions.each_with_object([]) do |transaction, array|
           array << refresh_transaction_status(
             user,
             service,
             transaction.transaction_id
           )
+        rescue => e
+          log_batch_failure(user, transaction, e)
+
+          raise
         end
       end
 
+      def self.log_transaction_status_refresh(transaction_record, elapsed_seconds, first_check)
+        return unless Flipper.enabled?(:va_profile_transaction_status_logging)
+
+        Rails.logger.info(
+          message: 'VAProfile transaction status refresh attempt',
+          transaction_id: transaction_record.transaction_id,
+          transaction_type: transaction_record.type,
+          elapsed_seconds:,
+          first_check:,
+          transaction_status: transaction_record.transaction_status,
+          record_status: transaction_record.status
+        )
+      end
+
+      def self.log_first_transaction_status_check(transaction_record, elapsed_seconds, first_check)
+        return unless Flipper.enabled?(:va_profile_transaction_status_logging) && first_check
+
+        Rails.logger.info(
+          message: 'VAProfile first transaction status check',
+          transaction_id: transaction_record.transaction_id,
+          transaction_type: transaction_record.type,
+          elapsed_seconds:,
+          transaction_status: transaction_record.transaction_status,
+          record_status: transaction_record.status
+        )
+      end
+
+      def self.log_batch_candidates(user, transactions)
+        return unless Flipper.enabled?(:va_profile_transaction_status_logging)
+
+        Rails.logger.info(
+          message: 'VAProfile batch transaction status refresh candidates',
+          user_uuid: user.uuid,
+          candidate_count: transactions.length,
+          candidates: transactions.map { |transaction| batch_candidate_payload(transaction) }
+        )
+      end
+
+      def self.batch_candidate_payload(transaction)
+        elapsed_seconds = (Time.zone.now - transaction.created_at).round(3)
+
+        {
+          transaction_id: transaction.transaction_id,
+          transaction_type: transaction.type,
+          record_status: transaction.status,
+          record_transaction_status: transaction.transaction_status,
+          elapsed_seconds:
+        }
+      end
+
+      def self.log_batch_failure(user, transaction, error)
+        return unless Flipper.enabled?(:va_profile_transaction_status_logging)
+
+        elapsed_seconds = (Time.zone.now - transaction.created_at).round(3)
+        error_status = error.respond_to?(:status) ? error.status : nil
+        error_code = error&.body&.dig('messages', 0, 'code')
+        error_key = error&.body&.dig('messages', 0, 'key')
+
+        Rails.logger.warn(
+          message: 'VAProfile batch transaction status refresh failed',
+          transaction_id: transaction.transaction_id,
+          transaction_type: transaction.type,
+          record_status: transaction.status,
+          record_transaction_status: transaction.transaction_status,
+          elapsed_seconds:,
+          user_uuid: user.uuid,
+          error_class: error.class.to_s,
+          error_status:,
+          error_code:,
+          error_key:
+        )
+      end
+
       # Find the most recent address, email, or telelphone transactions for a user
-      # @praram user [User] the user whose transactions we're finding
+      # @param user [User] the user whose transactions we're finding
       # @return [Array] an array of any outstanding transactions
       def self.last_ongoing_transactions_for_user(user)
         ongoing_transactions = []
@@ -148,6 +235,12 @@ module AsyncTransaction
 
         ongoing_transactions
       end
+
+      private_class_method :log_transaction_status_refresh,
+                           :log_first_transaction_status_check,
+                           :log_batch_candidates,
+                           :batch_candidate_payload,
+                           :log_batch_failure
 
       private
 
