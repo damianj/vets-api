@@ -16,10 +16,14 @@ RSpec.describe SignIn::AcrTranslator do
       let(:type) { SignIn::Constants::Auth::IDME }
       let(:ial2_feature_flag_enabled) { false }
 
+      let(:ial2_full_enforcement_enabled) { false }
+
       before do
         allow(Flipper).to receive(:enabled?).and_call_original
         allow(Flipper).to receive(:enabled?).with('identity_idme_ial2_enforcement')
                                             .and_return(ial2_feature_flag_enabled)
+        allow(Flipper).to receive(:enabled?).with('identity_idme_ial2_full_enforcement')
+                                            .and_return(ial2_full_enforcement_enabled)
       end
 
       context 'and acr is loa1' do
@@ -33,10 +37,55 @@ RSpec.describe SignIn::AcrTranslator do
 
       context 'and acr is loa3' do
         let(:acr) { 'loa3' }
-        let(:expected_translated_acr) { { acr: SignIn::Constants::Auth::IDME_LOA3_FORCE } }
 
-        it 'returns expected translated acr value' do
-          expect(subject).to eq(expected_translated_acr)
+        context 'when ial2 full enforcement is enabled' do
+          let(:ial2_full_enforcement_enabled) { true }
+          let(:acr_values) do
+            "#{SignIn::Constants::Auth::IDME_COMPARISON_MINIMUM} #{SignIn::Constants::Auth::IDME_IAL2} #{SignIn::Constants::Auth::IDME_LOA3}"
+          end
+          let(:expected_translated_acr) do
+            { acr: SignIn::Constants::Auth::IDME_IAL1, acr_values: }
+          end
+
+          it 'returns expected translated acr value' do
+            expect(subject).to eq(expected_translated_acr)
+          end
+        end
+
+        context 'when ial2 full enforcement is disabled' do
+          let(:ial2_full_enforcement_enabled) { false }
+          let(:expected_translated_acr) { { acr: SignIn::Constants::Auth::IDME_LOA3_FORCE } }
+
+          it 'returns expected translated acr value' do
+            expect(subject).to eq(expected_translated_acr)
+          end
+        end
+      end
+
+      context 'and acr is IAL2_PREFERRED' do
+        let(:acr) { SignIn::Constants::Auth::IAL2_PREFERRED }
+
+        context 'when ial2 full enforcement is enabled' do
+          let(:ial2_full_enforcement_enabled) { true }
+          let(:acr_values) do
+            "#{SignIn::Constants::Auth::IDME_COMPARISON_MINIMUM} #{SignIn::Constants::Auth::IDME_IAL2} #{SignIn::Constants::Auth::IDME_LOA3}"
+          end
+          let(:expected_translated_acr) do
+            { acr: SignIn::Constants::Auth::IDME_IAL1, acr_values: }
+          end
+
+          it 'returns expected translated acr value' do
+            expect(subject).to eq(expected_translated_acr)
+          end
+        end
+
+        context 'when ial2 full enforcement is disabled' do
+          let(:ial2_full_enforcement_enabled) { false }
+          let(:expected_translated_acr) { { acr: SignIn::Constants::Auth::IDME_LOA3_FORCE } }
+
+          it 'returns expected translated acr value' do
+            expect(subject).to eq(expected_translated_acr)
+          end
         end
       end
 
@@ -68,8 +117,10 @@ RSpec.describe SignIn::AcrTranslator do
 
         context 'and uplevel is false' do
           let(:uplevel) { false }
-          let(:acr_comparison) { SignIn::Constants::Auth::IDME_COMPARISON_MINIMUM }
-          let(:expected_translated_acr) { { acr: SignIn::Constants::Auth::IDME_LOA1, acr_comparison: } }
+          let(:acr_values) do
+            "#{SignIn::Constants::Auth::IDME_COMPARISON_MINIMUM} #{SignIn::Constants::Auth::IDME_LOA1}"
+          end
+          let(:expected_translated_acr) { { acr: SignIn::Constants::Auth::IDME_LOA1, acr_values: } }
 
           it 'returns expected translated acr value' do
             expect(subject).to eq(expected_translated_acr)

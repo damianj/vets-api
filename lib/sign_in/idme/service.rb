@@ -30,7 +30,7 @@ module SignIn
                           "state: #{state}, acr: #{scoped_acr}, operation: #{operation}")
 
         RedirectUrlGenerator.new(redirect_uri: auth_url,
-                                 params_hash: auth_params(scoped_acr, acr[:acr_comparison], state, operation)).perform
+                                 params_hash: auth_params(scoped_acr, acr[:acr_values], state, operation)).perform
       end
 
       def normalized_attributes(user_info, credential_level)
@@ -68,20 +68,16 @@ module SignIn
 
       private
 
-      def auth_params(acr, acr_comparison, state, operation)
+      def auth_params(acr, acr_values, state, operation)
         {
           scope: acr,
           state:,
           client_id: config.client_id,
           redirect_uri: config.redirect_uri,
           response_type: config.response_type,
-          acr_values: format_acr_comparison(acr_comparison),
+          acr_values:,
           op: convert_operation(operation)
         }.compact
-      end
-
-      def format_acr_comparison(acr_comparison)
-        acr_comparison ? "#{acr_comparison} #{Constants::Auth::IDME_LOA1}" : nil
       end
 
       def convert_operation(operation)
@@ -228,7 +224,8 @@ module SignIn
       end
 
       def append_optional_scopes(acr)
-        return acr unless optional_scopes.any? && acr == Constants::Auth::IDME_LOA3_FORCE
+        eligible_acrs = [Constants::Auth::IDME_LOA3_FORCE, Constants::Auth::IDME_IAL1]
+        return acr unless optional_scopes.any? && acr.in?(eligible_acrs)
 
         "#{acr}/#{optional_scopes.join('/')}"
       end
