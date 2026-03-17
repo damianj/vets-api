@@ -224,8 +224,7 @@ module SignIn
       end
 
       def append_optional_scopes(acr)
-        eligible_acrs = [Constants::Auth::IDME_LOA3_FORCE, Constants::Auth::IDME_IAL1]
-        return acr unless optional_scopes.any? && acr.in?(eligible_acrs)
+        return acr unless optional_scopes.any? && acr == Constants::Auth::IDME_LOA3_FORCE
 
         "#{acr}/#{optional_scopes.join('/')}"
       end
