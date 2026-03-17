@@ -49,23 +49,15 @@ module Mobile
         #
         # For Lighthouse claims, routes through Mobile::V0::LighthouseClaims::Proxy to apply
         # mobile-specific transforms. Other providers use their provider implementation directly.
-
-        # TODO: OBSERVABILITY GAP - Missing error instrumentation
-        # This override bypasses the base class error handling, losing:
-        # - StatsD metrics for provider errors (get_claim.provider_error)
-        # - Structured error logging with backtrace
-        # - RecordNotFound logging for missing claims
-        # Should wrap routing logic with rescue blocks + instrumentation for ops visibility
         def get_claim_from_providers(claim_id, provider_type = nil)
-          # If provider_type is specified, route based on type
-          return get_claim_for_provider_type(claim_id, provider_type) if provider_type.present?
-
-          # Default to lighthouse if no type parameter is specified
-          lighthouse_proxy.get_claim(claim_id)
+          # Default to lighthouse for backward compatibility when no type is specified.
+          # All paths go through get_claim_for_provider_type for consistent error handling.
+          get_claim_for_provider_type(claim_id, provider_type.presence || 'lighthouse')
         end
 
-        # Routes claim request to appropriate implementation based on provider type
-        # Lighthouse uses Proxy (with mobile-specific transforms), others use provider directly
+        # Routes claim request to appropriate implementation based on provider type.
+        # Lighthouse uses Proxy (with mobile-specific transforms), others use provider directly.
+        # Wraps provider calls with StatsD metrics and structured logging for ops visibility.
         def get_claim_for_provider_type(claim_id, provider_type)
           provider_class = provider_class_for_type(provider_type)
 
@@ -75,6 +67,15 @@ module Mobile
             provider = provider_class.new(@current_user)
             provider.get_claim(claim_id)
           end
+        rescue Common::Exceptions::RecordNotFound
+          log_claim_not_found(provider_class)
+          raise
+        rescue Common::Exceptions::Unauthorized, Common::Exceptions::Forbidden,
+               Common::Exceptions::InvalidFieldValue
+          raise
+        rescue => e
+          handle_get_claim_error(provider_class, e)
+          raise
         end
 
         # Maps provider type strings to their provider classes

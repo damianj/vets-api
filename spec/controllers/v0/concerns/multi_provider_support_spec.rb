@@ -133,6 +133,17 @@ RSpec.describe V0::Concerns::MultiProviderSupport do
         expect(V0::LighthouseClaims::Proxy).to have_received(:new).with(user)
       end
 
+      it 'defaults to lighthouse when blank string type is passed (e.g. ?type=)' do
+        proxy = double('LighthouseProxy')
+        allow(V0::LighthouseClaims::Proxy).to receive(:new).with(user).and_return(proxy)
+        allow(proxy).to receive(:get_claim).with(claim_id).and_return({ 'data' => { 'id' => claim_id } })
+
+        result = controller.send(:get_claim_from_providers, claim_id, '')
+
+        expect(result).to eq({ 'data' => { 'id' => claim_id } })
+        expect(V0::LighthouseClaims::Proxy).to have_received(:new).with(user)
+      end
+
       it 'defaults to lighthouse when no type parameter specified (even with multiple providers)' do
         # Simulate multiple providers being enabled via feature flags
         lighthouse_class = BenefitsClaims::Providers::Lighthouse::LighthouseBenefitsClaimsProvider
@@ -182,6 +193,111 @@ RSpec.describe V0::Concerns::MultiProviderSupport do
         expect(champva_class).to have_received(:new).with(user)
         expect(champva_instance).to have_received(:get_claim).with(claim_id)
         expect(V0::LighthouseClaims::Proxy).not_to have_received(:new)
+      end
+
+      context 'error handling' do
+        let(:lighthouse_provider_class) do
+          BenefitsClaims::Providers::Lighthouse::LighthouseBenefitsClaimsProvider
+        end
+        let(:proxy) { double('LighthouseProxy') }
+
+        before do
+          allow(V0::LighthouseClaims::Proxy).to receive(:new).with(user).and_return(proxy)
+        end
+
+        it 'logs at info level and re-raises RecordNotFound' do
+          allow(proxy).to receive(:get_claim).and_raise(Common::Exceptions::RecordNotFound.new(claim_id))
+          allow(Rails.logger).to receive(:info)
+
+          expect do
+            controller.send(:get_claim_from_providers, claim_id)
+          end.to raise_error(Common::Exceptions::RecordNotFound)
+
+          expect(Rails.logger).to have_received(:info).with(
+            "Provider #{lighthouse_provider_class.name} doesn't have claim",
+            { error_class: 'Common::Exceptions::RecordNotFound' }
+          )
+        end
+
+        it 're-raises Unauthorized without logging or metrics' do
+          allow(proxy).to receive(:get_claim).and_raise(Common::Exceptions::Unauthorized)
+          allow(Rails.logger).to receive(:error)
+          allow(StatsD).to receive(:increment)
+
+          expect do
+            controller.send(:get_claim_from_providers, claim_id)
+          end.to raise_error(Common::Exceptions::Unauthorized)
+
+          expect(Rails.logger).not_to have_received(:error)
+          expect(StatsD).not_to have_received(:increment)
+        end
+
+        it 're-raises Forbidden without logging or metrics' do
+          allow(proxy).to receive(:get_claim).and_raise(Common::Exceptions::Forbidden)
+          allow(Rails.logger).to receive(:error)
+          allow(StatsD).to receive(:increment)
+
+          expect do
+            controller.send(:get_claim_from_providers, claim_id)
+          end.to raise_error(Common::Exceptions::Forbidden)
+
+          expect(Rails.logger).not_to have_received(:error)
+          expect(StatsD).not_to have_received(:increment)
+        end
+
+        it 'logs error with backtrace, increments StatsD metric, and re-raises on generic error' do
+          allow(proxy).to receive(:get_claim).and_raise(StandardError.new('Network timeout'))
+          allow(Rails.logger).to receive(:error)
+          allow(StatsD).to receive(:increment)
+
+          expect do
+            controller.send(:get_claim_from_providers, claim_id)
+          end.to raise_error(StandardError, 'Network timeout')
+
+          expect(Rails.logger).to have_received(:error).with(
+            "Provider #{lighthouse_provider_class.name} error fetching claim",
+            hash_including(error_class: 'StandardError')
+          )
+          expect(StatsD).to have_received(:increment).with(
+            'api.benefits_claims.get_claim.provider_error',
+            tags: array_including("provider:#{lighthouse_provider_class.name}")
+          )
+        end
+
+        it 'propagates InvalidFieldValue without logging provider error' do
+          allow(Rails.logger).to receive(:error)
+          allow(StatsD).to receive(:increment)
+
+          expect do
+            controller.send(:get_claim_from_providers, claim_id, 'unknown_type')
+          end.to raise_error(Common::Exceptions::InvalidFieldValue)
+
+          expect(Rails.logger).not_to have_received(:error)
+          expect(StatsD).not_to have_received(:increment)
+        end
+
+        it 'logs error and increments StatsD for non-lighthouse provider errors' do
+          champva_class = double('ChampvaProviderClass', name: 'ChampvaProvider')
+          champva_instance = double('ChampvaProvider')
+          allow(champva_class).to receive(:new).with(user).and_return(champva_instance)
+          allow(champva_instance).to receive(:get_claim).and_raise(StandardError.new('CHAMPVA error'))
+          allow(controller).to receive(:provider_class_for_type).with('champva').and_return(champva_class)
+          allow(Rails.logger).to receive(:error)
+          allow(StatsD).to receive(:increment)
+
+          expect do
+            controller.send(:get_claim_from_providers, claim_id, 'champva')
+          end.to raise_error(StandardError, 'CHAMPVA error')
+
+          expect(Rails.logger).to have_received(:error).with(
+            'Provider ChampvaProvider error fetching claim',
+            hash_including(error_class: 'StandardError')
+          )
+          expect(StatsD).to have_received(:increment).with(
+            'api.benefits_claims.get_claim.provider_error',
+            tags: array_including('provider:ChampvaProvider')
+          )
+        end
       end
     end
   end
