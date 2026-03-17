@@ -3588,6 +3588,182 @@ RSpec.describe 'the v0 API documentation', order: :defined, type: %i[apivore req
     end
   end
 
+  describe 'CAVE endpoints' do
+    let(:idp_client) { instance_double(Idp::Client) }
+    let(:cave_document_id) { 'abc123' }
+    let(:headers) { { '_headers' => { 'Cookie' => sign_in(mhv_user, nil, true) } } }
+    let(:json_headers) do
+      {
+        '_headers' => {
+          'Cookie' => sign_in(mhv_user, nil, true),
+          'Accept' => 'application/json',
+          'Content-Type' => 'application/json'
+        }
+      }
+    end
+    let(:intake_payload) { { pdf_b64: 'ZmlsZQ==', file_name: 'test.pdf' } }
+    let(:key_value_payload) { { FIRST_NAME: 'Ada', LAST_NAME: 'Lovelace' } }
+    let(:diff_payload) do
+      {
+        lhs: { first_name: 'jee', last_name: 'doe' },
+        rhs: { first_name: 'john', last_name: 'doe' }
+      }
+    end
+
+    before do
+      Flipper.enable(:cave_idp)
+      allow(Flipper).to receive(:enabled?).and_call_original
+      allow(Idp).to receive(:client).and_return(idp_client)
+    end
+
+    after { Flipper.disable(:cave_idp) }
+
+    def expect_cave_forbidden(method, path, request_options = {})
+      allow_any_instance_of(V0::CaveController).to receive(:idp_user_id).and_raise(
+        Common::Exceptions::Forbidden.new(detail: 'Unable to determine user identity for IDP request')
+      )
+
+      expect(subject).to validate(method, path, 403, request_options)
+    ensure
+      allow_any_instance_of(V0::CaveController).to receive(:idp_user_id).and_call_original
+    end
+
+    it 'supports creating cave documents' do
+      expect(subject).to validate(:post, '/v0/cave', 401)
+      expect(subject).to validate(:post, '/v0/cave', 400, headers.merge('_data' => { pdf_b64: 'oops' }))
+
+      expect_cave_forbidden(:post, '/v0/cave', headers.merge('_data' => intake_payload))
+
+      allow(idp_client).to receive(:intake)
+        .with(file_name: 'test.pdf', pdf_base64: 'ZmlsZQ==', user_id: anything)
+        .and_raise(Idp::Error, 'boom')
+      expect(subject).to validate(:post, '/v0/cave', 502, headers.merge('_data' => intake_payload))
+
+      allow(idp_client).to receive(:intake)
+        .with(file_name: 'test.pdf', pdf_base64: 'ZmlsZQ==', user_id: anything)
+        .and_return('id' => cave_document_id)
+      expect(subject).to validate(:post, '/v0/cave', 200, headers.merge('_data' => intake_payload))
+    end
+
+    it 'supports fetching cave document status' do
+      expect(subject).to validate(:get, '/v0/cave/{id}/status', 401, 'id' => cave_document_id)
+
+      expect_cave_forbidden(:get, '/v0/cave/{id}/status', headers.merge('id' => cave_document_id))
+
+      allow(idp_client).to receive(:status)
+        .with(cave_document_id, user_id: anything)
+        .and_raise(Idp::Error, 'boom')
+      expect(subject).to validate(:get, '/v0/cave/{id}/status', 502, headers.merge('id' => cave_document_id))
+
+      allow(idp_client).to receive(:status)
+        .with(cave_document_id, user_id: anything)
+        .and_return('id' => cave_document_id, 'scan_status' => 'completed')
+      expect(subject).to validate(:get, '/v0/cave/{id}/status', 200, headers.merge('id' => cave_document_id))
+    end
+
+    it 'supports fetching cave document output' do
+      expect(subject).to validate(:get, '/v0/cave/{id}/output', 401, 'id' => cave_document_id)
+
+      expect_cave_forbidden(:get, '/v0/cave/{id}/output', headers.merge('id' => cave_document_id))
+
+      allow(idp_client).to receive(:output)
+        .with(cave_document_id, type: 'artifact', user_id: anything)
+        .and_raise(Idp::Error, 'boom')
+      expect(subject).to validate(:get, '/v0/cave/{id}/output', 502, headers.merge('id' => cave_document_id))
+
+      allow(idp_client).to receive(:output)
+        .with(cave_document_id, type: 'artifact', user_id: anything)
+        .and_return('forms' => [{ 'mmsFormValidationId' => 'form-kvp-123',
+                                  'mmsArtifactValidationId' => 'artifact-kvp-456' }])
+      expect(subject).to validate(:get, '/v0/cave/{id}/output', 200, headers.merge('id' => cave_document_id))
+    end
+
+    it 'supports downloading cave key-value payloads' do
+      expect(subject).to validate(:get, '/v0/cave/{id}/download', 401, 'id' => cave_document_id)
+      expect(subject).to validate(:get, '/v0/cave/{id}/download', 400, headers.merge('id' => cave_document_id))
+
+      expect_cave_forbidden(
+        :get,
+        '/v0/cave/{id}/download',
+        headers.merge('id' => cave_document_id, '_query_string' => 'kvpid=kvp1')
+      )
+
+      allow(idp_client).to receive(:download)
+        .with(cave_document_id, kvpid: 'kvp1', user_id: anything)
+        .and_raise(Idp::Error, 'boom')
+      expect(subject).to validate(
+        :get,
+        '/v0/cave/{id}/download',
+        502,
+        headers.merge('id' => cave_document_id, '_query_string' => 'kvpid=kvp1')
+      )
+
+      allow(idp_client).to receive(:download)
+        .with(cave_document_id, kvpid: 'kvp1', user_id: anything)
+        .and_return(key_value_payload.stringify_keys)
+      expect(subject).to validate(
+        :get,
+        '/v0/cave/{id}/download',
+        200,
+        headers.merge('id' => cave_document_id, '_query_string' => 'kvpid=kvp1')
+      )
+    end
+
+    it 'supports updating cave key-value payloads' do
+      expect(subject).to validate(:post, '/v0/cave/{id}/update', 401, 'id' => cave_document_id)
+      expect(subject).to validate(
+        :post,
+        '/v0/cave/{id}/update',
+        400,
+        json_headers.merge('id' => cave_document_id, '_data' => key_value_payload.to_json)
+      )
+
+      expect_cave_forbidden(
+        :post,
+        '/v0/cave/{id}/update',
+        json_headers.merge(
+          'id' => cave_document_id,
+          '_query_string' => 'kvpid=kvp1',
+          '_data' => key_value_payload.to_json
+        )
+      )
+
+      allow(idp_client).to receive(:update)
+        .with(cave_document_id, kvpid: 'kvp1', payload: key_value_payload.stringify_keys, user_id: anything)
+        .and_raise(Idp::Error, 'boom')
+      expect(subject).to validate(
+        :post,
+        '/v0/cave/{id}/update',
+        502,
+        json_headers.merge(
+          'id' => cave_document_id,
+          '_query_string' => 'kvpid=kvp1',
+          '_data' => key_value_payload.to_json
+        )
+      )
+
+      allow(idp_client).to receive(:update)
+        .with(cave_document_id, kvpid: 'kvp1', payload: key_value_payload.stringify_keys, user_id: anything)
+        .and_return(key_value_payload.stringify_keys)
+      expect(subject).to validate(
+        :post,
+        '/v0/cave/{id}/update',
+        200,
+        json_headers.merge(
+          'id' => cave_document_id,
+          '_query_string' => 'kvpid=kvp1',
+          '_data' => key_value_payload.to_json
+        )
+      )
+    end
+
+    it 'supports diffing cave payloads' do
+      expect(subject).to validate(:post, '/v0/cave/diff', 401)
+      expect(subject).to validate(:post, '/v0/cave/diff', 400, json_headers.merge('_data' => { lhs: {} }.to_json))
+      expect(subject).to validate(:post, '/v0/cave/diff', 200, json_headers.merge('_data' => diff_payload.to_json))
+    end
+  end
+
   context 'and' do
     before do
       allow(HealthCareApplication).to receive(:user_icn).and_return('123')

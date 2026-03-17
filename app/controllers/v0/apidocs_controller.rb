@@ -89,6 +89,10 @@ module V0
         key :name, 'digital_disputes'
         key :description, 'Submit digital dispute PDFs to the Debt Management Center and VBS'
       end
+      tag do
+        key :name, 'cave'
+        key :description, 'Submit documents to CAVE and retrieve extraction results'
+      end
       key :host, Settings.hostname
       key :schemes, %w[https http]
       key :basePath, '/'
@@ -125,6 +129,7 @@ module V0
       Swagger::Requests::BackendStatuses,
       Swagger::Requests::Banners,
       Swagger::Requests::BenefitsClaims,
+      Swagger::Requests::Cave,
       Swagger::Requests::DatadogAction,
       Swagger::Requests::BurialClaims,
       Swagger::Requests::BenefitsReferenceData,
