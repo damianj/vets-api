@@ -10,6 +10,7 @@ RSpec.describe AccreditedRepresentativePortal::V0::IntentToFileController, type:
     create(:representative_user, email: 'test@va.gov', icn: '123498767V234859', all_emails: ['test@va.gov'])
   end
   let!(:vso) { create(:organization, poa: poa_code) }
+  let(:icn) { '123498767V234859' }
 
   let!(:representative) do
     create(:representative,
@@ -36,7 +37,7 @@ RSpec.describe AccreditedRepresentativePortal::V0::IntentToFileController, type:
     login_as(test_user)
     allow(AccreditedRepresentativePortal::ClaimantLookupService).to receive(:get_icn).with(
       'Derrick', 'Reid', '666468765', '1976-01-16'
-    ).and_return('123498767V234859')
+    ).and_return(icn)
     allow(AccreditedRepresentativePortal::ClaimantLookupService).to receive(:get_icn).with(
       'Claimanty', 'Jane', '011223344', '1996-08-26'
     ).and_return('123498767V112233')
@@ -173,6 +174,9 @@ RSpec.describe AccreditedRepresentativePortal::V0::IntentToFileController, type:
           expect(response).to have_http_status(:created)
           expect(JSON.parse(response.body).dig('data', 'id')).to eq '193685'
           expect(JSON.parse(response.body).dig('data', 'attributes', 'status')).to eq 'active'
+
+          icn_identifier = AccreditedRepresentativePortal::IcnTemporaryIdentifier.find_by(icn:)
+          expect(JSON.parse(response.body).dig('data', 'claimantId')).to eq icn_identifier.id
         end
       end
 
@@ -241,7 +245,7 @@ RSpec.describe AccreditedRepresentativePortal::V0::IntentToFileController, type:
       before do
         allow(AccreditedRepresentativePortal::ClaimantLookupService).to receive(:get_icn).with(
           'Claimanty', 'Jane', '011223344', '1996-08-26'
-        ).and_return('123498767V234859')
+        ).and_return(icn)
       end
 
       it 'submits an intent to file' do
@@ -250,6 +254,9 @@ RSpec.describe AccreditedRepresentativePortal::V0::IntentToFileController, type:
           expect(response).to have_http_status(:created)
           expect(JSON.parse(response.body).dig('data', 'id')).to eq '193685'
           expect(JSON.parse(response.body).dig('data', 'attributes', 'status')).to eq 'active'
+
+          icn_identifier = AccreditedRepresentativePortal::IcnTemporaryIdentifier.find_by(icn:)
+          expect(JSON.parse(response.body).dig('data', 'claimantId')).to eq icn_identifier.id
         end
       end
     end

@@ -55,7 +55,8 @@ module AccreditedRepresentativePortal
           send_confirmation_email(saved_claim)
           render json: {
             confirmationNumber: confirmation_number,
-            status: '200'
+            status: '200',
+            claimantId: claimant_representative.claimant_id
           }
         rescue service::RecordInvalidError => e
           span.set_tag('error.specific_reason', 'record_invalid')

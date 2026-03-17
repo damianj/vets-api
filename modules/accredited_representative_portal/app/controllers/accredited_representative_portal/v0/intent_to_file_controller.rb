@@ -68,6 +68,7 @@ module AccreditedRepresentativePortal
               accredited_individual_registration_number:
                 claimant_representative.accredited_individual_registration_number
             )
+            parsed_response['data']['claimantId'] = icn_temporary_identifier.id
           end
 
           Rails.logger.info('ARP ITF: SavedClaimClaimantRepresentative created')

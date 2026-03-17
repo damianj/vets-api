@@ -7,11 +7,12 @@ RSpec.describe AccreditedRepresentativePortal::V0::RepresentativeFormUploadContr
                type: :request do
   stub_virus_scan
   let!(:poa_code) { '067' }
+  let(:icn) { '123498767V234859' }
   let(:representative_user) do
     create(
       :representative_user,
       email: 'test@va.gov',
-      icn: '123498767V234859',
+      icn:,
       all_emails: ['test@va.gov']
     )
   end
@@ -188,7 +189,8 @@ RSpec.describe AccreditedRepresentativePortal::V0::RepresentativeFormUploadContr
           expect(parsed_response).to eq(
             {
               'confirmationNumber' => FormSubmissionAttempt.order(created_at: :desc).first.benefits_intake_uuid,
-              'status' => '200'
+              'status' => '200',
+              'claimantId' => AccreditedRepresentativePortal::IcnTemporaryIdentifier.find_by(icn:).id
             }
           )
         end
@@ -220,7 +222,8 @@ RSpec.describe AccreditedRepresentativePortal::V0::RepresentativeFormUploadContr
             expect(parsed_response).to eq(
               {
                 'confirmationNumber' => FormSubmissionAttempt.order(created_at: :desc).first.benefits_intake_uuid,
-                'status' => '200'
+                'status' => '200',
+                'claimantId' => AccreditedRepresentativePortal::IcnTemporaryIdentifier.find_by(icn:).id
               }
             )
           end
@@ -231,7 +234,8 @@ RSpec.describe AccreditedRepresentativePortal::V0::RepresentativeFormUploadContr
             expect(parsed_response).to eq(
               {
                 'confirmationNumber' => FormSubmissionAttempt.order(created_at: :desc).first.benefits_intake_uuid,
-                'status' => '200'
+                'status' => '200',
+                'claimantId' => AccreditedRepresentativePortal::IcnTemporaryIdentifier.find_by(icn:).id
               }
             )
           end
@@ -242,7 +246,8 @@ RSpec.describe AccreditedRepresentativePortal::V0::RepresentativeFormUploadContr
             expect(parsed_response).to eq(
               {
                 'confirmationNumber' => FormSubmissionAttempt.order(created_at: :desc).first.benefits_intake_uuid,
-                'status' => '200'
+                'status' => '200',
+                'claimantId' => AccreditedRepresentativePortal::IcnTemporaryIdentifier.find_by(icn:).id
               }
             )
           end
@@ -338,7 +343,8 @@ RSpec.describe AccreditedRepresentativePortal::V0::RepresentativeFormUploadContr
           expect(parsed_response).to eq(
             {
               'confirmationNumber' => FormSubmissionAttempt.order(created_at: :desc).first.benefits_intake_uuid,
-              'status' => '200'
+              'status' => '200',
+              'claimantId' => AccreditedRepresentativePortal::IcnTemporaryIdentifier.find_by(icn:).id
             }
           )
         end
@@ -349,7 +355,8 @@ RSpec.describe AccreditedRepresentativePortal::V0::RepresentativeFormUploadContr
           expect(parsed_response).to eq(
             {
               'confirmationNumber' => FormSubmissionAttempt.order(created_at: :desc).first.benefits_intake_uuid,
-              'status' => '200'
+              'status' => '200',
+              'claimantId' => AccreditedRepresentativePortal::IcnTemporaryIdentifier.find_by(icn:).id
             }
           )
         end
