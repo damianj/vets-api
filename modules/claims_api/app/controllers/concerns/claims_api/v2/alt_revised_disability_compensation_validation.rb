@@ -275,19 +275,6 @@ module ClaimsApi
         end
       end
 
-      def flatten_disabilities(disabilities_array)
-        disabilities_array.flat_map do |disability|
-          primary_disability = disability.dup
-          secondaries = primary_disability.delete('secondaryDisabilities') || []
-
-          list = []
-          list << primary_disability unless primary_disability['disabilityActionType'] == 'NONE'
-          list.concat(secondaries)
-
-          list
-        end
-      end
-
       def alt_rev_validate_disability_name
         form_attributes['disabilities'].each_with_index do |disability, idx|
           disability_name = disability&.dig('name')

@@ -269,19 +269,6 @@ module ClaimsApi
                                                         "A maximum of #{DISABILITY_COUNT_MAX} disabilities allowed")
     end
 
-    def flatten_disabilities(disabilities_array)
-      disabilities_array.flat_map do |disability|
-        primary_disability = disability.dup
-        secondaries = primary_disability.delete('secondaryDisabilities') || []
-
-        list = []
-        list << primary_disability unless primary_disability['disabilityActionType'] == 'NONE'
-        list.concat(secondaries)
-
-        list
-      end
-    end
-
     def contention_classification_type_code_list
       @contention_classification_type_code_list ||= if Flipper.enabled?(:claims_api_526_validations_v1_local_bgs)
                                                       service = ClaimsApi::StandardDataService.new(
