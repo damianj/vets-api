@@ -292,6 +292,10 @@ module VAOS
         params = VAOS::V2::AppointmentForm.new(user, request_object_body).params.with_indifferent_access
         params.compact_blank!
 
+        # Backend expects service_type to be null for booked appointments
+        # We've already captured it in appt_context for metrics
+        params[:service_type] = nil if params[:status] == 'booked'
+
         with_monitoring do
           response = if params[:status] == 'proposed'
                        create_appointment_request(params)
