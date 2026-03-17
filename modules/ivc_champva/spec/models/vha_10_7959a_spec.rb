@@ -26,6 +26,19 @@ RSpec.describe IvcChampva::VHA107959a do
   end
   let(:vha_10_7959a) { described_class.new(data) }
 
+  let(:medical_resubmission_data) do
+    data.merge(
+      'claim_status' => 'resubmission',
+      'pdi_or_claim_number' => 'PDI number',
+      'identifying_number' => 'va12345678',
+      'claim_type' => 'medical',
+      'provider_name' => 'BCBS',
+      'beginning_date_of_service' => '01-01-1999',
+      'end_date_of_service' => '01-02-1999'
+    )
+  end
+  let(:vha107959a_medical_resubmission) { described_class.new(medical_resubmission_data) }
+
   describe '#metadata' do
     context 'when champva_update_metadata_keys flipper is enabled' do
       it 'returns metadata for the form' do
@@ -84,23 +97,6 @@ RSpec.describe IvcChampva::VHA107959a do
 
   describe '#add_resubmission_properties' do
     context 'when medical claim resubmission data is present' do
-      let(:medical_resubmission_data) do
-        # update data to reflect a resubmitted medical claim
-        data.merge(
-          {
-            'claim_status' => 'resubmission',
-            'pdi_or_claim_number' => 'PDI number',
-            'identifying_number' => 'va12345678',
-            'claim_type' => 'medical',
-            'provider_name' => 'BCBS',
-            'beginning_date_of_service' => '01-01-1999',
-            'end_date_of_service' => '01-02-1999'
-          }
-        )
-      end
-
-      let(:vha107959a_medical_resubmission) { described_class.new(medical_resubmission_data) }
-
       it 'includes a key for each present resubmission property' do
         res = vha107959a_medical_resubmission.add_resubmission_properties
         expect(res.keys.include?('claim_status')).to be(true)
@@ -146,6 +142,115 @@ RSpec.describe IvcChampva::VHA107959a do
         res = vha_10_7959a.add_resubmission_properties
         # this key will not be present even though `add_resubmission_properties` attempts to get it from the form data
         expect(res.keys.include?('claim_status')).to be(false)
+      end
+    end
+  end
+
+  describe '#stamp_metadata' do
+    context 'when champva_claims_duty_to_assist flipper is disabled' do
+      before do
+        allow(Flipper).to receive(:enabled?).with(:champva_claims_duty_to_assist).and_return(false)
+      end
+
+      it 'returns nil' do
+        expect(vha_10_7959a.stamp_metadata).to be_nil
+      end
+    end
+
+    context 'when champva_claims_duty_to_assist flipper is enabled' do
+      before do
+        allow(Flipper).to receive(:enabled?).and_call_original
+        allow(Flipper).to receive(:enabled?).with(:champva_claims_duty_to_assist).and_return(true)
+      end
+
+      context 'when has_claim_docs is nil' do
+        it 'returns nil because DTA does not apply' do
+          expect(vha_10_7959a.stamp_metadata).to be_nil
+        end
+      end
+
+      context 'when has_claim_docs is true (user has docs)' do
+        let(:data_with_docs) { data.merge('has_claim_docs' => true) }
+        let(:form_with_docs) { described_class.new(data_with_docs) }
+
+        it 'returns nil because DTA does not apply' do
+          expect(form_with_docs.stamp_metadata).to be_nil
+        end
+      end
+
+      context 'when has_claim_docs is false (DTA applies)' do
+        let(:dta_data) { data.merge('has_claim_docs' => false, 'provider_name' => 'Memorial Hospital') }
+        let(:form_dta) { described_class.new(dta_data) }
+
+        it 'returns metadata hash with attachment_id' do
+          result = form_dta.stamp_metadata
+
+          expect(result).to be_a(Hash)
+          expect(result[:attachment_id]).to eq('CVA Duty to Assist')
+          expect(result[:metadata]).to include('provider_name', 'service_start_date', 'service_end_date')
+        end
+      end
+    end
+  end
+
+  describe '#dta?' do
+    context 'when has_claim_docs is true' do
+      let(:data_with_docs) { data.merge('has_claim_docs' => true) }
+      let(:form_with_docs) { described_class.new(data_with_docs) }
+
+      it 'returns false' do
+        expect(form_with_docs.dta?).to be(false)
+      end
+    end
+
+    context 'when has_claim_docs is false' do
+      let(:data_without_docs) { data.merge('has_claim_docs' => false) }
+      let(:form_without_docs) { described_class.new(data_without_docs) }
+
+      it 'returns true' do
+        expect(form_without_docs.dta?).to be(true)
+      end
+    end
+
+    context 'when has_claim_docs is nil' do
+      it 'returns false' do
+        expect(vha_10_7959a.dta?).to be(false)
+      end
+    end
+  end
+
+  describe '#build_dta_metadata' do
+    it 'always returns all DTA field keys' do
+      result = vha_10_7959a.build_dta_metadata
+
+      expect(result.keys).to contain_exactly(
+        'provider_name',
+        'provider_phone',
+        'provider_fax',
+        'provider_email',
+        'service_start_date',
+        'service_end_date',
+        'additional_comments'
+      )
+    end
+
+    context 'when DTA fields have values' do
+      let(:dta_data) do
+        data.merge(
+          'provider_name' => 'Memorial Hospital',
+          'provider_phone' => '555-123-4567',
+          'service_start_date' => '2024-01-15'
+        )
+      end
+      let(:form_with_dta) { described_class.new(dta_data) }
+
+      it 'includes the provided values' do
+        result = form_with_dta.build_dta_metadata
+
+        expect(result['provider_name']).to eq('Memorial Hospital')
+        expect(result['provider_phone']).to eq('555-123-4567')
+        expect(result['service_start_date']).to eq('2024-01-15')
+        expect(result['service_end_date']).to be_nil
       end
     end
   end

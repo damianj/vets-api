@@ -1343,6 +1343,99 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
     end
   end
 
+  describe '#build_attachment_ids DTA integration' do
+    let(:controller) { IvcChampva::V1::UploadsController.new }
+
+    before do
+      allow(Flipper).to receive(:enabled?).and_call_original
+      allow(Flipper).to receive(:enabled?).with(:champva_resubmission_attachment_ids).and_return(true)
+    end
+
+    context 'when DTA applies' do
+      before do
+        allow(Flipper).to receive(:enabled?).with(:champva_claims_duty_to_assist).and_return(true)
+      end
+
+      it 'overrides PDI resubmission logic with DTA attachment IDs' do
+        parsed_form_data = {
+          'claim_status' => 'resubmission',
+          'pdi_or_claim_number' => 'PDI number',
+          'has_claim_docs' => false,
+          'supporting_docs' => [
+            { 'confirmation_code' => 'code1', 'attachment_id' => 'Medical Records' }
+          ]
+        }
+
+        result = controller.send(:build_attachment_ids, 'vha_10_7959a', parsed_form_data, 1)
+
+        # DTA takes priority - all docs get "CVA Duty to Assist"
+        expect(result).to eq(['CVA Duty to Assist', 'CVA Duty to Assist'])
+      end
+
+      it 'overrides Control number resubmission logic with DTA attachment IDs' do
+        parsed_form_data = {
+          'claim_status' => 'resubmission',
+          'pdi_or_claim_number' => 'Control number',
+          'has_claim_docs' => false,
+          'supporting_docs' => [
+            { 'confirmation_code' => 'code1', 'attachment_id' => 'Medical Records' }
+          ]
+        }
+
+        # Mock the database lookup for supporting_document_ids
+        record = double('Record', created_at: Time.zone.now, file: double(id: 'file1'))
+        allow(PersistentAttachments::MilitaryRecords).to receive(:find_by).and_return(record)
+
+        result = controller.send(:build_attachment_ids, 'vha_10_7959a', parsed_form_data, 1)
+
+        # DTA takes priority - all docs get "CVA Duty to Assist"
+        expect(result).to eq(['CVA Duty to Assist', 'CVA Duty to Assist'])
+      end
+    end
+
+    context 'when DTA does not apply (has_claim_docs is true)' do
+      before do
+        allow(Flipper).to receive(:enabled?).with(:champva_claims_duty_to_assist).and_return(true)
+      end
+
+      it 'uses PDI resubmission logic when PDI number selected' do
+        parsed_form_data = {
+          'claim_status' => 'resubmission',
+          'pdi_or_claim_number' => 'PDI number',
+          'has_claim_docs' => true,
+          'supporting_docs' => [
+            { 'confirmation_code' => 'code1', 'attachment_id' => 'Medical Records' }
+          ]
+        }
+
+        result = controller.send(:build_attachment_ids, 'vha_10_7959a', parsed_form_data, 1)
+
+        # PDI logic applies - all docs get "CVA Bene Response"
+        expect(result).to eq(['CVA Bene Response', 'CVA Bene Response'])
+      end
+
+      it 'uses Control number resubmission logic when Control number selected' do
+        parsed_form_data = {
+          'claim_status' => 'resubmission',
+          'pdi_or_claim_number' => 'Control number',
+          'has_claim_docs' => true,
+          'supporting_docs' => [
+            { 'confirmation_code' => 'code1', 'attachment_id' => 'Medical Records' }
+          ]
+        }
+
+        # Mock the database lookup for supporting_document_ids
+        record = double('Record', created_at: Time.zone.now, file: double(id: 'file1'))
+        allow(PersistentAttachments::MilitaryRecords).to receive(:find_by).and_return(record)
+
+        result = controller.send(:build_attachment_ids, 'vha_10_7959a', parsed_form_data, 1)
+
+        # Control number logic - main form "CVA Reopen", supporting docs retain types
+        expect(result).to eq(['CVA Reopen', 'Medical Records'])
+      end
+    end
+  end
+
   describe '7959A PDI resubmission end-to-end S3 upload' do
     let(:base_fixture) do
       fixture_path = Rails.root.join('modules', 'ivc_champva', 'spec', 'fixtures', 'form_json', 'vha_10_7959a.json')

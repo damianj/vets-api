@@ -854,12 +854,10 @@ module IvcChampva
       ##
       # Builds the attachment_ids array for the given form submission.
       # For 10-7959a resubmissions:
+      #  - If DTA applies (has_claim_docs == false): all documents labeled "CVA Duty to Assist"
       #  - If Control number selected: the main claim sheet is labeled "CVA Reopen",
       #    supporting docs retain original types.
-      #  - If PDI selected: use the standard logic because the generated stamped doc
-      #    (created in stamp_metadata) is labeled "CVA Bene Response" by the model, and
-      #    supporting docs retain original types. Main claim sheet remains the default
-      #    form_id.
+      #  - If PDI selected: all documents labeled "CVA Bene Response".
       # For all other cases, uses the standard logic.
       #
       # @param [String] form_id The mapped form ID (e.g., 'vha_10_7959a')
@@ -867,9 +865,12 @@ module IvcChampva
       # @param [Integer] applicant_rounded_number number of main form attachments needed
       # @return [Array<String>] array of attachment_ids for all documents
       def build_attachment_ids(form_id, parsed_form_data, applicant_rounded_number)
-        if Flipper.enabled?(:champva_resubmission_attachment_ids) &&
-           form_id == 'vha_10_7959a' &&
-           parsed_form_data['claim_status'] == 'resubmission'
+        # DTA takes highest priority for 10-7959a resubmissions
+        if dta_applies?(form_id, parsed_form_data)
+          build_dta_attachment_ids(parsed_form_data, applicant_rounded_number)
+        elsif Flipper.enabled?(:champva_resubmission_attachment_ids) &&
+              form_id == 'vha_10_7959a' &&
+              parsed_form_data['claim_status'] == 'resubmission'
           selector = parsed_form_data['pdi_or_claim_number']
 
           if selector == 'Control number'
@@ -885,6 +886,37 @@ module IvcChampva
         else
           build_default_attachment_ids(form_id, parsed_form_data, applicant_rounded_number)
         end
+      end
+
+      ##
+      # Checks if Duty to Assist (DTA) applies to this submission.
+      # DTA applies when:
+      #  - Feature flag is enabled
+      #  - Form is 10-7959a
+      #  - It's a resubmission
+      #  - has_claim_docs is explicitly false
+      #
+      # @param [String] form_id The mapped form ID
+      # @param [Hash] parsed_form_data complete form submission data object
+      # @return [Boolean] true if DTA applies
+      def dta_applies?(form_id, parsed_form_data)
+        Flipper.enabled?(:champva_claims_duty_to_assist) &&
+          form_id == 'vha_10_7959a' &&
+          parsed_form_data['claim_status'] == 'resubmission' &&
+          parsed_form_data['has_claim_docs'] == false
+      end
+
+      ##
+      # Builds the attachment_ids array for DTA submissions.
+      # All documents (main form, DTA info PDF, and supporting docs) are labeled "CVA Duty to Assist".
+      #
+      # @param [Hash] parsed_form_data complete form submission data object
+      # @param [Integer] applicant_rounded_number number of main form attachments needed
+      # @return [Array<String>] array of attachment_ids
+      def build_dta_attachment_ids(parsed_form_data, applicant_rounded_number)
+        supporting_doc_count = parsed_form_data['supporting_docs']&.count.to_i
+        total_doc_count = applicant_rounded_number + supporting_doc_count
+        Array.new(total_doc_count) { 'CVA Duty to Assist' }
       end
 
       ##

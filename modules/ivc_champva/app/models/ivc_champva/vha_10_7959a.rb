@@ -58,13 +58,33 @@ module IvcChampva
     ##
     # Informs pdf stamper that we want to stamp some arbitrary values on a blank page
     # in the main form PDF file. See UploadsController::PdfStamper.add_blank_page_and_stamp
-    # @return [Hash] hash of metadata we want to stamp and an attachment ID to associate with the stamped page
+    # @return [Hash, nil] hash of metadata we want to stamp and an attachment ID to associate
+    #   with the stamped page, or nil if feature flag is disabled
     def stamp_metadata
-      # Only generate a stamped metadata page for PDI resubmissions when feature flag is enabled
-      if Flipper.enabled?(:champva_claims_duty_to_assist)
-        # placeholder for future DTA work
-        { metadata: add_resubmission_properties }
-      end
+      return unless Flipper.enabled?(:champva_claims_duty_to_assist) && dta?
+
+      { metadata: build_dta_metadata, attachment_id: 'CVA Duty to Assist' }
+    end
+
+    def dta?
+      @data['has_claim_docs'] == false
+    end
+
+    ##
+    # Builds the Duty to Assist (DTA) metadata hash from form data.
+    # Extracts provider contact details and service dates collected during the DTA subflow.
+    # All fields are included even if nil to ensure field names appear on stamped PDF.
+    # @return [Hash] formatted DTA metadata
+    def build_dta_metadata
+      {
+        'provider_name' => @data['provider_name'],
+        'provider_phone' => @data['provider_phone'],
+        'provider_fax' => @data['provider_fax'],
+        'provider_email' => @data['provider_email'],
+        'service_start_date' => @data['service_start_date'],
+        'service_end_date' => @data['service_end_date'],
+        'additional_comments' => @data['additional_comments']
+      }
     end
 
     def desired_stamps
