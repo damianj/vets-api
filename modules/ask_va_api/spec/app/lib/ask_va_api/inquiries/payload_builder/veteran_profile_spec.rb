@@ -81,6 +81,7 @@ RSpec.describe AskVAApi::Inquiries::PayloadBuilder::VeteranProfile do
       let(:params) do
         {
           about_yourself: {
+            branch_of_service: 'Army',
             date_of_birth: '1980-05-15',
             first: 'Test',
             last: 'User',
@@ -101,7 +102,6 @@ RSpec.describe AskVAApi::Inquiries::PayloadBuilder::VeteranProfile do
             street3: 'Building 5',
             unit_number: 'Unit 10'
           },
-          your_branch_of_service: 'Army',
           relationship_to_veteran: "I'm the Veteran",
           business_email: 'business@example.com',
           business_phone: '123-456-7890',

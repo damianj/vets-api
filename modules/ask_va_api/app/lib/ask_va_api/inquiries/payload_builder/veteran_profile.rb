@@ -24,7 +24,7 @@ module AskVAApi
 
         def service_info(info)
           {
-            BranchOfService: info[:branch_of_service] || inquiry_params[:your_branch_of_service],
+            BranchOfService: info[:branch_of_service],
             SSN: info.dig(:social_or_service_num, :ssn) || info[:social_num],
             EDIPI: i_am_the_veteran? ? user&.edipi : nil,
             ICN: i_am_the_veteran? ? user&.icn : nil,
