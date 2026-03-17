@@ -184,11 +184,22 @@ module DecisionReviews
       # @param user [User] Veteran who the form is in regard to
       # @return [Faraday::Response]
       #
-      def get_notice_of_disagreement_contestable_issues(user:)
+      def get_notice_of_disagreement_contestable_issues(user:) # rubocop:disable Metrics/MethodLength
         with_monitoring_and_error_handling do
           path = 'contestable_issues/notice_of_disagreements'
           headers = get_contestable_issues_headers(user)
-          response = perform :get, path, nil, headers
+          common_log_params = { key: :get_contestable_issues, form_id: '10182', user_uuid: user.uuid,
+                                upstream_system: 'Lighthouse' }
+          begin
+            response = perform :get, path, nil, headers
+            log_formatted(**common_log_params.merge(is_success: true, status_code: response.status,
+                                                    body: '[Redacted]'))
+          rescue => e
+            # We can freely log Lighthouse's error responses because they do not include PII or PHI.
+            # See https://developer.va.gov/explore/api/decision-reviews/docs?version=v1.
+            log_formatted(**common_log_params.merge(error_log_params(e)))
+            raise e
+          end
           raise_schema_error_unless_200_status response.status
           validate_against_schema(
             json: response.body,

@@ -8,6 +8,36 @@ require 'decision_reviews/v1/appealable_issues/configuration'
 RSpec.describe 'DecisionReviews::V1::NoticeOfDisagreements::ContestableIssues', type: :request do
   # ICN must match the ICN in VCR cassette URLs since it's part of the query parameters
   let(:user) { build(:user, :loa3, icn: '1012832025V743496') }
+  let(:success_log_args) do
+    {
+      message: 'Get contestable issues success!',
+      user_uuid: user.uuid,
+      action: 'Get contestable issues',
+      form_id: '10182',
+      upstream_system: 'Lighthouse',
+      downstream_system: nil,
+      is_success: true,
+      http: {
+        status_code: 200,
+        body: '[Redacted]'
+      }
+    }
+  end
+  let(:error_log_args) do
+    {
+      message: 'Get contestable issues failure!',
+      user_uuid: user.uuid,
+      action: 'Get contestable issues',
+      form_id: '10182',
+      upstream_system: 'Lighthouse',
+      downstream_system: nil,
+      is_success: false,
+      http: {
+        status_code: 404,
+        body: anything
+      }
+    }
+  end
   let(:appealable_issues_service_success_log_args) do
     {
       message: 'Get contestable issues success!',
@@ -47,6 +77,8 @@ RSpec.describe 'DecisionReviews::V1::NoticeOfDisagreements::ContestableIssues', 
 
       it 'fetches issues that the Veteran could contest via a notice of disagreement' do
         VCR.use_cassette('decision_review/NOD-GET-CONTESTABLE-ISSUES-RESPONSE-200_V1') do
+          allow(Rails.logger).to receive(:info)
+          expect(Rails.logger).to receive(:info).with(success_log_args)
           subject
           expect(response).to be_successful
           expect(JSON.parse(response.body)['data']).to be_an Array
@@ -56,6 +88,8 @@ RSpec.describe 'DecisionReviews::V1::NoticeOfDisagreements::ContestableIssues', 
       it 'adds to the PersonalInformationLog when an exception is thrown' do
         VCR.use_cassette('decision_review/NOD-GET-CONTESTABLE-ISSUES-RESPONSE-404_V1') do
           expect(personal_information_logs.count).to be 0
+          allow(Rails.logger).to receive(:error)
+          expect(Rails.logger).to receive(:error).with(error_log_args)
           subject
           expect(personal_information_logs.count).to be 1
           pil = personal_information_logs.first
