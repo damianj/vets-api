@@ -38,7 +38,7 @@ describe Common::ConvertToPdf, :uploader_helpers do
       let(:file) { create(:claim_evidence, file_path: 'spec/fixtures/pdf_fill/extras.pdf').file }
 
       it 'stills be pdf and not run convert' do
-        expect(MiniMagick).not_to receive(:convert)
+        expect(MiniMagick::Tool::Convert).not_to receive(:new)
         test_converted_to_pdf
       end
     end
