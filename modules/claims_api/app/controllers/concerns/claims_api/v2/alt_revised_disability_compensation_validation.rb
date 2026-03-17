@@ -965,7 +965,7 @@ module ClaimsApi
       end
 
       def claim_date
-        Time.find_zone!('Central Time (US & Canada)').today
+        @claim_date ||= Time.find_zone!('Central Time (US & Canada)').today
       end
 
       def bdd_claim?
