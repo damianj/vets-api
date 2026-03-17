@@ -152,8 +152,7 @@ RSpec.describe SavedClaim::Form210779, type: :model do
 
     it 'includes form metadata and system fields' do
       ibm_payload = claim.to_ibm
-      expect(ibm_payload['FORM_TYPE']).to eq('21-0779')
-      expect(ibm_payload['FORM_TYPE_1']).to eq('21-0779')
+      expect(ibm_payload['FORM_TYPE_1']).to eq('VA FORM 0779, NOV 2023')
       expect(ibm_payload['FLASH_TEXT']).to be_nil
       expect(ibm_payload['CB_VA_STAMP']).to be_nil
     end
@@ -162,11 +161,12 @@ RSpec.describe SavedClaim::Form210779, type: :model do
       ibm_payload = claim.to_ibm
 
       # NOTE: Currently returns 41 fields including VETERAN_NAME.
-      # Will be fixed to 40 when VETERAN_NAME removal PR merges
-      expect(ibm_payload.keys.length).to eq(40)
+      # Expect 43 total fields per new data dictionary (removed FORM_TYPE and INT_PHONE_NUMBER, added 5 new fields)
+      expect(ibm_payload.keys.length).to eq(43)
 
-      # Veteran fields (6 - excludes VETERAN_NAME per VBA Data Dictionary)
+      # Veteran fields (7 - includes VETERAN_NAME)
       expect(ibm_payload).to include(
+        'VETERAN_NAME' => 'John A Doe',
         'VETERAN_FIRST_NAME' => 'John',
         'VETERAN_MIDDLE_INITIAL' => 'A',
         'VETERAN_LAST_NAME' => 'Doe',
@@ -175,15 +175,16 @@ RSpec.describe SavedClaim::Form210779, type: :model do
         'VA_FILE_NUMBER' => '987654321'
       )
 
-      # Claimant fields (6)
+      # Claimant fields (7 - includes CLAIMANT_NAME)
       expect(ibm_payload).to include(
+        'CLAIMANT_NAME' => 'Jane B Doe',
         'CLAIMANT_FIRST_NAME' => 'Jane',
         'CLAIMANT_MIDDLE_INITIAL' => 'B',
         'CLAIMANT_LAST_NAME' => 'Doe',
         'CLAIMANT_DOB' => '05/15/1992',
         'CLAIMANT_SSN' => '987654321'
       )
-      expect(ibm_payload).to have_key('CL_FILE_NUMER')
+      expect(ibm_payload).to have_key('CL_FILE_NUMBER')
 
       # Facility fields (7 address fields)
       expect(ibm_payload).to include(
@@ -196,31 +197,32 @@ RSpec.describe SavedClaim::Form210779, type: :model do
         'FACILITY_ADDRESS_ZIP_C' => '62701'
       )
 
-      # General information fields (17 from generalInformation section)
+      # General information fields (19 from generalInformation section, includes currency breakdown)
       expect(ibm_payload['DATE_ADMISSION_TO_FACILITY_C']).to eq('01/01/2024')
-      expect(ibm_payload['MEDICAID_APPROVED_Y']).to be true
-      expect(ibm_payload['MEDICAID_APPROVED_N']).to be false
-      expect(ibm_payload['MEDICAID_APPLIED_Y']).to be true
-      expect(ibm_payload['MEDICAID_APPLIED_N']).to be false
-      expect(ibm_payload['MEDICAID_COVERAGE_Y']).to be true
-      expect(ibm_payload['MEDICAID_COVERAGE_N']).to be false
+      expect(ibm_payload['MEDICAID_APPROVED_Y']).to eq(1)
+      expect(ibm_payload['MEDICAID_APPROVED_N']).to eq(0)
+      expect(ibm_payload['MEDICAID_APPLIED_Y']).to eq(1)
+      expect(ibm_payload['MEDICAID_APPLIED_N']).to eq(0)
+      expect(ibm_payload['MEDICAID_COVERAGE_Y']).to eq(1)
+      expect(ibm_payload['MEDICAID_COVERAGE_N']).to eq(0)
       expect(ibm_payload['MEDICAID_START']).to eq('02/01/2024')
-      expect(ibm_payload['OUT_OF_POCKET']).to eq('3000.00')
-      expect(ibm_payload['SKILLED_CARE']).to be true
-      expect(ibm_payload['INTERMEDIATE_CARE']).to be false
+      expect(ibm_payload['OUT_OF_POCKET']).to eq('3,000.00')
+      expect(ibm_payload['OUT_OF_POCKET_THSNDS']).to eq('3')
+      expect(ibm_payload['OUT_OF_POCKET_HNDRDS']).to eq('000')
+      expect(ibm_payload['OUT_OF_POCKET_CENTS']).to eq('00')
+      expect(ibm_payload['SKILLED_CARE']).to eq(1)
+      expect(ibm_payload['INTERMEDIATE_CARE']).to eq(0)
       expect(ibm_payload['NAME_COMPLETING_WORKSHEET_C']).to eq('Dr. Sarah Smith')
       expect(ibm_payload['ROLE_PERFORM_AT_FACILITY_C']).to eq('Director of Nursing')
       expect(ibm_payload['FACILITY_TELEPHONE_NUMBER_C']).to eq('5557890123')
-      expect(ibm_payload['INT_PHONE_NUMBER']).to be_nil
       expect(ibm_payload['SIGNATURE_OF_PROVIDER_C']).to eq('Dr. Sarah Smith')
       expect(ibm_payload['SIGNATURE_DATE_PROVIDER_C']).to eq('01/01/2024')
 
-      # Form metadata (4 fields including system fields)
+      # Form metadata (3 fields including system fields)
       expect(ibm_payload).to include(
         'FLASH_TEXT' => nil,
         'CB_VA_STAMP' => nil,
-        'FORM_TYPE' => '21-0779',
-        'FORM_TYPE_1' => '21-0779'
+        'FORM_TYPE_1' => 'VA FORM 0779, NOV 2023'
       )
     end
   end

@@ -82,78 +82,73 @@ class SavedClaim::Form21p530a < SavedClaim
   end
 
   # Convert form data to IBM GCIO VBA Data Dictionary format
+  # Returns all 48 fields defined in the VA Forms - Data Dictionary
   # Mapping based on Form 21P-530a OCT 2024 Data Dictionary
   def to_ibm
-    ibm_data = {}
-    ibm_data.merge!(build_veteran_fields)
-    ibm_data.merge!(build_service_history_fields)
-    ibm_data.merge!(build_burial_fields)
-    ibm_data.merge!(build_recipient_organization_fields)
-    ibm_data.merge!(build_signature_fields)
-    ibm_data.merge!(build_form_metadata_fields)
-    ibm_data
+    vet_info = parsed_form['veteranInformation'] || {}
+    burial_info = parsed_form['burialInformation'] || {}
+    place_of_burial = burial_info['placeOfBurial'] || {}
+    certification = parsed_form['certification'] || {}
+    recipient_org = burial_info['recipientOrganization'] || {}
+
+    build_ibm_hash(vet_info, burial_info, place_of_burial, certification, recipient_org)
   end
 
   private
+
+  def organization_name
+    parsed_form.dig('burialInformation', 'recipientOrganization', 'name') ||
+      parsed_form.dig('burialInformation', 'nameOfStateCemeteryOrTribalOrganization')
+  end
+
+  def veteran_name
+    first = parsed_form.dig('veteranInformation', 'fullName', 'first')
+    last = parsed_form.dig('veteranInformation', 'fullName', 'last')
+    "#{first} #{last}".strip.presence
+  end
 
   def zip_code_for_metadata
     parsed_form.dig('burialInformation', 'recipientOrganization', 'address', 'postalCode') || DEFAULT_ZIP_CODE
   end
 
-  # Format place of birth from object to string
-  def format_place_of_birth(place_of_birth)
-    return nil unless place_of_birth.is_a?(Hash)
+  # Build the IBM VBA Data Dictionary hash with all 48 required fields
+  # @param vet_info [Hash] Veteran information from parsed form
+  # @param burial_info [Hash] Burial information from parsed form
+  # @param place_of_burial [Hash] Place of burial from parsed form
+  # @param certification [Hash] Certification information from parsed form
+  # @param recipient_org [Hash] Recipient organization information from parsed form
+  # @return [Hash] VBA Data Dictionary payload
+  def build_ibm_hash(vet_info, burial_info, place_of_burial, certification, recipient_org)
+    full_name = vet_info['fullName'] || {}
 
-    city = place_of_birth['city']
-    state = place_of_birth['state']
-    return nil unless city && state
-
-    "#{city}, #{state}"
+    build_veteran_fields(vet_info, full_name)
+      .merge(build_service_history_fields(vet_info))
+      .merge(build_burial_fields(burial_info, place_of_burial))
+      .merge(build_recipient_org_fields(recipient_org))
+      .merge(build_certification_fields(certification))
   end
 
-  # Build veteran identification fields (Boxes 1-7)
-  def build_veteran_fields
-    full_name = parsed_form.dig('veteranInformation', 'fullName') || {}
+  def build_veteran_fields(vet_info, full_name)
+    place_of_birth = vet_info['placeOfBirth'] || {}
+    pob_city = place_of_birth['city']
+    pob_state = place_of_birth['state']
+    place_of_birth_str = [pob_city, pob_state].compact.reject(&:empty?).join(', ').presence
+
     {
       'VETERAN_FIRST_NAME' => full_name['first'],
       'VETERAN_MIDDLE_INITIAL' => extract_middle_initial(full_name['middle']),
       'VETERAN_LAST_NAME' => full_name['last'],
       'VETERAN_NAME' => build_full_name(full_name),
-      'VETERAN_SSN' => parsed_form.dig('veteranInformation', 'ssn'),
-      'VETERAN_SERVICE_NUMBER' => parsed_form.dig('veteranInformation', 'vaServiceNumber'),
-      'VA_FILE_NUMBER' => parsed_form.dig('veteranInformation', 'vaFileNumber'),
-      'VETERAN_DOB' => format_date_for_ibm(parsed_form.dig('veteranInformation', 'dateOfBirth')),
-      'VETERAN_PLACE_OF_BIRTH' => format_place_of_birth(parsed_form.dig('veteranInformation', 'placeOfBirth')),
-      'VETERAN_DATE_OF_DEATH' => format_date_for_ibm(parsed_form.dig('veteranInformation', 'dateOfDeath'))
+      'VETERAN_SSN' => vet_info['ssn'],
+      'VETERAN_SERVICE_NUMBER' => vet_info['vaServiceNumber'],
+      'VA_FILE_NUMBER' => vet_info['vaFileNumber'],
+      'VETERAN_DOB' => format_date_for_ibm(vet_info['dateOfBirth']),
+      'VETERAN_PLACE_OF_BIRTH' => place_of_birth_str,
+      'VETERAN_DATE_OF_DEATH' => format_date_for_ibm(vet_info['dateOfDeath'])
     }
   end
 
-  # Build service history fields (Boxes 8-10)
-  def build_service_history_fields
-    service_periods = parsed_form['periods'] || parsed_form.dig('veteranServicePeriods', 'periods') || []
-    fields = {}
-
-    # Always create all 3 service period slots (Box 8-9)
-    (1..3).each do |suffix|
-      period = service_periods[suffix - 1] || {}
-      fields["BRANCH_OF_SERVICE_#{suffix}"] = period['serviceBranch']
-      fields["DATE_ENTERED_TO_SERVICE_#{suffix}"] = format_date_for_ibm(period['dateEnteredService'])
-      fields["PLACE_ENTERED_TO_SERVICE_#{suffix}"] = period['placeEnteredService']
-      fields["GRADE_RANK_#{suffix}"] = period['rankAtSeparation']
-      fields["SEPARATION_DATE_#{suffix}"] = format_date_for_ibm(period['dateLeftService'])
-      fields["SEPARATION_PLACE_#{suffix}"] = period['placeLeftService']
-    end
-
-    # Box 10 - Veteran served under other name
-    fields['VET_NAME_OTHER'] = parsed_form.dig('veteranServicePeriods', 'servedUnderDifferentName')
-
-    fields
-  end
-
-  # Build burial information fields (Boxes 11-13)
-  def build_burial_fields
-    burial_info = parsed_form['burialInformation'] || {}
-    place_of_burial = burial_info['placeOfBurial'] || {}
+  def build_burial_fields(burial_info, place_of_burial)
     {
       'ORG_CLAIMING_ALLOWANCE' => burial_info['nameOfStateCemeteryOrTribalOrganization'],
       'CEMETERY_NAME' => place_of_burial['stateCemeteryOrTribalCemeteryName'],
@@ -162,9 +157,35 @@ class SavedClaim::Form21p530a < SavedClaim
     }
   end
 
+  # Build service history fields for up to 3 service periods (Boxes 8-10)
+  # @param vet_info [Hash] Veteran information containing service periods
+  # @return [Hash] VBA Data Dictionary service history fields
+  def build_service_history_fields(vet_info)
+    service_periods = vet_info.dig('veteranServicePeriods', 'periods') || []
+    fields = {}
+
+    # Always create all 3 service period slots (Boxes 8-9)
+    (1..3).each do |suffix|
+      period = service_periods[suffix - 1] || {}
+      fields["BRANCH_OF_SERVICE_#{suffix}"] = period['serviceBranch']
+      fields["DATE_ENTERED_TO_SERVICE_#{suffix}"] =
+        format_date_for_ibm(period['dateEnteredService'])
+      fields["PLACE_ENTERED_TO_SERVICE_#{suffix}"] = period['placeEnteredService']
+      fields["GRADE_RANK_#{suffix}"] = period['rankAtSeparation']
+      fields["SEPARATION_DATE_#{suffix}"] = format_date_for_ibm(period['dateLeftService'])
+      fields["SEPARATION_PLACE_#{suffix}"] = period['placeLeftService']
+    end
+
+    # Box 10 - Veteran served under other name
+    fields['VET_NAME_OTHER'] = vet_info.dig('veteranServicePeriods', 'servedUnderDifferentName')
+
+    fields
+  end
+
   # Build recipient organization fields (Boxes 14-16)
-  def build_recipient_organization_fields
-    recipient_org = parsed_form.dig('burialInformation', 'recipientOrganization') || {}
+  # @param recipient_org [Hash] Recipient organization information
+  # @return [Hash] VBA Data Dictionary recipient organization fields
+  def build_recipient_org_fields(recipient_org)
     address = recipient_org['address'] || {}
 
     {
@@ -179,26 +200,17 @@ class SavedClaim::Form21p530a < SavedClaim
     }
   end
 
-  # Build signature and remarks fields (Boxes 17-18)
-  def build_signature_fields
-    certification = parsed_form['certification'] || {}
-    # DATE_SIGNED should be extracted as written on form per VBA Data Dictionary
-    # Falls back to submission date (created_at) if not provided
+  def build_certification_fields(certification)
     date_signed = certification['dateSigned'] || parsed_form['dateSigned'] || created_at&.to_date&.iso8601
+
     {
       'OFFICIAL_SIGNATURE' => certification['signature'],
       'OFFICIAL_TITLE' => certification['titleOfStateOrTribalOfficial'],
       'DATE_SIGNED' => format_date_for_ibm(date_signed),
       'REMARKS' => parsed_form['remarks'],
-      'VETERAN_SSN_1' => parsed_form.dig('veteranInformation', 'ssn')
-    }
-  end
-
-  # Build form metadata fields
-  def build_form_metadata_fields
-    {
-      'FORM_TYPE' => FORM,
-      'FORM_TYPE_1' => FORM
+      'VETERAN_SSN_1' => parsed_form.dig('veteranInformation', 'ssn'),
+      'FORM_TYPE' => 'VA FORM 21P-530a, OCT 2024',
+      'FORM_TYPE_1' => 'VA FORM 21P-530a, OCT 2024'
     }
   end
 
@@ -215,16 +227,5 @@ class SavedClaim::Form21p530a < SavedClaim
     ].compact.reject(&:empty?)
 
     parts.join(', ').presence
-  end
-
-  def organization_name
-    parsed_form.dig('burialInformation', 'recipientOrganization', 'name') ||
-      parsed_form.dig('burialInformation', 'nameOfStateCemeteryOrTribalOrganization')
-  end
-
-  def veteran_name
-    first = parsed_form.dig('veteranInformation', 'fullName', 'first')
-    last = parsed_form.dig('veteranInformation', 'fullName', 'last')
-    "#{first} #{last}".strip.presence
   end
 end

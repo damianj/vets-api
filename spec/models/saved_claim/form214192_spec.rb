@@ -286,28 +286,9 @@ RSpec.describe SavedClaim::Form214192, type: :model do
     let(:claim) { described_class.new(form: valid_form_data.to_json) }
     let(:ibm_payload) { claim.to_ibm }
 
-    it 'returns a hash with VBA Data Dictionary fields' do
+    it 'returns a hash with exactly 3 VBA Data Dictionary fields' do
       expect(ibm_payload).to be_a(Hash)
-    end
-
-    it 'includes veteran identification fields' do
-      expect(ibm_payload).to include(
-        'VETERAN_FIRST_NAME' => 'John',
-        'VETERAN_INITIAL' => 'M',
-        'VETERAN_LAST_NAME' => 'Doe',
-        'VETERAN_SSN' => '123456789',
-        'VA_FILE_NUMBER' => '987654321',
-        'VETERAN_DOB' => '01/01/1980'
-      )
-    end
-
-    it 'includes VA_FILE_NUMBER as empty string when not in source data' do
-      form_data = valid_form_data.dup
-      form_data['veteranInformation'].delete('vaFileNumber')
-      claim_without_file_number = described_class.new(form: form_data.to_json)
-      payload = claim_without_file_number.to_ibm
-
-      expect(payload['VA_FILE_NUMBER']).to eq('')
+      expect(ibm_payload.keys.length).to eq(3)
     end
 
     it 'includes employer name and address combined field' do
@@ -319,18 +300,9 @@ RSpec.describe SavedClaim::Form214192, type: :model do
 
     it 'includes form metadata' do
       expect(ibm_payload).to include(
-        'FORM_TYPE' => '21-4192',
-        'FORM_TYPE_1' => '21-4192'
+        'FORM_TYPE' => 'VA FORM 21-4192, AUG 2024',
+        'FORM_TYPE_1' => 'VA FORM 21-4192, AUG 2024'
       )
-    end
-
-    it 'handles missing middle name' do
-      form_data = valid_form_data.dup
-      form_data['veteranInformation']['fullName'].delete('middle')
-      claim = described_class.new(form: form_data.to_json)
-      payload = claim.to_ibm
-
-      expect(payload['VETERAN_INITIAL']).to be_nil
     end
 
     it 'handles missing employer address street2' do

@@ -85,10 +85,6 @@ class SavedClaim::Form214192 < SavedClaim
 
   private
 
-  def zip_code_for_metadata
-    parsed_form.dig('employmentInformation', 'employerAddress', 'postalCode') || DEFAULT_ZIP_CODE
-  end
-
   def employer_name
     parsed_form.dig('employmentInformation', 'employerName') || 'Employer'
   end
@@ -99,26 +95,18 @@ class SavedClaim::Form214192 < SavedClaim
     "#{first} #{last}".strip.presence || 'Veteran'
   end
 
+  def zip_code_for_metadata
+    parsed_form.dig('employmentInformation', 'employerAddress', 'postalCode') || DEFAULT_ZIP_CODE
+  end
+
   # Build the IBM data dictionary payload from the parsed claim form
+  # Per AUG 2024 Data Dictionary: Form 21-4192 has only 3 fields
+  # This form is completed by employers, not veterans, so no veteran fields in IBM payload
   # @param form [Hash]
   # @return [Hash]
   def build_ibm_payload(form)
-    build_veteran_fields(form)
-      .merge(build_employer_fields(form))
+    build_employer_fields(form)
       .merge(build_form_metadata_fields)
-  end
-
-  # Build veteran identification fields (Section 1)
-  # @param form [Hash]
-  # @return [Hash]
-  def build_veteran_fields(form)
-    vet_info = form['veteranInformation'] || {}
-
-    basic_fields = build_veteran_basic_fields(vet_info)
-    basic_fields['VETERAN_INITIAL'] = basic_fields.delete('VETERAN_MIDDLE_INITIAL')
-    basic_fields['VA_FILE_NUMBER'] ||= ''
-
-    basic_fields
   end
 
   # Build employer information fields (Box 1)
@@ -130,15 +118,15 @@ class SavedClaim::Form214192 < SavedClaim
 
     {
       'EMPLOYER_NAME_ADDRESS' => build_employer_name_and_address(employment['employerName'], employer_address)
-    }.compact
+    }
   end
 
   # Build form metadata
   # @return [Hash]
   def build_form_metadata_fields
     {
-      'FORM_TYPE' => '21-4192',
-      'FORM_TYPE_1' => '21-4192'
+      'FORM_TYPE' => 'VA FORM 21-4192, AUG 2024',
+      'FORM_TYPE_1' => 'VA FORM 21-4192, AUG 2024'
     }
   end
 
