@@ -46,6 +46,7 @@ module VBADocuments
 
       # instantiate the data hash and set the source
       data = { SOURCE_KEY => parts_metadata['source'], total_documents: 0, total_pages: 0, content: {} }
+      data['doc_type'] = parts_metadata['docType'] if parts_metadata.key?('docType')
 
       # read the PDF content
       data[:content].merge!(pdf_metadata(@parts['content']))

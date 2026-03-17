@@ -19,6 +19,28 @@ module VBADocuments
     # to avoid race condition when parsing the multipart file
     sidekiq_options unique_for: 30.days
 
+    # Kafka error event tracking for 527EZ on retry exhaustion
+    sidekiq_retries_exhausted do |msg|
+      upload = VBADocuments::UploadSubmission.find_by(guid: msg['args'].first)
+
+      if upload.present? && upload.uploaded_pdf&.dig('doc_type') == '21P-527EZ'
+        begin
+          Kafka.submit_event(
+            icn: upload.metadata['icn'],
+            current_id: upload.guid,
+            submission_name: 'F527EZ',
+            state: Kafka::State::ERROR
+          )
+        rescue => e
+          Rails.logger.error(
+            "#{VBADocuments::UploadProcessor.name}: Failed to submit Kafka event for 21P-527EZ upload",
+            'uuid' => upload.guid,
+            'error' => e.message
+          )
+        end
+      end
+    end
+
     def perform(guid, caller_data, retries = 0)
       # @retries variable used via the CentralMail::Utilities which is included via VBADocuments::UploadValidations
       @retries = retries
@@ -60,6 +82,24 @@ module VBADocuments
 
         inspector = VBADocuments::PDFInspector.new(pdf: parts)
         @upload.update(uploaded_pdf: inspector.pdf_data)
+
+        # Kafka event tracking for 527EZ on document receipt
+        if @upload.uploaded_pdf&.dig('doc_type') == '21P-527EZ'
+          begin
+            Kafka.submit_event(
+              icn: @upload.metadata['icn'],
+              current_id: @upload.guid,
+              submission_name: 'F527EZ',
+              state: Kafka::State::RECEIVED
+            )
+          rescue => e
+            Rails.logger.error(
+              "#{self.class.name}: Failed to submit Kafka event for 21P-527EZ upload",
+              'uuid' => @upload.guid,
+              'error' => e.message
+            )
+          end
+        end
 
         # Validations
         validate_parts(@upload, parts)
@@ -192,6 +232,24 @@ module VBADocuments
     def handle_successful_submission
       @upload.update(status: 'received')
       @upload.track_uploaded_received(:cause, @cause)
+
+      # Kafka event tracking for 527EZ
+      if @upload.uploaded_pdf&.dig('doc_type') == '21P-527EZ'
+        begin
+          Kafka.submit_event(
+            icn: @upload.metadata['icn'],
+            current_id: @upload.guid,
+            submission_name: 'F527EZ',
+            state: Kafka::State::SENT
+          )
+        rescue => e
+          Rails.logger.error(
+            "#{self.class.name}: Failed to submit Kafka event for 21P-527EZ upload",
+            'uuid' => @upload.guid,
+            'error' => e.message
+          )
+        end
+      end
     end
   end
 end

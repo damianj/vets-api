@@ -72,6 +72,15 @@ RSpec.describe VBADocuments::UploadProcessor, type: :job do
   end
 
   before do
+    allow(PdfInfo::Metadata).to receive(:read).and_return(
+      instance_double(PdfInfo::Metadata,
+                      encrypted?: false,
+                      pages: 1,
+                      page_size_inches: { width: 8.5, height: 11.0 },
+                      file_size: 12_040,
+                      oversized_pages_inches: [])
+    )
+
     allow_any_instance_of(Tempfile).to receive(:size).and_return(1) # must be > 0 or submission will error w/DOC107
     objstore = instance_double(VBADocuments::ObjectStore)
     version = instance_double(Aws::S3::ObjectVersion)
@@ -167,6 +176,179 @@ RSpec.describe VBADocuments::UploadProcessor, type: :job do
       described_class.new.perform(upload.guid, test_caller)
       upload.reload
       expect(upload.metadata['status']['received']['cause'].first).to eq('tester')
+    end
+
+    context 'with kafka tracking' do
+      let(:pdf_data_527ez) do
+        {
+          'doc_type' => '21P-527EZ',
+          'total_documents' => 1,
+          'total_pages' => 1,
+          'content' => {
+            'page_count' => 1,
+            'attachments' => []
+          }
+        }
+      end
+
+      let(:pdf_data_non_527ez) do
+        {
+          'doc_type' => '21P-0000',
+          'total_documents' => 1,
+          'total_pages' => 1,
+          'content' => {
+            'page_count' => 1,
+            'attachments' => []
+          }
+        }
+      end
+
+      before do
+        allow(VBADocuments::MultipartParser).to receive(:parse) { valid_parts }
+        allow(CentralMail::Service).to receive(:new) { client_stub }
+        allow(faraday_response).to receive_messages(status: 200, body: '', success?: true)
+        allow(client_stub).to receive(:upload).and_return(faraday_response)
+      end
+
+      it 'submits a received event for 21P-527EZ uploads after pdf inspection' do
+        allow(VBADocuments::PDFInspector).to receive(:new).and_return(
+          instance_double(VBADocuments::PDFInspector, pdf_data: pdf_data_527ez)
+        )
+        allow(Kafka).to receive(:submit_event)
+
+        expect(Kafka).to receive(:submit_event).with(
+          icn: '2112',
+          current_id: upload.guid,
+          submission_name: 'F527EZ',
+          state: Kafka::State::RECEIVED
+        )
+
+        described_class.new.perform(upload.guid, test_caller)
+      end
+
+      it 'logs and continues when received event submission raises an error' do
+        allow(VBADocuments::PDFInspector).to receive(:new).and_return(
+          instance_double(VBADocuments::PDFInspector, pdf_data: pdf_data_527ez)
+        )
+        allow(Kafka).to receive(:submit_event).and_raise(StandardError.new('kafka failed'))
+        allow(Rails.logger).to receive(:error)
+
+        expect(Rails.logger).to receive(:error).with(
+          'VBADocuments::UploadProcessor: Failed to submit Kafka event for 21P-527EZ upload',
+          hash_including('uuid' => upload.guid, 'error' => 'kafka failed')
+        )
+
+        expect { described_class.new.perform(upload.guid, test_caller) }.not_to raise_error
+      end
+
+      it 'does not submit a received event for non-21P-527EZ uploads' do
+        allow(VBADocuments::PDFInspector).to receive(:new).and_return(
+          instance_double(VBADocuments::PDFInspector, pdf_data: pdf_data_non_527ez)
+        )
+
+        expect(Kafka).not_to receive(:submit_event)
+
+        described_class.new.perform(upload.guid, test_caller)
+      end
+
+      it 'submits a sent event for 21P-527EZ uploads' do
+        allow(VBADocuments::PDFInspector).to receive(:new).and_return(
+          instance_double(VBADocuments::PDFInspector, pdf_data: pdf_data_527ez)
+        )
+        allow(Kafka).to receive(:submit_event)
+
+        expect(Kafka).to receive(:submit_event).with(
+          icn: '2112',
+          current_id: upload.guid,
+          submission_name: 'F527EZ',
+          state: Kafka::State::SENT
+        )
+
+        described_class.new.perform(upload.guid, test_caller)
+      end
+
+      it 'logs and continues when sent event submission raises an error' do
+        allow(VBADocuments::PDFInspector).to receive(:new).and_return(
+          instance_double(VBADocuments::PDFInspector, pdf_data: pdf_data_527ez)
+        )
+        allow(Kafka).to receive(:submit_event).and_raise(StandardError.new('kafka failed'))
+        allow(Rails.logger).to receive(:error)
+
+        expect(Rails.logger).to receive(:error).with(
+          'VBADocuments::UploadProcessor: Failed to submit Kafka event for 21P-527EZ upload',
+          hash_including('uuid' => upload.guid, 'error' => 'kafka failed')
+        )
+
+        expect { described_class.new.perform(upload.guid, test_caller) }.not_to raise_error
+      end
+
+      it 'does not submit a sent event for non-21P-527EZ uploads' do
+        allow(VBADocuments::PDFInspector).to receive(:new).and_return(
+          instance_double(VBADocuments::PDFInspector, pdf_data: pdf_data_non_527ez)
+        )
+
+        expect(Kafka).not_to receive(:submit_event)
+
+        described_class.new.perform(upload.guid, test_caller)
+      end
+    end
+
+    context 'sidekiq retries exhausted callback' do
+      it 'submits an error event for 21P-527EZ uploads' do
+        tracked_upload = create(
+          :upload_submission,
+          uploaded_pdf: { 'doc_type' => '21P-527EZ' },
+          metadata: { 'icn' => '1010101010V101010' }
+        )
+        msg = { 'args' => [tracked_upload.guid] }
+
+        expect(Kafka).to receive(:submit_event).with(
+          icn: tracked_upload.metadata['icn'],
+          current_id: tracked_upload.guid,
+          submission_name: 'F527EZ',
+          state: Kafka::State::ERROR
+        )
+
+        described_class.sidekiq_retries_exhausted_block.call(msg, StandardError.new('boom'))
+      end
+
+      it 'logs and continues when exhausted retry error event submission raises an error' do
+        tracked_upload = create(
+          :upload_submission,
+          uploaded_pdf: { 'doc_type' => '21P-527EZ' },
+          metadata: { 'icn' => '1010101010V101010' }
+        )
+        msg = { 'args' => [tracked_upload.guid] }
+
+        allow(Kafka).to receive(:submit_event).and_raise(StandardError.new('kafka failed'))
+        allow(Rails.logger).to receive(:error)
+
+        expect(Rails.logger).to receive(:error).with(
+          'VBADocuments::UploadProcessor: Failed to submit Kafka event for 21P-527EZ upload',
+          hash_including('uuid' => tracked_upload.guid, 'error' => 'kafka failed')
+        )
+
+        expect do
+          described_class.sidekiq_retries_exhausted_block.call(msg, StandardError.new('boom'))
+        end.not_to raise_error
+      end
+
+      it 'does not submit an error event for non-21P-527EZ uploads' do
+        non_tracked_upload = create(:upload_submission, uploaded_pdf: { 'doc_type' => '21P-0000' })
+        msg = { 'args' => [non_tracked_upload.guid] }
+
+        expect(Kafka).not_to receive(:submit_event)
+
+        described_class.sidekiq_retries_exhausted_block.call(msg, StandardError.new('boom'))
+      end
+
+      it 'does not submit an error event when upload is not found' do
+        msg = { 'args' => ['missing-guid'] }
+
+        expect(Kafka).not_to receive(:submit_event)
+
+        described_class.sidekiq_retries_exhausted_block.call(msg, StandardError.new('boom'))
+      end
     end
 
     it 'counts concurrent duplicates, and tracks causes, that our upstream provider asserts occurred' do
@@ -479,6 +661,7 @@ RSpec.describe VBADocuments::UploadProcessor, type: :job do
     end
 
     it 'sets error status for unparseable PDF document parts' do
+      allow(PdfInfo::Metadata).to receive(:read).and_raise(PdfInfo::MetadataReadError.new(-1, 'Invalid PDF'))
       allow(VBADocuments::MultipartParser).to receive(:parse) {
         { 'metadata' => valid_metadata, 'content' => non_pdf_doc }
       }
@@ -506,6 +689,24 @@ RSpec.describe VBADocuments::UploadProcessor, type: :job do
     end
 
     context 'with locked pdf' do
+      before do
+        allow(PdfInfo::Metadata).to receive(:read) do |file|
+          path = file.respond_to?(:path) ? file.path : file.to_s
+          basename = File.basename(path)
+
+          if basename == 'locked.pdf'
+            raise PdfInfo::MetadataReadError.new(-1, 'Incorrect password')
+          else
+            instance_double(PdfInfo::Metadata,
+                            encrypted?: false,
+                            pages: 1,
+                            page_size_inches: { width: 8.5, height: 11.0 },
+                            file_size: 12_040,
+                            oversized_pages_inches: [])
+          end
+        end
+      end
+
       { 'sets error status for locked pdf attachment' => [:valid_parts_locked_attachment,
                                                           'Invalid PDF content, part attachment1'],
         'sets error status for locked pdf' => [:valid_parts_but_locked, 'Invalid PDF content, part content'] }
@@ -603,6 +804,37 @@ RSpec.describe VBADocuments::UploadProcessor, type: :job do
     end
 
     context 'with invalid sizes' do
+      before do
+        allow(PdfInfo::Metadata).to receive(:read) do |file|
+          path = file.respond_to?(:path) ? file.path : file.to_s
+          basename = File.basename(path)
+
+          case basename
+          when '10x102.pdf'
+            instance_double(PdfInfo::Metadata,
+                            encrypted?: false,
+                            pages: 1,
+                            page_size_inches: { width: 10.0, height: 102.0 },
+                            file_size: 12_040,
+                            oversized_pages_inches: [{ page_number: 1, width: 10.0, height: 102.0 }])
+          when '79x10.pdf'
+            instance_double(PdfInfo::Metadata,
+                            encrypted?: false,
+                            pages: 1,
+                            page_size_inches: { width: 79.0, height: 10.0 },
+                            file_size: 12_040,
+                            oversized_pages_inches: [{ page_number: 1, width: 79.0, height: 10.0 }])
+          else
+            instance_double(PdfInfo::Metadata,
+                            encrypted?: false,
+                            pages: 1,
+                            page_size_inches: { width: 8.5, height: 11.0 },
+                            file_size: 12_040,
+                            oversized_pages_inches: [])
+          end
+        end
+      end
+
       %w[10x102 79x10].each do |invalid_size|
         it "sets an error status for invalid size of #{invalid_size}" do
           allow(VBADocuments::MultipartParser).to receive(:parse) {

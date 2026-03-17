@@ -50,6 +50,10 @@ RSpec.describe VBADocuments::PDFInspector do
         expect(subject[:total_documents]).to eq(2)
       end
 
+      it 'includes doc_type from metadata when present' do
+        expect(subject['doc_type']).to eq('21-22')
+      end
+
       it 'has the correct content data' do
         content_hash = subject[:content]
 

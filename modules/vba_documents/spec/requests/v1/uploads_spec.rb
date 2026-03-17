@@ -135,6 +135,13 @@ RSpec.describe 'VBADocument::V1::Uploads', retry: 3, type: :request do
         @md = JSON.parse(valid_metadata)
         @upload_submission = VBADocuments::UploadSubmission.new
         @upload_submission.update(status: 'uploaded')
+        pdf_metadata = instance_double(PdfInfo::Metadata,
+                                       encrypted?: false,
+                                       pages: 1,
+                                       page_size_inches: { width: 8.5, height: 11.0 },
+                                       file_size: 12_040)
+        allow(pdf_metadata).to receive(:oversized_pages_inches).and_return([])
+        allow(PdfInfo::Metadata).to receive(:read).and_return(pdf_metadata)
         allow_any_instance_of(Tempfile).to receive(:size).and_return(1) # must be > 0 or submission will error w/DOC107
         allow(VBADocuments::MultipartParser).to receive(:parse) {
           { 'metadata' => @md.to_json, 'content' => valid_doc }
