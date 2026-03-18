@@ -35,7 +35,7 @@ shared_examples_for 'a DigitalFormsApi::Service class' do
       expect(service).to receive(:request).with(*args).and_raise error
       # method, endpoint, code, reason, duration
       expect(monitor).to receive(:track_api_request).with(:get, endpoint, 503, 'VEFSERR40009', anything,
-                                                          call_location: anything)
+                                                          call_location: anything, error: error.body)
 
       expect { service.perform(*args) }.to raise_error error
     end

@@ -26,6 +26,25 @@ module DependentsBenefits
     # Combined events that occur in the future
     FUTURE_EVENTS = (LATER_START_EVENTS + END_EVENTS).freeze
 
+    # Recursively camelizes all keys in a nested data structure
+    #
+    # Transforms hash keys to lower camelCase format and recursively processes
+    # nested hashes and arrays. Non-hash/array values are returned unchanged.
+    #
+    # @param data [Hash, Array, Object] The data structure to camelize
+    # @return [Hash, Array, Object] The data structure with camelized keys
+    def deep_camelize_keys(data)
+      case data
+      when Hash
+        data.transform_keys { |key| key.to_s.camelize(:lower) }
+            .transform_values { |value| deep_camelize_keys(value) }
+      when Array
+        data.map { |item| deep_camelize_keys(item) }
+      else
+        data
+      end
+    end
+
     ##
     # Parses a date string into a Time object using the application's time zone.
     #

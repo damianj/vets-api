@@ -49,6 +49,7 @@ module V0
             claim.add_signature_date
 
             submission = submit_via_forms_api(claim, claim_info[:claim_label], claim_info[:participant_id])
+
             log_submitted(in_progress_form, claim)
             claim.send_submitted_email(current_user)
 
@@ -86,7 +87,7 @@ module V0
     def submit_via_forms_api(claim, claim_label, participant_id)
       digital_forms_api_submission_service ||= DigitalFormsApi::Service::Submissions.new
 
-      payload = claim.parsed_form
+      payload = claim.deep_camelize_keys(claim.parsed_form)
       metadata = {
         formId: claim.claim_form_type,
         veteranId: participant_id,

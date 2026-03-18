@@ -34,6 +34,8 @@ module DigitalFormsApi
       rescue => e
         code = e.try(:status) || 500
         reason = e.message
+        @context = context
+        @context[:error] = e.try(:body) || reason
         raise e
       ensure
         duration = (Time.current - start_time) * 1000.0 # milliseconds

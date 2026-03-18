@@ -41,6 +41,7 @@ module DigitalFormsApi
         duration
         endpoint
         ep_code
+        error
         form_id
         method
         reason

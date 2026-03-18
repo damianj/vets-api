@@ -325,16 +325,4 @@ class SavedClaim::DependencyClaim < CentralMailClaim
 
     reformatted_schemer_errors(errors)
   end
-
-  def deep_camelize_keys(data)
-    case data
-    when Hash
-      data.transform_keys { |key| key.to_s.camelize(:lower) }
-          .transform_values { |value| deep_camelize_keys(value) }
-    when Array
-      data.map { |item| deep_camelize_keys(item) }
-    else
-      data
-    end
-  end
 end
