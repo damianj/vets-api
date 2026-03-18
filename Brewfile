@@ -1,7 +1,7 @@
 brew 'clamav' # anti-virus scanner
 brew 'coreutils' # gnu coreutils
 brew 'docker-compose'
-brew 'imagemagick@6'
+brew 'imagemagick@7'
 brew 'memcached'
 brew 'poppler' # pdf rendering
 brew 'redis'

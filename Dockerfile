@@ -8,6 +8,10 @@ COPY modules/ modules/
 RUN find modules -type f ! \( -name Gemfile -o -name "*.gemspec" -o -path "*/lib/*/version.rb" \) -delete && \
     find modules -type d -empty -delete
 
+# ImageMagick 7 is not available on Bookwork 
+# This can be replaced with the imagemagick-7 package if using Trixie
+FROM dpokidov/imagemagick:7.1.1-47-bookworm AS imagemagick
+
 FROM rubyimg
 
 # Allow for setting ENV vars via --build-arg
@@ -25,12 +29,23 @@ WORKDIR /app
 
 RUN apt-get update --fix-missing \
   && apt-get install -y poppler-utils build-essential libpq-dev libffi-dev libyaml-dev git curl wget unzip ca-certificates ca-certificates-java openssl file \
-  imagemagick pdftk tesseract-ocr \
+  pdftk tesseract-ocr \
+  libpng16-16 libjpeg62-turbo libtiff6 libfreetype6 libfontconfig1 ghostscript libgomp1 libomp5 libde265-0 libx265-199 liblcms2-2 libgif7 libbrotli1 libxext6 \
   && apt-get clean \
   && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Copy ImageMagick 7 and its dependencies from dpokidov/imagemagick
+COPY --from=imagemagick /usr/local/bin/magick /usr/local/bin/magick
+COPY --from=imagemagick /usr/local/lib/ /usr/local/lib/
+COPY --from=imagemagick /usr/local/etc/ImageMagick-7/ /usr/local/etc/ImageMagick-7/
+COPY --from=imagemagick /usr/local/share/ImageMagick-7/ /usr/local/share/ImageMagick-7/
+RUN ln -s /usr/local/bin/magick /usr/local/bin/convert \
+  && ln -s /usr/local/bin/magick /usr/local/bin/identify \
+  && ln -s /usr/local/bin/magick /usr/local/bin/mogrify \
+  && ldconfig
+
 # Relax ImageMagick PDF security. See https://stackoverflow.com/a/59193253.
-RUN sed -i '/rights="none" pattern="PDF"/d' /etc/ImageMagick-6/policy.xml
+RUN sed -i '/rights="none" pattern="PDF"/d' /usr/local/etc/ImageMagick-7/policy.xml
 
 
 # Install fwdproxy.crt into trust store
