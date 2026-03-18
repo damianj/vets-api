@@ -17,6 +17,8 @@ module Mobile
                     end
 
         render json: Mobile::V0::EfolderSerializer.new(documents)
+      rescue VBMS::FilenumberDoesNotExist
+        raise_vbms_bad_gateway
       end
 
       def download
@@ -35,6 +37,8 @@ module Mobile
           type: 'application/pdf',
           filename: file_name
         )
+      rescue VBMS::FilenumberDoesNotExist
+        raise_vbms_bad_gateway
       end
 
       private
@@ -83,6 +87,16 @@ module Mobile
 
       def participant_documents_adapter
         Mobile::V0::Adapters::ParticipantDocuments
+      end
+
+      def raise_vbms_bad_gateway
+        error = Common::Exceptions::SerializableError.new(
+          status: '502',
+          title: 'Bad Gateway',
+          detail: 'VBMS failed to resolve file number',
+          code: '502'
+        )
+        raise Common::Exceptions::BadGateway.new(errors: [error])
       end
     end
   end
