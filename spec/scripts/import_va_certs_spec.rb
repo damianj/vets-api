@@ -151,7 +151,7 @@ RSpec.describe 'import-va-certs' do # rubocop:disable RSpec/DescribeClass
     it 'downloads DigiCert certificates' do
       script_content = File.read(script_path)
 
-      expect(script_content).to include('curl -LO https://cacerts.digicert.com/DigiCertTLSRSASHA2562020CA1-1.crt.pem')
+      expect(script_content).to include('curl -LO https://digicert.tbs-certificats.com/DigiCertTLSRSASHA2562020CA1-1.crt')
       expect(script_content).to include('curl -LO https://digicert.tbs-certificats.com/DigiCertGlobalG2TLSRSASHA2562020CA1.crt')
     end
   end

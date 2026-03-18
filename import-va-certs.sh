@@ -5,7 +5,9 @@ set -euo pipefail
 (
     cd /usr/local/share/ca-certificates/
 
-    curl -LO https://cacerts.digicert.com/DigiCertTLSRSASHA2562020CA1-1.crt.pem
+    # cacerts.digicert.com is served via Akamai CDN with a mismatched TLS cert;
+    # use the tbs-certificats.com mirror which hosts the same DigiCert intermediates.
+    curl -LO https://digicert.tbs-certificats.com/DigiCertTLSRSASHA2562020CA1-1.crt
     curl -LO https://digicert.tbs-certificats.com/DigiCertGlobalG2TLSRSASHA2562020CA1.crt
 
     # DoD ECA with multiple fallback mechanisms
