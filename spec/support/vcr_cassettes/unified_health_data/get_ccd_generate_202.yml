@@ -1,0 +1,68 @@
+# @format
+---
+http_interactions:
+  - request:
+      method: post
+      uri: "<MHV_UHD_SECURITY_HOST>/mhvapi/security/v1/login"
+      body:
+        encoding: UTF-8
+        string: '{"appId":"test-app","appToken":"test-token","subject":"test-subject","userType":"test-user-type"}'
+      headers:
+        Content-Type:
+          - application/json
+        User-Agent:
+          - Faraday v2.13.4
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Content-Type:
+          - application/json
+        Authorization:
+          - Bearer test-access-token-12345
+      body:
+        encoding: UTF-8
+        string: '{"access_token":"test-access-token-12345","token_type":"Bearer","expires_in":3600}'
+    recorded_at: Tue, 04 Feb 2026 15:22:00 GMT
+  - request:
+      method: get
+      uri: "<MHV_UHD_HOST>/v1/medicalrecords/ccd/oracle-health?patientId=1000123456V123456&startDate=1900-01-01&endDate=2026-03-10"
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Authorization:
+          - Bearer test-access-token-12345
+        X-Api-Key:
+          - test-api-key
+        User-Agent:
+          - Faraday v2.13.4
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+    response:
+      status:
+        code: 202
+        message: Accepted
+      headers:
+        Content-Type:
+          - application/json
+      body:
+        encoding: UTF-8
+        string: |
+          {
+              "status": "NOT_READY",
+              "jobId": "b0733653-30b4-411f-a997-7453039e510c",
+              "taskId": null,
+              "source": "oracle-health",
+              "message": "CCD processing requested; awaiting task correlation",
+              "retryAfterSeconds": 10
+          }
+    recorded_at: Tue, 10 Mar 2026 15:22:00 GMT
+recorded_with: VCR 6.3.1

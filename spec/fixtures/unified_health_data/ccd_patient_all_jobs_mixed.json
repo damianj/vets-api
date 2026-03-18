@@ -1,0 +1,138 @@
+{
+  "resourceType": "Bundle",
+  "type": "searchset",
+  "total": 3,
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Task",
+        "id": "5001",
+        "status": "completed",
+        "businessStatus": {
+          "text": "FULL_SUCCESS"
+        },
+        "output": [
+          { "type": { "text": "artifact.xml.s3Exists" }, "valueString": "false" },
+          { "type": { "text": "artifact.xml.nonExpiring" }, "valueString": "false" },
+          { "type": { "text": "artifact.xml.daysUntilDeletion" }, "valueString": "0" },
+
+          { "type": { "text": "artifact.html.s3Exists" }, "valueString": "false" },
+          { "type": { "text": "artifact.html.nonExpiring" }, "valueString": "false" },
+          { "type": { "text": "artifact.html.daysUntilDeletion" }, "valueString": "0" },
+
+          { "type": { "text": "artifact.pdf.s3Exists" }, "valueString": "false" },
+          { "type": { "text": "artifact.pdf.nonExpiring" }, "valueString": "false" },
+          { "type": { "text": "artifact.pdf.daysUntilDeletion" }, "valueString": "0" },
+
+          { "type": { "text": "task.allArtifactsExist" }, "valueString": "false" },
+          { "type": { "text": "task.minDaysUntilDeletion" }, "valueString": "0" }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Task",
+        "id": "5002",
+        "status": "completed",
+        "businessStatus": {
+          "text": "FULL_SUCCESS"
+        },
+        "output": [
+          { "type": { "text": "artifact.xml.s3Exists" }, "valueString": "true" },
+          { "type": { "text": "artifact.xml.nonExpiring" }, "valueString": "false" },
+          { "type": { "text": "artifact.xml.daysUntilDeletion" }, "valueString": "20" },
+          { "type": { "text": "artifact.xml.expiresAt" }, "valueString": "2026-03-30T00:00:00Z" },
+
+          { "type": { "text": "artifact.html.s3Exists" }, "valueString": "true" },
+          { "type": { "text": "artifact.html.nonExpiring" }, "valueString": "false" },
+          { "type": { "text": "artifact.html.daysUntilDeletion" }, "valueString": "20" },
+          { "type": { "text": "artifact.html.expiresAt" }, "valueString": "2026-03-30T00:00:00Z" },
+
+          { "type": { "text": "artifact.pdf.s3Exists" }, "valueString": "true" },
+          { "type": { "text": "artifact.pdf.nonExpiring" }, "valueString": "false" },
+          { "type": { "text": "artifact.pdf.daysUntilDeletion" }, "valueString": "20" },
+          { "type": { "text": "artifact.pdf.expiresAt" }, "valueString": "2026-03-30T00:00:00Z" },
+
+          { "type": { "text": "task.allArtifactsExist" }, "valueString": "true" },
+          { "type": { "text": "task.minDaysUntilDeletion" }, "valueString": "20" }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Task",
+        "id": "5003",
+        "status": "completed",
+        "businessStatus": {
+          "text": "FULL_SUCCESS"
+        },
+        "output": [
+          { "type": { "text": "artifact.xml.s3Exists" }, "valueString": "true" },
+          { "type": { "text": "artifact.xml.nonExpiring" }, "valueString": "true" },
+
+          { "type": { "text": "artifact.html.s3Exists" }, "valueString": "true" },
+          { "type": { "text": "artifact.html.nonExpiring" }, "valueString": "true" },
+
+          { "type": { "text": "artifact.pdf.s3Exists" }, "valueString": "true" },
+          { "type": { "text": "artifact.pdf.nonExpiring" }, "valueString": "true" },
+
+          { "type": { "text": "task.allArtifactsExist" }, "valueString": "true" }
+        ]
+      }
+    },
+
+    {
+      "resource": {
+        "resourceType": "OperationOutcome",
+        "issue": [
+          {
+            "severity": "warning",
+            "code": "informational",
+            "diagnostics": "CCD_JOBS_ARTIFACT_MISSING: Task 5001 format xml object no longer exists in S3"
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "OperationOutcome",
+        "issue": [
+          {
+            "severity": "warning",
+            "code": "informational",
+            "diagnostics": "CCD_JOBS_ARTIFACT_MISSING: Task 5001 format html object no longer exists in S3"
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "OperationOutcome",
+        "issue": [
+          {
+            "severity": "warning",
+            "code": "informational",
+            "diagnostics": "CCD_JOBS_ARTIFACT_MISSING: Task 5001 format pdf object no longer exists in S3"
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "OperationOutcome",
+        "issue": [
+          {
+            "severity": "warning",
+            "code": "informational",
+            "diagnostics": "CCD jobs list metadata enriched with 3 warning(s)"
+          },
+          {
+            "severity": "information",
+            "code": "informational",
+            "diagnostics": "Overall message outcome"
+          }
+        ]
+      }
+    }
+  ]
+}

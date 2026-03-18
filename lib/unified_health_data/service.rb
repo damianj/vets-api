@@ -11,6 +11,7 @@ require_relative 'adapters/prescriptions_adapter'
 require_relative 'adapters/conditions_adapter'
 require_relative 'adapters/lab_or_test_adapter'
 require_relative 'adapters/vital_adapter'
+require_relative 'adapters/ccd_adapter'
 require_relative 'reference_range_formatter'
 require_relative 'client'
 require_relative 'source_constants'
@@ -19,7 +20,7 @@ require_relative 'concerns/labs_and_tests_logging'
 require_relative 'concerns/facility_cache_warming'
 
 module UnifiedHealthData
-  class Service
+  class Service # rubocop:disable Metrics/ClassLength
     STATSD_KEY_PREFIX = 'api.uhd'
     include Common::Client::Concerns::Monitoring
     include Concerns::ClinicalNotesLogging
@@ -270,24 +271,56 @@ module UnifiedHealthData
       end
     end
 
-    # Retrieves CCD binary data for download
-    # @param format [String] Format to retrieve: 'xml', 'html', or 'pdf'
-    # @return [UnifiedHealthData::BinaryData, nil] Binary data object with Base64 encoded content, or nil if not found
-    # @raise [ArgumentError] if the format is invalid or not available
-    def get_ccd_binary(format: 'xml')
+    # Initiates CCD generation and returns the job status response.
+    # The frontend will poll separately via get_ccd_status with the returned jobId.
+    #
+    # @return [UnifiedHealthData::Ccd] Parsed initiation response with job metadata
+    def initiate_ccd
       with_monitoring do
         start_date = default_start_date
         end_date = default_end_date
 
-        response = uhd_client.get_ccd(patient_id: @user.icn, start_date:, end_date:)
+        response = uhd_client.generate_ccd(patient_id: @user.icn, start_date:, end_date:)
+        ccd = ccd_adapter.parse(response.body)
+        ccd.http_status = response.status
+        ccd
+      end
+    end
+
+    # Retrieves status of CCD generation
+    # @param job_id [String] The CCD job ID
+    # @return [UnifiedHealthData::Ccd] CCD with status of task when processing (202) or of each format (200)
+    def get_ccd_status(job_id:)
+      with_monitoring do
+        response = uhd_client.get_ccd(job_id:)
+        ccd = ccd_adapter.parse(response.body)
+        ccd.http_status = response.status
+        ccd
+      end
+    end
+
+    # Retrieves presigned url of the specified CCD format
+    # @param job_id [String] The CCD job ID
+    # @param format [String] The desired format: 'xml', 'pdf', or 'html'
+    # @return [String, nil] The presigned URL for the specified format, or nil if not found
+    def get_ccd_url(job_id:, format: 'xml')
+      with_monitoring do
+        response = uhd_client.get_ccd(job_id:)
+        body = response.body
+        ccd_adapter.parse_url(body, format:)
+      end
+    end
+
+    # Retrieves a list of available CCD jobs for a user.
+    # Each Task entry in the Bundle represents a CCD generation job with artifact metadata.
+    #
+    # @return [Array<UnifiedHealthData::Ccd>] Array of parsed CCD job objects, or empty array if no tasks found
+    def get_ccd_jobs
+      with_monitoring do
+        response = uhd_client.get_ccd_jobs_by_user(patient_id: @user.icn)
         body = response.body
 
-        document_ref = body['entry']&.find do |entry|
-          entry['resource'] && entry['resource']['resourceType'] == 'DocumentReference'
-        end
-        return nil unless document_ref
-
-        clinical_notes_adapter.parse_ccd_binary(document_ref, format)
+        ccd_adapter.parse_tasks(body)
       end
     end
 
@@ -523,6 +556,10 @@ module UnifiedHealthData
       @lab_or_test_adapter ||= UnifiedHealthData::Adapters::LabOrTestAdapter.new(mr_log:)
     end
 
+    def ccd_adapter
+      @ccd_adapter ||= UnifiedHealthData::Adapters::CcdAdapter.new
+    end
+
     def clinical_notes_adapter
       @clinical_notes_adapter ||= UnifiedHealthData::Adapters::ClinicalNotesAdapter.new(user: @user)
     end
@@ -552,5 +589,5 @@ module UnifiedHealthData
     rescue ArgumentError, TypeError
       raise ArgumentError, "Invalid #{param_name}: '#{date_string}'. Expected format: YYYY-MM-DD"
     end
-  end
+  end # rubocop:enable Metrics/ClassLength
 end

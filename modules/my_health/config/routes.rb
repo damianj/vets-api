@@ -14,9 +14,11 @@ MyHealth::Engine.routes.draw do
       resources :immunizations, only: %i[index show], defaults: { format: :json }
       resources :labs_and_tests, only: %i[index], defaults: { format: :json }
       resources :vitals, only: %i[index], defaults: { format: :json }
-      get 'ccd/download(.:format)', to: 'ccd#download',
-                                    constraints: { format: /(xml|html|pdf)/ },
-                                    defaults: { format: 'xml' }
+      get 'ccd/generate', to: 'ccd#generate', defaults: { format: :json }
+      get 'ccd/status/:job_id', to: 'ccd#status', defaults: { format: :json }
+      get 'ccd/download/:job_id(.:format)', to: 'ccd#download',
+                                            constraints: { format: /(xml|html|pdf)/ },
+                                            defaults: { format: 'xml' }
     end
 
     resources :prescriptions, only: %i[index show], defaults: { format: :json } do

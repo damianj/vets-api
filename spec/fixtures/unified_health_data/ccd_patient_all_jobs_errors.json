@@ -1,0 +1,307 @@
+{
+    "resourceType": "Bundle",
+    "type": "searchset",
+    "total": 1,
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Task",
+                "id": "4052",
+                "meta": {
+                    "versionId": "6",
+                    "lastUpdated": "2026-03-10T10:28:49.681-04:00",
+                    "source": "#53c3d74b6702faed",
+                    "tag": [
+                        {
+                            "system": "http://va.gov/mhv/fhir/tag/source-system",
+                            "code": "oracle-health"
+                        }
+                    ]
+                },
+                "extension": [
+                    {
+                        "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-request-start-date",
+                        "valueString": "2025-01-01"
+                    },
+                    {
+                        "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-request-end-date",
+                        "valueString": "2025-01-02"
+                    }
+                ],
+                "identifier": [
+                    {
+                        "system": "http://va.gov/mhv/fhir/identifier/ccd-job-key",
+                        "value": "41626a8ab6fc938dac34a0561c2041d90808aa2d95e5fefb45551d6227de980e"
+                    }
+                ],
+                "status": "failed",
+                "businessStatus": {
+                    "coding": [
+                        {
+                            "system": "http://va.gov/mhv/fhir/CodeSystem/ccd-task-business-status",
+                            "code": "NON_RETRYABLE_FAILURE"
+                        }
+                    ],
+                    "text": "NON_RETRYABLE_FAILURE"
+                },
+                "intent": "order",
+                "for": {
+                    "reference": "Patient/952"
+                },
+                "authoredOn": "2026-03-10T13:51:01+00:00",
+                "lastModified": "2026-03-10T14:28:48+00:00",
+                "output": [
+                    {
+                        "type": {
+                            "text": "artifact.xml.format"
+                        },
+                        "valueString": "xml"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.xml.s3Bucket"
+                        },
+                        "valueString": "bucket-name"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.xml.s3Key"
+                        },
+                        "valueString": "v1/ccds/oracle-health/fake-s3-key/original.xml"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.xml.contentType"
+                        },
+                        "valueString": "application/xml"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.xml.formatStatus"
+                        },
+                        "valueString": "FAILED"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.xml.failureCode"
+                        },
+                        "valueString": "CCD_XML_UPLOAD_FAILED"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.xml.failureMessage"
+                        },
+                        "valueString": "Failed to upload to bucket: bucket-name, key: v1/ccds/oracle-health/fake-s3-key/original.xml"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.html.format"
+                        },
+                        "valueString": "html"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.html.s3Bucket"
+                        },
+                        "valueString": "bucket-name"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.html.s3Key"
+                        },
+                        "valueString": "v1/ccds/oracle-health/fake-s3-key/rendered.html"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.html.contentType"
+                        },
+                        "valueString": "text/html"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.html.formatStatus"
+                        },
+                        "valueString": "FAILED"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.html.failureCode"
+                        },
+                        "valueString": "CCD_CONVERSION_HTML_FAILED"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.html.failureMessage"
+                        },
+                        "valueString": "Failed to upload to bucket: bucket-name, key: v1/ccds/oracle-health/fake-s3-key/rendered.html"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.pdf.format"
+                        },
+                        "valueString": "pdf"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.pdf.s3Bucket"
+                        },
+                        "valueString": "bucket-name"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.pdf.s3Key"
+                        },
+                        "valueString": "v1/ccds/oracle-health/fake-s3-key/rendered.pdf"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.pdf.contentType"
+                        },
+                        "valueString": "application/pdf"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.pdf.formatStatus"
+                        },
+                        "valueString": "FAILED"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.pdf.failureCode"
+                        },
+                        "valueString": "CCD_CONVERSION_PDF_FAILED"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.pdf.failureMessage"
+                        },
+                        "valueString": "Failed to upload to bucket: bucket-name, key: v1/ccds/oracle-health/fake-s3-key/rendered.pdf"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.xml.s3Exists"
+                        },
+                        "valueString": "false"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.xml.nonExpiring"
+                        },
+                        "valueString": "false"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.xml.daysUntilDeletion"
+                        },
+                        "valueString": "0"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.html.s3Exists"
+                        },
+                        "valueString": "false"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.html.nonExpiring"
+                        },
+                        "valueString": "false"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.html.daysUntilDeletion"
+                        },
+                        "valueString": "0"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.pdf.s3Exists"
+                        },
+                        "valueString": "false"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.pdf.nonExpiring"
+                        },
+                        "valueString": "false"
+                    },
+                    {
+                        "type": {
+                            "text": "artifact.pdf.daysUntilDeletion"
+                        },
+                        "valueString": "0"
+                    },
+                    {
+                        "type": {
+                            "text": "task.allArtifactsExist"
+                        },
+                        "valueString": "false"
+                    },
+                    {
+                        "type": {
+                            "text": "task.minDaysUntilDeletion"
+                        },
+                        "valueString": "0"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "OperationOutcome",
+                "id": "0c72f1da-5a08-445b-8c27-54eb8ca69101",
+                "issue": [
+                    {
+                        "severity": "warning",
+                        "code": "informational",
+                        "diagnostics": "CCD_JOBS_METADATA_LOOKUP_FAILED: Task 4052 format xml S3 lookup failed: Failed to check bucket fake-bucket for key: v1/ccds/oracle-health/fake-s3-key/original.xml"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "OperationOutcome",
+                "id": "6ec663dc-ddcf-4d09-a56c-02a5c73fb9e5",
+                "issue": [
+                    {
+                        "severity": "warning",
+                        "code": "informational",
+                        "diagnostics": "CCD_JOBS_METADATA_LOOKUP_FAILED: Task 4052 format html S3 lookup failed: Failed to check bucket fake-bucket for key: v1/ccds/oracle-health/fake-s3-key/rendered.html"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "OperationOutcome",
+                "id": "22c013e0-0fde-44e9-b34f-7f01a8919de1",
+                "issue": [
+                    {
+                        "severity": "warning",
+                        "code": "informational",
+                        "diagnostics": "CCD_JOBS_METADATA_LOOKUP_FAILED: Task 4052 format pdf S3 lookup failed: Failed to check bucket fake-bucket for key: v1/ccds/oracle-health/fake-s3-key/rendered.pdf"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "OperationOutcome",
+                "id": "4f2fbf30-bc5d-4779-88aa-2487600293a8",
+                "issue": [
+                    {
+                        "severity": "warning",
+                        "code": "informational",
+                        "diagnostics": "CCD jobs list metadata enriched with 3 warning(s)"
+                    },
+                    {
+                        "severity": "information",
+                        "code": "informational",
+                        "diagnostics": "Overall message outcome"
+                    }
+                ]
+            }
+        }
+    ]
+}

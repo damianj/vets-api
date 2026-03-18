@@ -1,0 +1,284 @@
+# @format
+---
+http_interactions:
+  - request:
+      method: post
+      uri: "<MHV_UHD_SECURITY_HOST>/mhvapi/security/v1/login"
+      body:
+        encoding: UTF-8
+        string: '{"appId":"test-app","appToken":"test-token","subject":"test-subject","userType":"test-user-type"}'
+      headers:
+        Content-Type:
+          - application/json
+        User-Agent:
+          - Faraday v2.13.4
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Content-Type:
+          - application/json
+        Authorization:
+          - Bearer test-access-token-12345
+      body:
+        encoding: UTF-8
+        string: '{"access_token":"test-access-token-12345","token_type":"Bearer","expires_in":3600}'
+    recorded_at: Tue, 04 Feb 2026 15:22:00 GMT
+  - request:
+      method: get
+      uri: "<MHV_UHD_HOST>/v1/medicalrecords/ccd/oracle-health/jobs/12043"
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Authorization:
+          - Bearer test-access-token-12345
+        X-Api-Key:
+          - test-api-key
+        User-Agent:
+          - Faraday v2.13.4
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Content-Type:
+          - application/json
+      body:
+        encoding: UTF-8
+        string: |
+          {
+              "resourceType": "Bundle",
+              "type": "collection",
+              "entry": [
+                  {
+                      "resource": {
+                          "resourceType": "DocumentReference",
+                          "id": "12047",
+                          "meta": {
+                              "versionId": "1",
+                              "lastUpdated": "2026-03-03T10:18:36.400-05:00",
+                              "source": "#75a584dad943116d"
+                          },
+                          "identifier": [
+                              {
+                                  "system": "http://va.gov/mhv/fhir/identifier/ccd-document-reference-key",
+                                  "value": "512d2d4463f84077eba5e56210f8a42820cc78ebf039077dcca0936de33efc4c"
+                              }
+                          ],
+                          "status": "current",
+                          "type": {
+                              "coding": [
+                                  {
+                                      "system": "http://loinc.org",
+                                      "code": "34133-9",
+                                      "display": "Summarization of episode note"
+                                  }
+                              ],
+                              "text": "Continuity of Care Document (CCD)"
+                          },
+                          "category": [
+                              {
+                                  "coding": [
+                                      {
+                                          "system": "http://hl7.org/fhir/us/core/CodeSystem/us-core-documentreference-category",
+                                          "code": "clinical-note",
+                                          "display": "Clinical Note"
+                                      }
+                                  ]
+                              }
+                          ],
+                          "subject": {
+                              "reference": "Patient/4952"
+                          },
+                          "content": [
+                              {
+                                  "attachment": {
+                                      "contentType": "application/xml",
+                                      "url": "Binary/12044"
+                                  }
+                              },
+                              {
+                                  "attachment": {
+                                      "contentType": "text/html",
+                                      "url": "Binary/12045"
+                                  }
+                              },
+                              {
+                                  "attachment": {
+                                      "contentType": "application/pdf",
+                                      "url": "Binary/12046"
+                                  }
+                              }
+                          ]
+                      }
+                  },
+                  {
+                      "resource": {
+                          "resourceType": "Binary",
+                          "id": "12044",
+                          "meta": {
+                              "extension": [
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-task-reference",
+                                      "valueReference": {
+                                          "reference": "Task/12043"
+                                      }
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-s3-bucket",
+                                      "valueString": "mhv-di-uhd-docstore"
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-s3-key",
+                                      "valueString": "v1/ccds/oracle-health/fake-s3-key/original.xml"
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-content-sha256",
+                                      "valueString": "789456"
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-format-status",
+                                      "valueString": "READY"
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/presigned-url",
+                                      "valueUrl": "https://mhv-di-uhd-docstore.s3.us-gov-west-1.amazonaws.com/v1/ccds/oracle-health/fake-s3-key/original.xml"
+                                  }
+                              ],
+                              "versionId": "1",
+                              "lastUpdated": "2026-03-03T10:18:35.432-05:00",
+                              "source": "#27e8c3d9dd4158e2",
+                              "tag": [
+                                  {
+                                      "system": "http://va.gov/mhv/fhir/tag/ccd-binary-key",
+                                      "code": "512d2d4463f84077eba5e56210f8a42820cc78ebf039077dcca0936de33efc4c:xml"
+                                  }
+                              ]
+                          },
+                          "contentType": "application/xml"
+                      }
+                  },
+                  {
+                      "resource": {
+                          "resourceType": "Binary",
+                          "id": "12045",
+                          "meta": {
+                              "extension": [
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-task-reference",
+                                      "valueReference": {
+                                          "reference": "Task/12043"
+                                      }
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-s3-bucket",
+                                      "valueString": "mhv-di-uhd-docstore"
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-s3-key",
+                                      "valueString": "v1/ccds/oracle-health/fake-s3-key/rendered.html"
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-content-sha256",
+                                      "valueString": "123456"
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-format-status",
+                                      "valueString": "READY"
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/presigned-url",
+                                      "valueUrl": "https://mhv-di-uhd-docstore.s3.us-gov-west-1.amazonaws.com/v1/ccds/oracle-health/fake-s3-key/rendered.html"
+                                  }
+                              ],
+                              "versionId": "1",
+                              "lastUpdated": "2026-03-03T10:18:35.760-05:00",
+                              "source": "#c2262b74b125148d",
+                              "tag": [
+                                  {
+                                      "system": "http://va.gov/mhv/fhir/tag/ccd-binary-key",
+                                      "code": "512d2d4463f84077eba5e56210f8a42820cc78ebf039077dcca0936de33efc4c:html"
+                                  }
+                              ]
+                          },
+                          "contentType": "text/html"
+                      }
+                  },
+                  {
+                      "resource": {
+                          "resourceType": "Binary",
+                          "id": "12046",
+                          "meta": {
+                              "extension": [
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-task-reference",
+                                      "valueReference": {
+                                          "reference": "Task/12043"
+                                      }
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-s3-bucket",
+                                      "valueString": "mhv-di-uhd-docstore"
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-s3-key",
+                                      "valueString": "v1/ccds/oracle-health/fake-s3-key/rendered.pdf"
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-content-sha256",
+                                      "valueString": "456789"
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/ccd-format-status",
+                                      "valueString": "READY"
+                                  },
+                                  {
+                                      "url": "http://va.gov/mhv/fhir/StructureDefinition/presigned-url",
+                                      "valueUrl": "https://mhv-di-uhd-docstore.s3.us-gov-west-1.amazonaws.com/v1/ccds/oracle-health/fake-s3-key/rendered.pdf"
+                                  }
+                              ],
+                              "versionId": "1",
+                              "lastUpdated": "2026-03-03T10:18:36.080-05:00",
+                              "source": "#ca9aaddbde61d8c1",
+                              "tag": [
+                                  {
+                                      "system": "http://va.gov/mhv/fhir/tag/ccd-binary-key",
+                                      "code": "512d2d4463f84077eba5e56210f8a42820cc78ebf039077dcca0936de33efc4c:pdf"
+                                  }
+                              ]
+                          },
+                          "contentType": "application/pdf"
+                      }
+                  },
+                  {
+                      "resource": {
+                          "resourceType": "OperationOutcome",
+                          "id": "ab9a39ad-63d7-40d8-b098-6d9a1f88188b",
+                          "issue": [
+                              {
+                                  "severity": "information",
+                                  "code": "informational",
+                                  "diagnostics": "Success"
+                              },
+                              {
+                                  "severity": "information",
+                                  "code": "informational",
+                                  "diagnostics": "Overall message outcome"
+                              }
+                          ]
+                      }
+                  }
+              ]
+          }
+    recorded_at: Tue, 10 Mar 2026 15:22:00 GMT
+recorded_with: VCR 6.3.1

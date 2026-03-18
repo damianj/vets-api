@@ -1,0 +1,8 @@
+{
+    "status": "NOT_READY",
+    "jobId": "13002",
+    "taskId": "13002",
+    "source": "oracle-health",
+    "message": "CCD processing requested or in progress",
+    "retryAfterSeconds": 10
+}

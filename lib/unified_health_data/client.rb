@@ -68,10 +68,20 @@ module UnifiedHealthData
       perform(:get, path, nil, request_headers)
     end
 
-    def get_ccd(patient_id:, start_date:, end_date:)
+    def generate_ccd(patient_id:, start_date:, end_date:)
       path = "#{config.base_path}ccd/#{SourceConstants::ORACLE_HEALTH}"
       params = { patientId: patient_id, startDate: start_date, endDate: end_date }
       perform(:get, path, params, request_headers)
+    end
+
+    def get_ccd(job_id:)
+      path = "#{config.base_path}ccd/#{SourceConstants::ORACLE_HEALTH}/jobs/#{job_id}"
+      perform(:get, path, nil, request_headers)
+    end
+
+    def get_ccd_jobs_by_user(patient_id:)
+      path = "#{config.base_path}ccd/#{SourceConstants::ORACLE_HEALTH}/jobs?patientId=#{patient_id}"
+      perform(:get, path, nil, request_headers)
     end
 
     def get_imaging_studies(patient_id:, start_date:, end_date:, imaging_study_type: 'ALL', site_ids: [])

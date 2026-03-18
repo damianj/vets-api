@@ -1,0 +1,39 @@
+---
+http_interactions:
+- request:
+    method: get
+    uri: https://mhv-di-uhd-docstore.s3.us-gov-west-1.amazonaws.com/v1/ccds/oracle-health/fake-s3-key/rendered.pdf
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/pdf
+    body:
+      encoding: ASCII-8BIT
+      string: "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n/Pages 2 0 R\n>>\nendobj\n2
+        0 obj\n<<\n/Type /Pages\n/Kids [3 0 R]\n/Count 1\n>>\nendobj\n3 0 obj\n<<\n/Type
+        /Page\n/Parent 2 0 R\n/Resources <<\n/Font <<\n/F1 <<\n/Type /Font\n/Subtype
+        /Type1\n/BaseFont /Helvetica\n>>\n/F2 <<\n/Type /Font\n/Subtype /Type1\n/BaseFont
+        /Helvetica-Bold\n>>\n>>\n>>\n/MediaBox [0 0 612 792]\n/Contents 4 0 R\n>>\nendobj\n4
+        0 obj\n<<\n/Length 380\n>>\nstream\nBT\n/F2 18 Tf\n50 750 Td\n(VA Continuity
+        of Care Document - Oracle Health) Tj\n/F1 12 Tf\n0 -40 Td\n(Patient Information:)
+        Tj\n0 -20 Td\n(Name: Test Patient) Tj\n0 -20 Td\n(Date of Birth: January 1,
+        1971) Tj\n0 -20 Td\n(Gender: M) Tj\n0 -40 Td\n(Data Source: Oracle Health
+        System) Tj\n0 -20 Td\n(Generated: March 16, 2026) Tj\n0 -40 Td\n(This is mock
+        data for local development testing.) Tj\nET\nendstream\nendobj\nxref\n0 5\n0000000000
+        65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000427
+        00000 n \ntrailer\n<<\n/Size 5\n/Root 1 0 R\n>>\nstartxref\n856\n%%EOF\n"
+  recorded_at: Mon, 16 Mar 2026 16:22:01 GMT
+recorded_with: VCR 6.3.1

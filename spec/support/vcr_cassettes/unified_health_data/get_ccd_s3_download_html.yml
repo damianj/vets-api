@@ -1,0 +1,58 @@
+---
+http_interactions:
+- request:
+    method: get
+    uri: https://mhv-di-uhd-docstore.s3.us-gov-west-1.amazonaws.com/v1/ccds/oracle-health/fake-s3-key/rendered.html
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - "*/*"
+      User-Agent:
+      - Ruby
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - text/html
+    body:
+      encoding: UTF-8
+      string: |2
+          <!DOCTYPE html>
+              <html lang="en">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>Continuity of Care Document - Oracle Health</title>
+                  <style>
+                    body { font-family: Arial, sans-serif; margin: 2em; }
+                    h1 { color: #003d7a; }
+                    .section { margin: 1em 0; padding: 1em; background: #f5f5f5; }
+                  </style>
+                </head>
+                <body>
+                  <h1>VA Continuity of Care Document</h1>
+                  <p><strong>Data Source:</strong> Oracle Health</p>
+                  <div class="section">
+                    <h2>Patient Information</h2>
+                    <p><strong>Name:</strong> Test Patient</p>
+                    <p><strong>DOB:</strong> January 1, 1950</p>
+                    <p><strong>Gender:</strong> Male</p>
+                  </div>
+                  <div class="section">
+                    <h2>Allergies</h2>
+                    <p>No known allergies documented.</p>
+                  </div>
+                  <div class="section">
+                    <h2>Medications</h2>
+                    <p>Medication list from Oracle Health system.</p>
+                  </div>
+                </body>
+              </html>
+  recorded_at: Mon, 16 Mar 2026 16:22:01 GMT
+recorded_with: VCR 6.3.1
