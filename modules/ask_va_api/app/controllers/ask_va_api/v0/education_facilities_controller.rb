@@ -8,11 +8,12 @@ module AskVAApi
       end
 
       def search
-        render json: service.get_institution_search_results_v0(scrubbed_params)
+        # temporary mapping of physical_state field missing in v1 to preserve frontend expectation
+        render json: AskVAApi::Adapters::InstitutionAdapter.search(service.get_institution_search_results_v1(scrubbed_params))
       end
 
       def show
-        render json: service.get_institution_details_v0(scrubbed_params)
+        render json: AskVAApi::Adapters::InstitutionAdapter.details(service.get_institution_details_v1(scrubbed_params))
       end
 
       def children
