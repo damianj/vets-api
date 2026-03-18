@@ -97,7 +97,8 @@ describe SignIn::Idme::Service do
     end
 
     it 'logs information to rails logger' do
-      expect(Rails.logger).to receive(:info).with(expected_log)
+      expect(Rails.logger).to receive(:info)
+        .with(expected_log, hash_including(acr:, acr_values: nil, operation:, override: false))
       response
     end
 
@@ -124,27 +125,116 @@ describe SignIn::Idme::Service do
     end
 
     context 'when optional_scopes are provided' do
+      before do
+        allow(Flipper).to receive(:enabled?).and_call_original
+        allow(Flipper).to receive(:enabled?).with('identity_idme_ial2_full_enforcement')
+                                            .and_return(ial2_full_enforcement_enabled)
+      end
+
       context 'and the scopes are valid' do
         let(:optional_scopes) { ['all_emails'] }
 
-        context 'and acr is 3_force' do
-          let(:acr) { SignIn::Constants::Auth::IDME_LOA3_FORCE }
+        context 'when identity_idme_ial2_full_enforcement is enabled' do
+          let(:ial2_full_enforcement_enabled) { true }
 
-          it 'includes the optional scopes in the request' do
-            expect(response).to include(CGI.escape('/all_emails'))
+          context 'and acr is 3_force' do
+            let(:acr) { SignIn::Constants::Auth::IDME_LOA3_FORCE }
+
+            it 'includes the optional scopes in the request' do
+              expect(response).to include(CGI.escape('/all_emails'))
+            end
+          end
+
+          context 'and acr is ial1 with facial_match_preferred acr_values' do
+            let(:acr) { SignIn::Constants::Auth::IDME_IAL1 }
+            let(:acr_values) do
+              "#{SignIn::Constants::Auth::IDME_COMPARISON_MINIMUM} " \
+                "#{SignIn::Constants::Auth::IDME_IAL2} #{SignIn::Constants::Auth::IDME_LOA3}"
+            end
+
+            it 'forces scope to 3_force with all_emails' do
+              expect(response).to include(CGI.escape("#{SignIn::Constants::Auth::IDME_LOA3_FORCE}/all_emails"))
+            end
+
+            it 'clears acr_values from the request' do
+              expect(response).not_to include('acr_values=')
+            end
+
+            it 'logs the expected payload' do
+              expect(Rails.logger).to receive(:info)
+                .with(anything, hash_including(acr_values: nil, override: true))
+              response
+            end
+          end
+
+          context 'and acr is ial1 with non-matching acr_values' do
+            let(:acr) { SignIn::Constants::Auth::IDME_IAL1 }
+            let(:acr_values) { 'some-other-acr-values' }
+
+            it 'does not force scope to 3_force' do
+              expect(response).not_to include(CGI.escape(SignIn::Constants::Auth::IDME_LOA3_FORCE))
+            end
+
+            it 'preserves acr_values in the request' do
+              expect(response).to include('acr_values=some-other-acr-values')
+            end
+
+            it 'logs the expected payload' do
+              expect(Rails.logger).to receive(:info)
+                .with(anything, hash_including(acr_values: 'some-other-acr-values', override: false))
+              response
+            end
+          end
+
+          context 'and acr is not ial1 with acr_values' do
+            let(:acr) { SignIn::Constants::Auth::IDME_LOA3 }
+            let(:acr_values) do
+              "#{SignIn::Constants::Auth::IDME_COMPARISON_MINIMUM} " \
+                "#{SignIn::Constants::Auth::IDME_IAL2} #{SignIn::Constants::Auth::IDME_LOA3}"
+            end
+
+            it 'does not include the optional scopes' do
+              expect(response).not_to include(CGI.escape('/all_emails'))
+            end
+
+            it 'preserves acr_values in the request' do
+              expect(response).to include('acr_values=')
+            end
           end
         end
 
-        context 'and acr is not 3_force' do
-          let(:acr) { SignIn::Constants::Auth::IDME_LOA3 }
+        context 'when identity_idme_ial2_full_enforcement is disabled' do
+          let(:ial2_full_enforcement_enabled) { false }
 
-          it 'does not include the optional scopes in the request' do
-            expect(response).not_to include(CGI.escape('/all_emails'))
+          context 'and acr is 3_force' do
+            let(:acr) { SignIn::Constants::Auth::IDME_LOA3_FORCE }
+
+            it 'includes the optional scopes in the request' do
+              expect(response).to include(CGI.escape('/all_emails'))
+            end
+          end
+
+          context 'and acr is not 3_force' do
+            let(:acr) { SignIn::Constants::Auth::IDME_LOA3 }
+
+            it 'does not include the optional scopes in the request' do
+              expect(response).not_to include(CGI.escape('/all_emails'))
+            end
+          end
+
+          context 'and acr_values is provided' do
+            let(:acr) { SignIn::Constants::Auth::IDME_LOA3 }
+            let(:acr_values) { 'some-acr-values' }
+
+            it 'preserves acr_values in the request' do
+              expect(response).to include('acr_values=some-acr-values')
+            end
           end
         end
       end
 
       context 'and the scopes are invalid' do
+        let(:ial2_full_enforcement_enabled) { true }
         let(:optional_scopes) { ['invalid_scope'] }
 
         it 'does not include the optional scopes in the request' do

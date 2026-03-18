@@ -35,7 +35,7 @@ module SignIn
                       operation: Constants::Auth::AUTHORIZE)
         Rails.logger.info('[SignIn][Logingov][Service] Rendering auth, ' \
                           "state: #{state}, acr: #{acr[:acr]}, operation: #{operation}, " \
-                          "optional_scopes: #{optional_scopes}")
+                          "optional_scopes: #{optional_scopes}", acr: acr[:acr], operation:, optional_scopes:)
 
         scope = (DEFAULT_SCOPES + optional_scopes).join(' ')
         RedirectUrlGenerator.new(redirect_uri: auth_url, params_hash: auth_params(acr[:acr], state, scope)).perform

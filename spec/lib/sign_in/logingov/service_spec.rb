@@ -68,8 +68,10 @@ describe SignIn::Logingov::Service do
     context 'when the optional scopes are not provided' do
       let(:optional_scopes) { [] }
 
-      it 'logs information to rails logger' do
-        expect(Rails.logger).to receive(:info).with(expected_log)
+      it 'logs the expected message and payload' do
+        expect(Rails.logger).to receive(:info).with(expected_log,
+                                                    hash_including(acr:, operation:,
+                                                                   optional_scopes: expected_optional_scopes))
         response
       end
 
@@ -90,8 +92,10 @@ describe SignIn::Logingov::Service do
       end
 
       context 'when it is a valid scope' do
-        it 'logs information to rails logger' do
-          expect(Rails.logger).to receive(:info).with(expected_log)
+        it 'logs the expected message and payload' do
+          expect(Rails.logger).to receive(:info).with(expected_log,
+                                                      hash_including(acr:, operation:,
+                                                                     optional_scopes: expected_optional_scopes))
           response
         end
 
@@ -110,9 +114,10 @@ describe SignIn::Logingov::Service do
           ['profile', 'profile:verified_at', 'address', 'email', 'openid', 'social_security_number']
         end
 
-        it 'logs information to rails logger' do
-          expect(Rails.logger).to receive(:info).with(expected_log)
-
+        it 'logs the expected message and payload' do
+          expect(Rails.logger).to receive(:info).with(expected_log,
+                                                      hash_including(acr:, operation:,
+                                                                     optional_scopes: expected_optional_scopes))
           response
         end
 

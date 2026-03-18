@@ -25,12 +25,15 @@ module SignIn
       def render_auth(state: SecureRandom.hex,
                       acr: { acr: Constants::Auth::IDME_LOA1 },
                       operation: Constants::Auth::AUTHORIZE)
-        scoped_acr = append_optional_scopes(acr[:acr])
+        override = override_acr_values?(acr[:acr], acr[:acr_values])
+        scoped_acr = append_optional_scopes(acr[:acr], override)
+        acr_values = override ? nil : acr[:acr_values]
         Rails.logger.info('[SignIn][Idme][Service] Rendering auth, ' \
-                          "state: #{state}, acr: #{scoped_acr}, operation: #{operation}")
+                          "state: #{state}, acr: #{scoped_acr}, operation: #{operation}",
+                          acr: scoped_acr, acr_values:, operation:, override:)
 
         RedirectUrlGenerator.new(redirect_uri: auth_url,
-                                 params_hash: auth_params(scoped_acr, acr[:acr_values], state, operation)).perform
+                                 params_hash: auth_params(scoped_acr, acr_values, state, operation)).perform
       end
 
       def normalized_attributes(user_info, credential_level)
@@ -223,10 +226,29 @@ module SignIn
         }.to_json
       end
 
-      def append_optional_scopes(acr)
-        return acr unless optional_scopes.any? && acr == Constants::Auth::IDME_LOA3_FORCE
+      def append_optional_scopes(acr, override)
+        return acr unless optional_scopes.any?
 
-        "#{acr}/#{optional_scopes.join('/')}"
+        if override
+          "#{Constants::Auth::IDME_LOA3_FORCE}/#{optional_scopes.join('/')}"
+        else
+          return acr unless acr == Constants::Auth::IDME_LOA3_FORCE
+
+          "#{acr}/#{optional_scopes.join('/')}"
+        end
+      end
+
+      def facial_match_preferred_acr_values
+        [Constants::Auth::IDME_COMPARISON_MINIMUM,
+         Constants::Auth::IDME_IAL2,
+         Constants::Auth::IDME_LOA3].join(' ')
+      end
+
+      def override_acr_values?(acr, acr_values)
+        optional_scopes.any? &&
+          acr == Constants::Auth::IDME_IAL1 &&
+          acr_values == facial_match_preferred_acr_values &&
+          Flipper.enabled?('identity_idme_ial2_full_enforcement')
       end
 
       def valid_optional_scopes(optional_scopes)
