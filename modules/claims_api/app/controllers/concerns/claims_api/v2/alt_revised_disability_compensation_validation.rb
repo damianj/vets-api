@@ -38,8 +38,6 @@ module ClaimsApi
         alt_rev_validate_form_526_change_of_address
         # ensure military service pay information is valid
         alt_rev_validate_form_526_service_pay
-        # ensure treatment centers information is valid
-        alt_rev_validate_form_526_treatments
         # ensure service information is valid
         alt_rev_validate_form_526_service_information
         # collect errors and pass back to the controller
@@ -404,6 +402,8 @@ module ClaimsApi
       end
 
       def alt_rev_validate_form_526_disability_secondary_disabilities
+        alt_rev_validate_form_526_disability_secondary_disability_names_unique!
+
         form_attributes['disabilities'].each_with_index do |disability, dis_idx|
           next if disability['secondaryDisabilities'].blank?
 
@@ -422,6 +422,22 @@ module ClaimsApi
                                                                                                sd_idx)
             end
           end
+        end
+      end
+
+      def alt_rev_validate_form_526_disability_secondary_disability_names_unique!
+        all_included_disabilities = flatten_disabilities(form_attributes['disabilities'])
+        # Find duplicates (case-insensitive)
+        duplicates = all_included_disabilities
+                     .group_by { |d| d['name'].to_s.downcase }
+                     .select { |_, group| group.size > 1 }
+
+        duplicates.each_key do |name|
+          collect_error_messages(
+            source: '/disabilities',
+            detail: "The disability name '#{name}' is duplicated. " \
+                    'All disability names must be unique across primary and secondary disabilities.'
+          )
         end
       end
 
@@ -520,7 +536,6 @@ module ClaimsApi
 
       def alt_rev_validate_form_526_service_pay
         alt_rev_validate_from_526_military_retired_pay_branch
-        alt_rev_validate_form_526_separation_pay_received_date
         alt_rev_validate_from_526_separation_severance_pay_branch
       end
 
@@ -536,12 +551,6 @@ module ClaimsApi
                                        'Reference Data API.')
       end
 
-      def alt_rev_validate_form_526_separation_pay_received_date
-        separation_pay_received_date = form_attributes.dig('servicePay', 'separationSeverancePay',
-                                                           'datePaymentReceived')
-        nil if separation_pay_received_date.blank?
-      end
-
       def alt_rev_validate_from_526_separation_severance_pay_branch
         branch = form_attributes.dig('servicePay', 'separationSeverancePay', 'branchOfService')
         return if branch.nil? || brd_service_branch_names.include?(branch)
@@ -550,39 +559,6 @@ module ClaimsApi
                                detail: "'servicePay/separationSeverancePay/branchOfService' must match a service " \
                                        'branch returned from the /service-branches endpoint of the Benefits ' \
                                        'Reference Data API.')
-      end
-
-      def alt_rev_validate_form_526_treatments
-        treatments = form_attributes['treatments']
-        return if treatments.blank?
-
-        alt_rev_validate_treatment_dates(treatments)
-      end
-
-      def alt_rev_validate_treatment_dates(treatments)
-        service_information = form_attributes['serviceInformation']
-        return unless service_periods_present?(service_information)
-
-        first_service_period = service_information['servicePeriods'].min_by do |per|
-          per['activeDutyBeginDate']
-        end
-
-        if first_service_period['activeDutyBeginDate'] &&
-           date_is_valid?(
-             first_service_period['activeDutyBeginDate'],
-             'serviceInformation/servicePeriods/activeDutyBeginDate',
-             true
-           )
-          Date.strptime(first_service_period['activeDutyBeginDate'], '%Y-%m-%d')
-        end
-
-        treatments.each_with_index do |treatment, idx|
-          treatment_begin_date = treatment['beginDate']
-
-          next if treatment_begin_date.nil?
-
-          next unless date_is_valid?(treatment_begin_date, "/treatments/#{idx}/beginDate")
-        end
       end
 
       def alt_rev_validate_form_526_service_information
