@@ -87,7 +87,8 @@ module V0
     def submit_via_forms_api(claim, claim_label, participant_id)
       digital_forms_api_submission_service ||= DigitalFormsApi::Service::Submissions.new
 
-      payload = claim.deep_camelize_keys(claim.parsed_form)
+      payload = claim.parsed_form.deep_dup
+      payload = claim.deep_camelize_keys(payload.merge(payload.delete('dependents_application')))
       metadata = {
         formId: claim.claim_form_type,
         veteranId: participant_id,
@@ -108,7 +109,7 @@ module V0
 
     # upload evidence documents - temp for FDF pilot
     def upload_evidence_documents(claim, participant_id)
-      form_id = claim.claim_form_type
+      form_id = claim.form_id # this needs to be the legacy full id for pdf processing to work
       doctype = claim.document_type
 
       folder_identifier = "VETERAN:PARTICIPANT_ID:#{participant_id}"
@@ -123,7 +124,7 @@ module V0
         file_path = PDFUtilities::PDFStamper.new(stamp_set).run(pa.to_pdf, timestamp: pa.created_at)
         claims_evidence_uploader.upload_evidence(claim.id, pa.id, file_path:, form_id:, doctype:)
       end
-    rescue
+    rescue => e
       @monitor.track_event(:error, 'Evidence submission during Forms API processing failed',
                            "#{stats_key}.submit_pdf.failure", error: e.message)
     end
