@@ -24,6 +24,7 @@ module SimpleFormsApi
         '21-4138' => 'vba_21_4138',
         '21-4140' => 'vba_21_4140',
         '21-4142' => 'vba_21_4142',
+        '21-4502' => 'vba_21_4502',
         '21P-0537' => 'vba_21p_0537',
         '21P-0847' => 'vba_21p_0847',
         '21P-601' => 'vba_21p_601',
@@ -33,7 +34,7 @@ module SimpleFormsApi
         '40-1330M' => 'vba_40_1330m'
       }.freeze
 
-      UNAUTHENTICATED_FORMS = %w[40-0247 21-10210 21P-0847 40-10007 40-1330M 21P-0537 21P-601].freeze
+      UNAUTHENTICATED_FORMS = %w[40-0247 21-10210 21P-0847 40-10007 40-1330M 21P-0537 21P-601 21-4502].freeze
 
       def submit
         Datadog::Tracing.active_trace&.set_tag('form_id', params[:form_number])
@@ -199,7 +200,6 @@ module SimpleFormsApi
           form = form.populate_veteran_data(@current_user)
         end
         filler = SimpleFormsApi::PdfFiller.new(form_number: form_id, form:)
-
         file_path = if @current_user
                       filler.generate(@current_user.loa[:current])
                     else
@@ -207,7 +207,6 @@ module SimpleFormsApi
                     end
         metadata = SimpleFormsApiSubmission::MetadataValidator.validate(form.metadata,
                                                                         zip_code_is_us_based: form.zip_code_is_us_based)
-
         if %w[vba_40_0247 vba_40_10007 vba_40_1330m vba_21p_601].include?(form_id)
           raise "Generated PDF does not exist: #{file_path}" unless File.exist?(file_path)
 

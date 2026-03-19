@@ -1,0 +1,84 @@
+{
+  "form1[0].#subform[0].VeteransFirstName[0]": "<%= form.data.dig('full_name', 'first') %>",
+  "form1[0].#subform[0].VeteransMiddleInitial[0]": "<%= form.data.dig('full_name', 'middle') %>",
+  "form1[0].#subform[0].VeteransLastName[0]": "<%= form.data.dig('full_name', 'last') %>",
+  "form1[0].#subform[0].ClaimantsSocialSecurityNumber_FirstThreeNumbers[0]": "<%= form.data['ssn']&.slice(0, 3) %>",
+  "form1[0].#subform[0].ClaimantsSocialSecurityNumber_SecondTwoNumbers[0]": "<%= form.data['ssn']&.slice(3, 2) %>",
+  "form1[0].#subform[0].ClaimantsSocialSecurityNumber_LastFourNumbers[0]": "<%= form.data['ssn']&.slice(5, 4) %>",
+  "form1[0].#subform[0].VAFileNumber[0]": "<%= form.data['va_file_number'] %>",
+  "form1[0].#subform[0].DOByear[0]": "<%= form.date_part('dob', 'year') %>",
+  "form1[0].#subform[0].DOBmonth[0]": "<%= form.date_part('dob', 'month') %>",
+  "form1[0].#subform[0].DOBday[0]": "<%= form.date_part('dob', 'day') %>",
+  "form1[0].#subform[0].VeteransServiceNumber[0]": "<%= form.data['va_service_number'] %>",
+  "form1[0].#subform[0].TelephoneNumber_AreaCode[0]": "<%= form.data.dig('phone_number', 'area_code') %>",
+  "form1[0].#subform[0].TelephoneNumber_FirstThreeNumbers[0]": "<%= form.data.dig('phone_number', 'number')&.slice(0, 3) %>",
+  "form1[0].#subform[0].TelephoneNumber_LastFourNumbers[0]": "<%= form.data.dig('phone_number', 'number')&.slice(3, 4) %>",
+  "form1[0].#subform[0].International_Telephone_Number_If_Applicable[0]": "<%= form.data.dig('international_phone_number', 'country_code') %> <%= form.data.dig('international_phone_number', 'area_code') %> <%= form.data.dig('international_phone_number', 'number') %>",
+  "form1[0].#subform[0].Email_Address[0]": "<%= form.data['email'] %>",
+  "form1[0].#subform[0].CheckBox1[0]": "<%= form.data['electronic_correspondence'] ? 'Yes' : 'Off' %>",
+  "form1[0].#subform[0].ZIPOrPostalCode_FirstFiveNumbers[0]": "<%= form.data.dig('current_mailing_address', 'postal_code')&.slice(0, 5) %>",
+  "form1[0].#subform[0].ZIPOrPostalCode_LastFourNumbers[0]": "<%= form.data.dig('current_mailing_address', 'postal_code')&.slice(5, 4) %>",
+  "form1[0].#subform[0].Country[0]": "<%= form.data.dig('current_mailing_address', 'country') %>",
+  "form1[0].#subform[0].StateOrProvince[0]": "<%= form.data.dig('current_mailing_address', 'state') %>",
+  "form1[0].#subform[0].City[0]": "<%= form.data.dig('current_mailing_address', 'city') %>",
+  "form1[0].#subform[0].ApartmentOrUnitNumber[0]": "<%= form.data.dig('current_mailing_address', 'street2') %>",
+  "form1[0].#subform[0].CompleteMailingAddress_NumberAndStreet[0]": "<%= form.data.dig('current_mailing_address', 'street') %>",
+  "form1[0].#subform[0].CompleteMailingAddress_NumberAndStreet[1]": "<%= form.data.dig('planned_mailing_address', 'street') %>",
+  "form1[0].#subform[0].ApartmentOrUnitNumber[1]": "<%= form.data.dig('planned_mailing_address', 'street2') %>",
+  "form1[0].#subform[0].City[3]": "<%= form.data.dig('planned_mailing_address', 'city') %>",
+  "form1[0].#subform[0].StateOrProvince[1]": "<%= form.data.dig('planned_mailing_address', 'state') %>",
+  "form1[0].#subform[0].Country[3]": "<%= form.data.dig('planned_mailing_address', 'country') %>",
+  "form1[0].#subform[0].ZIPOrPostalCode_FirstFiveNumbers[1]": "<%= form.data.dig('planned_mailing_address', 'postal_code')&.slice(0, 5) %>",
+  "form1[0].#subform[0].ZIPOrPostalCode_LastFourNumbers[1]": "<%= form.data.dig('planned_mailing_address', 'postal_code')&.slice(5, 4) %>",
+  "form1[0].#subform[0].RadioButtonList[0]": "<%=
+      branch = form.data['branch_of_service'].to_s.upcase
+        {
+            'ARMY' => '1',
+            'NAVY' => '2',
+            'MARINE CORPS' => '3',
+            'AIR FORCE' => '4',
+            'COAST GUARD' => 'COAST GUARD',
+            'SPACE FORCE' => '6',
+            'NOAA' => '7',
+            'USPHS' => 'USPHS'
+        }[branch]
+      %>",
+  "form1[0].#subform[0].RadioButtonList[1]": "<%= form.data['active_duty'] ? 'YES' : 'NO' %>",
+  "form1[0].#subform[0].Place_Of_Entry_Into_Active_Durty[0]": "<%= form.data['place_of_entry'] %>",
+  "form1[0].#subform[0].DOByear[1]": "<%= form.date_part('date_of_entry', 'year') %>",
+  "form1[0].#subform[0].DOBmonth[2]": "<%= form.date_part('date_of_entry', 'month') %>",
+  "form1[0].#subform[0].DOBday[2]": "<%= form.date_part('date_of_entry', 'day') %>",
+  "form1[0].#subform[0].Place_Of_Release_From_Active_Duty[0]": "<%= form.data['place_of_release'] %>",
+  "form1[0].#subform[0].DOByear[2]": "<%= form.date_part('date_of_release', 'year') %>",
+  "form1[0].#subform[0].DOBmonth[1]": "<%= form.date_part('date_of_release', 'month') %>",
+  "form1[0].#subform[0].DOBday[1]": "<%= form.date_part('date_of_release', 'day') %>",
+  "form1[0].#subform[0].RadioButtonList[2]": "<%= form.data['applied_for_compensation'] ? 'YES' : 'NO' %>",
+  "form1[0].#subform[0].DOByear[3]": "<%= form.date_part('date_applied_for_compensation', 'year') %>",
+  "form1[0].#subform[0].DOBmonth[3]": "<%= form.date_part('date_applied_for_compensation', 'month') %>",
+  "form1[0].#subform[0].DOBday[3]": "<%= form.date_part('date_applied_for_compensation', 'day') %>",
+  "form1[0].#subform[0].Location_Of_VA_Office_That_Has_Your_File[0]": "<%= form.data['location_of_office'] %>",
+  "form1[0].#subform[0].RadioButtonList[3]": "<%=
+          vehicle_type = form.data['vehicle_type'].to_s.upcase
+          {
+              'AUTOMOBILE' => 'AUTOMOBILE',
+              'STATION WAGON' => 'STATION WAGON',
+              'VAN' => 'VAN',
+              'TRUCK' => 'TRUCK'
+          }[vehicle_type] || 'OTHER (Specify)'
+      %>",
+  "form1[0].#subform[0].Other_Specify2[0]": "<%=
+          vehicle_type = form.data['vehicle_type'].to_s
+          normalized_type = vehicle_type.upcase
+          known_types = ['AUTOMOBILE', 'STATION WAGON', 'VAN', 'TRUCK']
+          known_types.include?(normalized_type) ? nil : vehicle_type
+      %>",
+  "form1[0].#subform[0].RadioButtonList[4]": "<%= form.data['previously_applied'] ? 'YES' : 'NO' %>",
+  "form1[0].#subform[0].DOByear[4]": "<%= form.date_part('date_of_previous_application', 'year') %>",
+  "form1[0].#subform[0].DOBmonth[4]": "<%= form.date_part('date_of_previous_application', 'month') %>",
+  "form1[0].#subform[0].DOBday[4]": "<%= form.date_part('date_of_previous_application', 'day') %>",
+  "form1[0].#subform[0].PlaceWhereYouAppliedForAnAutomobileOrOtherConveyance[0]": "<%= form.data['previous_application_location'] %>",
+  "form1[0].#subform[0].DOBday[5]": "<%= form.date_part('signature_date',"day")%>",
+  "form1[0].#subform[0].DOBmonth[5]": "<%= form.date_part('signature_date',"month")%>",
+  "form1[0].#subform[0].DOByear[5]": "<%= form.date_part('signature_date',"year")%>",
+  "form1[0].#subform[0].SignatureField11[0]": "<%= form.data.dig("statement_of_truth_signature") %>"
+}

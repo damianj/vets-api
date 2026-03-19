@@ -11,6 +11,7 @@ describe SimpleFormsApi::PdfFiller do
     vba_21_0972-min
     vba_21_10210
     vba_21_10210-min
+    vba_21_4502
     vba_21_4138-min
     vba_21_4142
     vba_21_4142-min
