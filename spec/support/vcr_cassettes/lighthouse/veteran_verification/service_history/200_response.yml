@@ -1,0 +1,69 @@
+---
+http_interactions:
+- request:
+    method: get
+    uri: "<LIGHTHOUSE_CLAIMS_API_HOST>/services/veteran_verification/v2/service_history/1012667145V762142"
+    body:
+      encoding: US-ASCII
+      string: ''
+      headers:
+      Accept:
+      - application/json
+      Content-Type:
+      - application/json
+      User-Agent:
+      - Vets.gov Agent
+      Authorization: Bearer <TOKEN>
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Wed, 11 Mar 2026 17:33:51 GMT
+      Content-Type:
+      - application/json
+      Connection:
+      - keep-alive
+      Ratelimit-Reset:
+      - '11'
+      X-Ratelimit-Remaining-Minute:
+      - '119'
+      X-Ratelimit-Limit-Minute:
+      - '120'
+      Ratelimit-Remaining:
+      - '119'
+      Ratelimit-Limit:
+      - '120'
+      X-Oneagent-Js-Injection:
+      - 'true'
+      Server-Timing:
+      - dtRpid;desc="-1356379214", dtSInfo;desc="0"
+      X-Envoy-Upstream-Service-Time:
+      - '1568'
+      Strict-Transport-Security:
+      - max-age=16000000; includeSubDomains; preload;
+      - max-age=31536000; includeSubDomains; preload
+      Access-Control-Allow-Origin:
+      - "*"
+      Correlation-Id:
+      - 14bcea5d-9b94-4807-afe2-3d204e3931dc#823517
+      Cache-Control:
+      - ''
+      - no-cache, no-store
+      X-Frame-Options:
+      - SAMEORIGIN
+      Pragma:
+      - no-cache
+      Transfer-Encoding:
+      - chunked
+    body:
+      encoding: ASCII-8BIT
+      string: '{"data":[{"id":"9cd1e4af-7cb5-5c87-9a8e-960a13ff686b","type":"service-history-episodes","attributes":{"deployments":[],"first_name":"Tamara","last_name":null,"branch_of_service":"Air
+        Force","component_of_service":"Reserves","service_type":"Active Duty","start_date":"1992-08-26","end_date":"2017-08-30","pay_grade":"E08","discharge_status":"honorable","separation_reason":"SUFFICIENT
+        SERVICE FOR RETIREMENT","service_episode_has_combat_pay":true}}],"military_summary":{"first_name":"Tamara","last_name":null,"active_duty_status":"Y","combat_service_indicator":true,"duty_status_code":"01","duty_status_text":"Active
+        Component: full time active duty, not in the Guard or Reserve","total_number_of_regular_active_duty_days":444,"total_number_of_reserve_active_duty_days":90,"total_number_of_guard_active_duty_days":60,"total_number_of_training_days":10}}'
+  recorded_at: Wed, 11 Mar 2026 17:33:51 GMT
+recorded_with: VCR 6.4.0

@@ -185,6 +185,24 @@ RSpec.describe VeteranVerification::Service do
           end
         end
       end
+
+      describe 'when requesting service history' do
+        let(:user) { build(:user, icn: '1012667145V762142') }
+
+        context 'when service history found' do
+          it 'retrieves veteran service history from the Lighthouse API' do
+            VCR.use_cassette('lighthouse/veteran_verification/service_history/200_response') do
+              response = service.get_service_history(user.icn, '', '')
+
+              service_history_attributes = response['data'][0]['attributes']
+              expect(service_history_attributes['branch_of_service']).to eq('Air Force')
+              expect(service_history_attributes['start_date']).to eq('1992-08-26')
+              expect(service_history_attributes['end_date']).to eq('2017-08-30')
+              expect(service_history_attributes['discharge_status']).to eq('honorable')
+            end
+          end
+        end
+      end
     end
   end
 end
