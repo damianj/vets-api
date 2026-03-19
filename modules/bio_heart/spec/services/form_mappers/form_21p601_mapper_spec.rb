@@ -21,7 +21,8 @@ RSpec.describe BioHeartApi::FormMappers::Form21p601Mapper do
       expect(result).to include(
         'VETERAN_FIRST_NAME' => 'Robert',
         'VETERAN_LAST_NAME' => 'Thompson',
-        'FORM_TYPE' => 'VA FORM 21P-601, SEP 2025'
+        'FORM_TYPE' => 'VA FORM 21P-601, SEP 2025',
+        'FORM_TYPE_1' => 'VA FORM 21P-601, SEP 2025'
       )
     end
 
@@ -144,6 +145,7 @@ RSpec.describe BioHeartApi::FormMappers::Form21p601Mapper do
            WITNESS_2_SIGNATURE
            WITNESS_2_NAME_ADDRESS
            REMARKS
+           FORM_TYPE_1
            FORM_TYPE]
       expect(result.keys).to match_array(expected_keys)
     end

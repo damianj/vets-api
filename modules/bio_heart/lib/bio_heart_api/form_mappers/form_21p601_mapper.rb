@@ -115,7 +115,10 @@ module BioHeartApi
           # Box 26 - Remarks
           'REMARKS' => form['remarks'],
 
-          # Form Type
+          # Form Type - Bottom of Page 1
+          'FORM_TYPE_1' => FORM_TYPE,
+
+          # Form Type - Bottom of Page 2
           'FORM_TYPE' => FORM_TYPE
         }
 

@@ -112,7 +112,10 @@ module FormIntake
           # Box 26 - Remarks
           'REMARKS' => form['remarks'],
 
-          # Form Type (must be prefixed with StructuredData: to be ingested)
+          # Form Type - Bottom of Page 1
+          'FORM_TYPE_1' => 'StructuredData:21P-601',
+
+          # Form Type - Bottom of Page 2 (must be prefixed with StructuredData: to be ingested)
           'FORM_TYPE' => 'StructuredData:21P-601'
         }
 

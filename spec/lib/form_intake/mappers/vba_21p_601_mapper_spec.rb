@@ -108,6 +108,7 @@ RSpec.describe FormIntake::Mappers::VBA21p601Mapper do
 
     it 'includes form type with StructuredData prefix' do
       expect(payload['FORM_TYPE']).to eq('StructuredData:21P-601')
+      expect(payload['FORM_TYPE_1']).to eq('StructuredData:21P-601')
     end
 
     it 'maps veteran name fields' do
