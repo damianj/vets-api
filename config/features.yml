@@ -552,6 +552,14 @@ features:
     actor_type: user
     description: Use hardcoded namespaces for WSDL calls to BGS
     enable_in_development: true
+  cst_alert_improvements_board_appeals:
+    actor_type: user
+    description: When enabled, aligns board appeal alerts in the claim status tool with VADS best practices.
+    enable_in_development: true
+  cst_alert_improvements_evidence_requests:
+    actor_type: user
+    description: When enabled, aligns evidence request alerts in the claim status tool with VADS best practices.
+    enable_in_development: true
   cst_show_document_upload_status:
     actor_type: user
     description: When enabled, claims status tool will display the upload status that comes from the evidence_submissions table.
