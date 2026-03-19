@@ -5,7 +5,8 @@ require 'rails_helper'
 RSpec.describe DigitalFormsApi::SubmissionsController, type: :controller do
   routes { DigitalFormsApi::Engine.routes }
 
-  let(:user) { create(:user) }
+  let(:participant_id) { '12345' }
+  let(:user) { create(:evss_user, participant_id:) }
   let(:flipper_enabled) { true }
 
   before do
@@ -21,7 +22,7 @@ RSpec.describe DigitalFormsApi::SubmissionsController, type: :controller do
       end
     end
 
-    context 'when the submission is found' do
+    context 'when the submission is found and matches the current user' do
       let(:cassette) { 'retrieve_686c' }
 
       it 'returns the submission and template' do
@@ -30,7 +31,38 @@ RSpec.describe DigitalFormsApi::SubmissionsController, type: :controller do
         end
         expect(response).to have_http_status(:ok)
         body = JSON.parse(response.body)
-        expect(body).to include('submission', 'template')
+        expect(body).to include(
+          { 'submission' => include(
+            { 'veteranInformation' => include(
+              { 'fullName' =>
+                { 'first' => 'John', 'last' => 'Doe' } }
+            ) }
+          ),
+            'template' => include(
+              { 'formId' => '21-686c',
+                'version' => '1.0' }
+            ) }
+        )
+      end
+    end
+
+    context "when the submission is found but doesn't match the current user" do
+      let(:cassette) { 'retrieve_686c' }
+      let(:participant_id) { '54321' }
+
+      it 'returns a 403 error' do
+        retrieve_submission!
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    context "when the submission is found but current user doesn't have a Participant ID" do
+      let(:cassette) { 'retrieve_686c' }
+      let(:participant_id) { nil }
+
+      it 'returns a 403 error' do
+        retrieve_submission!
+        expect(response).to have_http_status(:forbidden)
       end
     end
 
