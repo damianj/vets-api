@@ -157,17 +157,45 @@ RSpec.describe 'Mobile::V0::Claims::DecisionLetters', type: :request do
         end
       end
 
-      context 'when Lighthouse Benefits Documents returns 500' do
-        it 'raises 502 (Bad Gateway)' do
-          lighthouse_provider_double = double
-          allow(lighthouse_provider_double).to receive(:get_letters).and_raise(
-            Common::Exceptions::ExternalServerInternalServerError.new
-          )
-          allow(LighthouseClaimLettersProvider).to receive(:new).and_return(lighthouse_provider_double)
-          get '/mobile/v0/claims/decision-letters', headers: sis_headers
-          assert_schema_conform(502)
-          expect(response.parsed_body.dig('errors', 0, 'title')).to eq('Bad Gateway')
-          expect(response.parsed_body.dig('errors', 0, 'source')).to eq('DecisionLettersController#index')
+      context 'when Lighthouse Benefits Documents returns upstream errors' do
+        %w[500 502 503 504].each do |status_code|
+          context "when Lighthouse returns #{status_code}" do
+            let(:upstream_error) do
+              {
+                '500' => Common::Exceptions::ExternalServerInternalServerError,
+                '502' => Common::Exceptions::BadGateway,
+                '503' => Common::Exceptions::ServiceUnavailable,
+                '504' => Common::Exceptions::GatewayTimeout
+              }[status_code]
+            end
+
+            it 'translates to 502 (Bad Gateway)' do
+              lighthouse_provider_double = double
+              allow(lighthouse_provider_double).to receive(:get_letters).and_raise(upstream_error.new)
+              allow(LighthouseClaimLettersProvider).to receive(:new).and_return(lighthouse_provider_double)
+              get '/mobile/v0/claims/decision-letters', headers: sis_headers
+              assert_schema_conform(502)
+              expect(response.parsed_body.dig('errors', 0, 'title')).to eq('Bad Gateway')
+              expect(response.parsed_body.dig('errors', 0, 'source')).to eq('DecisionLettersController#index')
+            end
+          end
+        end
+
+        context 'when Breakers circuit is open (OutageException)' do
+          it 'translates to 502 (Bad Gateway)' do
+            breakers_service = OpenStruct.new(name: 'BenefitsDocuments')
+            outage = Breakers::Outage.new(service: breakers_service,
+                                          body: MultiJson.dump(start_time: Time.zone.now.to_i))
+            lighthouse_provider_double = double
+            allow(lighthouse_provider_double).to receive(:get_letters).and_raise(
+              Breakers::OutageException.new(outage, breakers_service)
+            )
+            allow(LighthouseClaimLettersProvider).to receive(:new).and_return(lighthouse_provider_double)
+            get '/mobile/v0/claims/decision-letters', headers: sis_headers
+            assert_schema_conform(502)
+            expect(response.parsed_body.dig('errors', 0, 'title')).to eq('Bad Gateway')
+            expect(response.parsed_body.dig('errors', 0, 'source')).to eq('DecisionLettersController#index')
+          end
         end
       end
     end
@@ -255,21 +283,53 @@ RSpec.describe 'Mobile::V0::Claims::DecisionLetters', type: :request do
       end
     end
 
-    context 'when Lighthouse Benefits Documents returns 500' do
+    context 'when Lighthouse Benefits Documents returns upstream errors' do
       before do
         allow(Flipper).to receive(:enabled?)
           .with(:cst_claim_letters_use_lighthouse_api_provider_mobile, anything)
           .and_return(true)
       end
 
-      it 'raises 502 (Bad Gateway)' do
-        lighthouse_provider_double = double
-        allow(lighthouse_provider_double).to receive(:get_letter).and_raise(Common::Exceptions::ExternalServerInternalServerError.new)
-        allow(LighthouseClaimLettersProvider).to receive(:new).and_return(lighthouse_provider_double)
-        get '/mobile/v0/claims/decision-letters/27832B64-2D88-4DEE-9F6F-DF80E4CAAA87/download', headers: sis_headers
-        assert_schema_conform(502)
-        expect(response.parsed_body.dig('errors', 0, 'title')).to eq('Bad Gateway')
-        expect(response.parsed_body.dig('errors', 0, 'source')).to eq('DecisionLettersController#download')
+      %w[500 502 503 504].each do |status_code|
+        context "when Lighthouse returns #{status_code}" do
+          let(:upstream_error) do
+            {
+              '500' => Common::Exceptions::ExternalServerInternalServerError,
+              '502' => Common::Exceptions::BadGateway,
+              '503' => Common::Exceptions::ServiceUnavailable,
+              '504' => Common::Exceptions::GatewayTimeout
+            }[status_code]
+          end
+
+          it 'translates to 502 (Bad Gateway)' do
+            lighthouse_provider_double = double
+            allow(lighthouse_provider_double).to receive(:get_letter).and_raise(upstream_error.new)
+            allow(LighthouseClaimLettersProvider).to receive(:new).and_return(lighthouse_provider_double)
+            get '/mobile/v0/claims/decision-letters/27832B64-2D88-4DEE-9F6F-DF80E4CAAA87/download',
+                headers: sis_headers
+            assert_schema_conform(502)
+            expect(response.parsed_body.dig('errors', 0, 'title')).to eq('Bad Gateway')
+            expect(response.parsed_body.dig('errors', 0, 'source')).to eq('DecisionLettersController#download')
+          end
+        end
+      end
+
+      context 'when Breakers circuit is open (OutageException)' do
+        it 'translates to 502 (Bad Gateway)' do
+          breakers_service = OpenStruct.new(name: 'BenefitsDocuments')
+          outage = Breakers::Outage.new(service: breakers_service,
+                                        body: MultiJson.dump(start_time: Time.zone.now.to_i))
+          lighthouse_provider_double = double
+          allow(lighthouse_provider_double).to receive(:get_letter).and_raise(
+            Breakers::OutageException.new(outage, breakers_service)
+          )
+          allow(LighthouseClaimLettersProvider).to receive(:new).and_return(lighthouse_provider_double)
+          get '/mobile/v0/claims/decision-letters/27832B64-2D88-4DEE-9F6F-DF80E4CAAA87/download',
+              headers: sis_headers
+          assert_schema_conform(502)
+          expect(response.parsed_body.dig('errors', 0, 'title')).to eq('Bad Gateway')
+          expect(response.parsed_body.dig('errors', 0, 'source')).to eq('DecisionLettersController#download')
+        end
       end
     end
   end
