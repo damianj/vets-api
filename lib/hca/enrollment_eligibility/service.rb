@@ -74,8 +74,6 @@ module HCA
 
         add_contacts_to_ezr_data(ezr_data, response) if Flipper.enabled?(:ezr_emergency_contacts_enabled, user)
 
-        get_service_history(ezr_data, user) if Flipper.enabled?(:ezr_service_history_enabled, user)
-
         OpenStruct.new(ezr_data)
       end
 
@@ -125,44 +123,9 @@ module HCA
           can_submit_financial_info: !income_year_is_last_year?(response)
         }
       end
-
       # rubocop:enable Metrics/MethodLength
 
       private
-
-      def get_service_history(ezr_data, user)
-        begin
-          service_history_response = VeteranVerification::Service.new.get_service_history(user.icn)
-        rescue => e
-          Rails.logger.error(
-            '[HCA] - VeteranVerification ServiceHistory retrieval error', { message: e.message, backtrace: e.backtrace }
-          )
-
-          return ezr_data
-        end
-
-        last_episode = last_concluded_service_episode(service_history_response['data'])
-
-        return ezr_data unless last_episode
-
-        last_service_history = last_episode['attributes']
-        ezr_data.merge!(
-          {
-            lastServiceBranch: last_service_history['branch_of_service'],
-            lastEntryDate: last_service_history['start_date'],
-            lastDischargeDate: last_service_history['end_date'],
-            dischargeType: last_service_history['discharge_status']
-          }
-        )
-
-        ezr_data
-      end
-
-      def last_concluded_service_episode(service_history)
-        service_history
-          .select { |episode| episode['attributes']['end_date'].present? }
-          .max_by { |episode| episode['attributes']['end_date'] }
-      end
 
       def convert_insurance_hash(response, providers)
         strip_medicare(providers).merge(
@@ -302,7 +265,6 @@ module HCA
           }
         )
       end
-
       # rubocop:enable Metrics/MethodLength
 
       def parse_dependents(response)
@@ -544,10 +506,8 @@ module HCA
 
         ezr_data
       end
-
       # rubocop:enable Metrics/MethodLength
     end
-
     # rubocop:enable Metrics/ClassLength
   end
 end

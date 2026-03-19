@@ -1241,20 +1241,12 @@ RSpec.describe FormProfile, type: :model do
             allow(Flipper).to receive(:enabled?).with(:ezr_form_prefill_with_providers_and_dependents).and_return(true)
             allow(Flipper).to receive(:enabled?).with(:ezr_emergency_contacts_enabled,
                                                       instance_of(User)).and_return(false)
-            allow(Flipper).to receive(:enabled?).with(:ezr_service_history_enabled, instance_of(User)).and_return(false)
           end
 
           let(:v10_10_ezr_expected) do
             JSON.parse(
               File.read('spec/fixtures/form1010_ezr/veteran_data.json')
-            ).merge(ezr_prefilled_data_without_ee_data).except(
-              'nextOfKins',
-              'emergencyContacts',
-              'lastServiceBranch',
-              'lastEntryDate',
-              'lastDischargeDate',
-              'dischargeType'
-            )
+            ).merge(ezr_prefilled_data_without_ee_data).except('nextOfKins', 'emergencyContacts')
           end
 
           it 'returns a prefilled 10-10EZR form', run_at: 'Thu, 27 Feb 2025 01:10:06 GMT' do
@@ -1270,19 +1262,12 @@ RSpec.describe FormProfile, type: :model do
             before do
               allow(Flipper).to receive(:enabled?).with(:ezr_emergency_contacts_enabled,
                                                         instance_of(User)).and_return(true)
-              allow(Flipper).to receive(:enabled?).with(:ezr_service_history_enabled,
-                                                        instance_of(User)).and_return(false)
             end
 
             let(:v10_10_ezr_expected) do
               contacts = JSON.parse(
                 File.read('spec/fixtures/form1010_ezr/veteran_data.json')
-              ).merge(ezr_prefilled_data_without_ee_data).except(
-                'lastServiceBranch',
-                'lastEntryDate',
-                'lastDischargeDate',
-                'dischargeType'
-              )
+              ).merge(ezr_prefilled_data_without_ee_data)
               contacts
             end
 
@@ -1304,7 +1289,6 @@ RSpec.describe FormProfile, type: :model do
             ).and_return(false)
             allow(Flipper).to receive(:enabled?).with(:ezr_emergency_contacts_enabled,
                                                       instance_of(User)).and_return(false)
-            allow(Flipper).to receive(:enabled?).with(:ezr_service_history_enabled, instance_of(User)).and_return(false)
           end
 
           let(:v10_10_ezr_expected) do
@@ -1314,11 +1298,7 @@ RSpec.describe FormProfile, type: :model do
               'providers',
               'dependents',
               'nextOfKins',
-              'emergencyContacts',
-              'lastServiceBranch',
-              'lastEntryDate',
-              'lastDischargeDate',
-              'dischargeType'
+              'emergencyContacts'
             )
           end
 
@@ -1336,21 +1316,12 @@ RSpec.describe FormProfile, type: :model do
             before do
               allow(Flipper).to receive(:enabled?).with(:ezr_emergency_contacts_enabled,
                                                         instance_of(User)).and_return(true)
-              allow(Flipper).to receive(:enabled?).with(:ezr_service_history_enabled,
-                                                        instance_of(User)).and_return(false)
             end
 
             let(:v10_10_ezr_expected) do
               JSON.parse(
                 File.read('spec/fixtures/form1010_ezr/veteran_data.json')
-              ).merge(ezr_prefilled_data_without_ee_data).except(
-                'providers',
-                'dependents',
-                'lastServiceBranch',
-                'lastEntryDate',
-                'lastDischargeDate',
-                'dischargeType'
-              )
+              ).merge(ezr_prefilled_data_without_ee_data).except('providers', 'dependents')
             end
 
             it 'returns a prefilled 10-10EZR form', run_at: 'Thu, 27 Feb 2025 01:10:06 GMT' do
