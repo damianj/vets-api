@@ -456,8 +456,8 @@ class User < Common::RedisStore
     Identity::CernerProvisionerJob.perform_async(icn, source)
   end
 
-  def cerner_eligible?
-    loa3? && cerner_id.present?
+  def cerner_cookie_eligibility
+    cerner_eligible? && cerner_facilities_eligible?
   end
 
   def can_create_mhv_account?
@@ -465,6 +465,16 @@ class User < Common::RedisStore
   end
 
   private
+
+  def cerner_eligible?
+    loa3? && cerner_id.present?
+  end
+
+  def cerner_facilities_eligible?
+    cerner_facility_ids.present? && cerner_facility_ids.any? do |id|
+      Settings.mhv.oh_facility_checks.pretransitioned_oh_facilities.include?(id)
+    end
+  end
 
   def mpi_profile
     return nil unless identity && mpi

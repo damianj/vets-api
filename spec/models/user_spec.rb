@@ -1568,15 +1568,41 @@ RSpec.describe User, type: :model do
     end
   end
 
-  describe '#cerner_eligible?' do
-    let(:user) { build(:user, :loa3, cerner_id:) }
+  describe '#cerner_cookie_eligibility' do
+    let(:user) { build(:user, :loa3, cerner_id:, cerner_facility_ids:) }
+    let(:cerner_id) { 'some-cerner-id' }
+    let(:cerner_facility_ids) { %w[123 456] }
 
     context 'when the user is loa3' do
       context 'when the user has a cerner_id' do
-        let(:cerner_id) { 'some-cerner-id' }
+        context 'when the user has no cerner_facility_ids' do
+          let(:cerner_facility_ids) { [] }
 
-        it 'returns true' do
-          expect(user.cerner_eligible?).to be true
+          it 'returns false' do
+            expect(user.cerner_cookie_eligibility).to be false
+          end
+        end
+
+        context 'when user cerner_facility_ids attribute is nil' do
+          let(:cerner_facility_ids) { nil }
+
+          it 'returns false' do
+            expect(user.cerner_cookie_eligibility).to be false
+          end
+        end
+
+        context 'when no cerner_facility_ids are present on the pretransitioned_oh_facilities list' do
+          it 'returns false' do
+            expect(user.cerner_cookie_eligibility).to be false
+          end
+        end
+
+        context 'when one or more user cerner_facility_ids are present on the pretransitioned_oh_facilities list' do
+          let(:cerner_facility_ids) { %w[123 456 357 555] }
+
+          it 'returns true' do
+            expect(user.cerner_cookie_eligibility).to be true
+          end
         end
       end
 
@@ -1584,16 +1610,16 @@ RSpec.describe User, type: :model do
         let(:cerner_id) { nil }
 
         it 'returns false' do
-          expect(user.cerner_eligible?).to be false
+          expect(user.cerner_cookie_eligibility).to be false
         end
       end
     end
 
     context 'when the user is not loa3' do
-      let(:user) { build(:user) }
+      let(:user) { build(:user, :loa1, cerner_id:) }
 
       it 'returns false' do
-        expect(user.cerner_eligible?).to be false
+        expect(user.cerner_cookie_eligibility).to be false
       end
     end
   end

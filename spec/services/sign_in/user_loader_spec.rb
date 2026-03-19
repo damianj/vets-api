@@ -214,7 +214,7 @@ RSpec.describe SignIn::UserLoader do
         it 'sets the cerner eligibility cookie correctly' do
           user = subject
           expect(cookies['CERNER_ELIGIBLE']).to eq(
-            { value: user.cerner_eligible?, domain: IdentitySettings.sign_in.info_cookie_domain }
+            { value: user.cerner_cookie_eligibility, domain: IdentitySettings.sign_in.info_cookie_domain }
           )
         end
       end
