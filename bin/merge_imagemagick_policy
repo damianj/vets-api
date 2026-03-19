@@ -1,6 +1,6 @@
 require 'nokogiri'
 
-original_policy_path = '/usr/local/etc/ImageMagick-7/policy.xml'
+original_policy_path = '/etc/ImageMagick-6/policy.xml'
 new_policy_path = '/app/config/imagemagick/policies/new-policy.xml'
 
 policy1 = Nokogiri::XML(File.read(original_policy_path)) { |config| config.default_xml.noblanks }

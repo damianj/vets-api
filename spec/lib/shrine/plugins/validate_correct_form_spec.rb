@@ -37,7 +37,7 @@ describe Shrine::Plugins::ValidateCorrectForm do
 
     before do
       allow(instance).to receive(:get).and_return(attachment)
-      allow(MiniMagick).to receive(:convert)
+      allow(MiniMagick::Tool::Convert).to receive(:new)
     end
 
     context 'with correct form' do
