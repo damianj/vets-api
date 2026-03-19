@@ -730,9 +730,13 @@ module IvcChampva
       # @return [Array<Integer, String>] An array with 1 or more http status codes
       #   and an array with 1 or more message strings.
       def handle_file_uploads(form_id, parsed_form_data)
-        on_failure = lambda { |e, attempt|
+        on_failure = lambda do |e, attempt|
           Rails.logger.error "Error handling file uploads (attempt #{attempt}): #{e.message}"
-        }
+          PersonalInformationLog.create(
+            data: parsed_form_data,
+            error_class: 'IvcChampva::V1::UploadsController#handle_file_uploads'
+          )
+        end
 
         # set default values for statuses and error_messages to avoid nil reference errors
         statuses = [500]
@@ -766,9 +770,13 @@ module IvcChampva
       # @return [Array<Integer, String>] An array with 1 or more http status codes
       #   and an array with 1 or more message strings.
       def upload_form(form_id, file_paths, metadata, parsed_form_data = nil)
-        on_failure = lambda { |e, attempt|
+        on_failure = lambda do |e, attempt|
           Rails.logger.error "Error handling file uploads (attempt #{attempt}): #{e.message}"
-        }
+          PersonalInformationLog.create(
+            data: parsed_form_data,
+            error_class: 'IvcChampva::V1::UploadsController#upload_form'
+          )
+        end
 
         # set default values for statuses and error_messages to avoid nil reference errors
         statuses = [500]
