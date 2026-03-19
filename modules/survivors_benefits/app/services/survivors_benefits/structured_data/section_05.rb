@@ -27,13 +27,9 @@ module SurvivorsBenefits::StructuredData::Section05
       marriage_num = index + 1
       merge_spouse_name_fields(marriage['spouseFullName'], indv_l, marriage_num)
       merge_previous_marriage_separation_type_fields(indv_s, marriage['reasonForSeparation'], marriage_num)
-      # The expected fields are quirky for marriage 2 vs all others, so we have to conditionally determine
-      # the field name for the "other" explanation
-      other_explain_key =
-        marriage_num == 2 ? "#{indv_s}_MARR2_ENDED_OTHEREXPLAIN" : "#{indv_m}_MARR#{marriage_num}_ENDED_OTHEREXPLAIN"
       fields.merge!(
         {
-          other_explain_key => marriage['reasonForSeparationExplanation'],
+          "#{indv_m}_MARR#{marriage_num}_ENDED_OTHEREXPLAIN" => marriage['reasonForSeparationExplanation'],
           "#{indv_l}_MARRIAGE_#{marriage_num}_DATE" => format_date(marriage['dateOfMarriage']),
           "#{indv_l}_MARRIAGE_#{marriage_num}_DATE_ENDED" => format_date(marriage['dateOfSeparation']),
           "#{indv_l}_MARRIAGE_#{marriage_num}_PLACE" => marriage['locationOfMarriage'],

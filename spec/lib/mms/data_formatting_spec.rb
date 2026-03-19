@@ -320,12 +320,12 @@ RSpec.describe Mms::DataFormatting do
   describe '#format_currency' do
     it 'formats a number as currency with two decimal places' do
       result = subject.format_currency(123_456.789)
-      expect(result).to eq('$123,456.79')
+      expect(result).to eq('123,456.79')
     end
 
     it 'formats a number as currency with no decimal places when zero' do
       result = subject.format_currency(1000)
-      expect(result).to eq('$1,000.00')
+      expect(result).to eq('1,000.00')
     end
 
     it 'returns nil when given nil' do

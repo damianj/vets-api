@@ -157,7 +157,7 @@ RSpec.describe SurvivorsBenefits::StructuredData::Section06 do
         'CHILD_1_DISABLED' => false,
         'CHILD_1_PREV_MARRIED' => false,
         'CB_CHILD1_LIVE_WITH_OTHERS' => true,
-        'AMNT_CONTRIBUTE_TO_CHILD_1' => '$500.00'
+        'AMNT_CONTRIBUTE_TO_CHILD_1' => '500.00'
       )
     end
   end

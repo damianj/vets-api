@@ -50,7 +50,7 @@ module SurvivorsBenefits
         build_section10
         build_section11(form['bankAccount'])
         build_section12
-
+        transform_checkboxes
         fields
       end
 
@@ -70,6 +70,23 @@ module SurvivorsBenefits
               "#{individual}_LAST_NAME" => name[:last]
             }
           )
+        end
+      end
+
+      def transform_checkboxes
+        @checkboxes = YAML.load_file(
+          Rails.root.join(
+            'modules',
+            'survivors_benefits',
+            'app',
+            'services',
+            'survivors_benefits',
+            'structured_data',
+            'checkboxes.yml'
+          )
+        )
+        @checkboxes['KEY_LIST'].each do |key|
+          fields[key] = fields[key] ? 1 : 0
         end
       end
     end

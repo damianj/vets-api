@@ -65,11 +65,8 @@ module SurvivorsBenefits::StructuredData::Section10
   # @param expense_num [Integer] The number of the care expense (e.g., 1 for the first expense, 2 for the second, etc.)
   # @return [Hash] A hash with keys :full, :thousands, :hundreds, and :cents mapping to the corresponding IBM fields
   def care_expense_currency_keys(expense_num)
-    # For the second care expense, the full amount field is "AMNT_YOU_PAY_2" instead of "AMNT_YOU_PAY#{expense_num}",
-    # so we need to handle that case separately.  For the other fields, we can follow the standard pattern.
-    full_key = expense_num == 2 ? 'AMNT_YOU_PAY_2' : "AMNT_YOU_PAY#{expense_num}"
     {
-      full: full_key,
+      full: "AMNT_YOU_PAY#{expense_num}",
       thousands: "AMNT_YOU_PAY_#{expense_num}_THSNDS",
       hundreds: "AMNT_YOU_PAY_#{expense_num}_HNDRDS",
       cents: "AMNT_YOU_PAY_#{expense_num}_CENTS"

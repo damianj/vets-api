@@ -90,9 +90,9 @@ RSpec.describe SurvivorsBenefits::StructuredData::Section10 do
         'CB_EXPENSES_PAID_OTHER1' => false,
         'NAME_OF_DEPENDENT1' => nil,
         'NAME_OF_PROVIDER1' => 'Some provider',
-        'PMNT_RATE_INHOMECARE1' => '$15.00',
+        'PMNT_RATE_INHOMECARE1' => '15.00',
         'HRS_PER_WEEK1' => 20,
-        'AMNT_YOU_PAY1' => '$200.45',
+        'AMNT_YOU_PAY1' => '200.45',
         'AMNT_YOU_PAY_1_THSNDS' => 0,
         'AMNT_YOU_PAY_1_HNDRDS' => 200,
         'AMNT_YOU_PAY_1_CENTS' => 45,
@@ -109,7 +109,7 @@ RSpec.describe SurvivorsBenefits::StructuredData::Section10 do
         'NAME_OF_PROVIDER2' => 'Some care facility',
         'PMNT_RATE_INHOMECARE2' => nil,
         'HRS_PER_WEEK2' => nil,
-        'AMNT_YOU_PAY_2' => '$5,000.00',
+        'AMNT_YOU_PAY2' => '5,000.00',
         'AMNT_YOU_PAY_2_THSNDS' => 5,
         'AMNT_YOU_PAY_2_HNDRDS' => 0,
         'AMNT_YOU_PAY_2_CENTS' => 0,
@@ -158,7 +158,7 @@ RSpec.describe SurvivorsBenefits::StructuredData::Section10 do
       service = SurvivorsBenefits::StructuredData::StructuredDataService.new({})
       keys = service.care_expense_currency_keys(2)
       expect(keys).to eq(
-        full: 'AMNT_YOU_PAY_2',
+        full: 'AMNT_YOU_PAY2',
         thousands: 'AMNT_YOU_PAY_2_THSNDS',
         hundreds: 'AMNT_YOU_PAY_2_HNDRDS',
         cents: 'AMNT_YOU_PAY_2_CENTS'
@@ -209,7 +209,7 @@ RSpec.describe SurvivorsBenefits::StructuredData::Section10 do
       service = SurvivorsBenefits::StructuredData::StructuredDataService.new({})
       service.merge_medical_expense_fields(medical_expenses)
       expect(service.fields).to include(
-        'MEDAMNT_YOU_PAY1' => '$15,000.00',
+        'MEDAMNT_YOU_PAY1' => '15,000.00',
         'MEDAMNT_YOU_PAY1_THSNDS' => 15,
         'MEDAMNT_YOU_PAY1_HNDRDS' => 0,
         'MEDAMNT_YOU_PAY1_CENTS' => 0,
@@ -223,7 +223,7 @@ RSpec.describe SurvivorsBenefits::StructuredData::Section10 do
         'CB_PMNT_FREQUENCY_MONTHLY1' => true,
         'CB_PMNT_FREQUENCY_ANNUALLY1' => false,
         'CB_PMNT_FREQUENCY_ONETIME1' => false,
-        'MEDAMNT_YOU_PAY2' => '$150.00',
+        'MEDAMNT_YOU_PAY2' => '150.00',
         'MEDAMNT_YOU_PAY2_THSNDS' => 0,
         'MEDAMNT_YOU_PAY2_HNDRDS' => 150,
         'MEDAMNT_YOU_PAY2_CENTS' => 0,
@@ -237,7 +237,7 @@ RSpec.describe SurvivorsBenefits::StructuredData::Section10 do
         'CB_PMNT_FREQUENCY_MONTHLY2' => false,
         'CB_PMNT_FREQUENCY_ANNUALLY2' => true,
         'CB_PMNT_FREQUENCY_ONETIME2' => false,
-        'MEDAMNT_YOU_PAY3' => '$1,000.25',
+        'MEDAMNT_YOU_PAY3' => '1,000.25',
         'MEDAMNT_YOU_PAY3_THSNDS' => 1,
         'MEDAMNT_YOU_PAY3_HNDRDS' => 0,
         'MEDAMNT_YOU_PAY3_CENTS' => 25,
@@ -251,7 +251,7 @@ RSpec.describe SurvivorsBenefits::StructuredData::Section10 do
         'CB_PMNT_FREQUENCY_MONTHLY3' => true,
         'CB_PMNT_FREQUENCY_ANNUALLY3' => false,
         'CB_PMNT_FREQUENCY_ONETIME3' => false,
-        'MEDAMNT_YOU_PAY4' => '$150.00',
+        'MEDAMNT_YOU_PAY4' => '150.00',
         'MEDAMNT_YOU_PAY4_THSNDS' => 0,
         'MEDAMNT_YOU_PAY4_HNDRDS' => 150,
         'MEDAMNT_YOU_PAY4_CENTS' => 0,

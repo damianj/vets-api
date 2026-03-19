@@ -137,7 +137,7 @@ module Mms
 
       number = BigDecimal(value.to_s.gsub(/[^\d.-]/, ''))
       parts = format('%.2f', number).split('.')
-      "$#{parts[0].reverse.scan(/\d{1,3}/).join(',').reverse}.#{parts[1]}"
+      "#{parts[0].reverse.scan(/\d{1,3}/).join(',').reverse}.#{parts[1]}"
     rescue ArgumentError
       nil
     end

@@ -13,7 +13,7 @@ module SurvivorsBenefits::StructuredData::Section01
         'VETERAN_SSN' => form['veteranSocialSecurityNumber'],
         'VETERAN_DOB' => format_date(form['veteranDateOfBirth']),
         'VA_FILE_NUMBER' => form['vaFileNumber'],
-        'VETERANS_SERVICE_NUMBER' => form['veteranServiceNumber'],
+        'VETERAN_SERVICE_NUMBER' => form['veteranServiceNumber'],
         'VETERAN_DATE_OF_DEATH' => format_date(form['veteranDateOfDeath'])
       }
     )

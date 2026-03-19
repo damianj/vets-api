@@ -42,8 +42,8 @@ RSpec.describe SurvivorsBenefits::StructuredData::Section09 do
         'PREV_YEAR_OTHER_INCOME_NO' => true,
         'ASSETS_OVER_25K_Y' => false,
         'ASSETS_OVER_25K_N' => true,
-        'AMNT_ESTIMATE_ASSETS' => '$50,000.25',
-        'AMNT_VALUE_OF_LOT' => '$100,000.00'
+        'AMNT_ESTIMATE_ASSETS' => '50,000.25',
+        'AMNT_VALUE_OF_LOT' => '100,000.00'
       )
     end
   end

@@ -35,7 +35,7 @@ RSpec.describe SurvivorsBenefits::StructuredData::Section01 do
         'VETERAN_SSN' => '123-45-6789',
         'VETERAN_DOB' => '01/01/1950',
         'VA_FILE_NUMBER' => '123456789',
-        'VETERANS_SERVICE_NUMBER' => '987654321',
+        'VETERAN_SERVICE_NUMBER' => '987654321',
         'VETERAN_DATE_OF_DEATH' => '01/01/2020'
       )
     end
