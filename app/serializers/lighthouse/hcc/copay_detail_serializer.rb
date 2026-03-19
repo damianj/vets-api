@@ -26,9 +26,7 @@ module Lighthouse
                  :interest_paid,
                  :administrative_cost_paid,
                  :line_items,
-                 :payments,
-                 :associated_statements,
-                 :associated_invoices
+                 :payments
 
       meta do |object|
         {
