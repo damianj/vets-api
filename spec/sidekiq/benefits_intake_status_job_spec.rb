@@ -66,6 +66,19 @@ RSpec.describe BenefitsIntakeStatusJob, type: :job do
         end
       end
 
+      context 'pending attempts with nil benefits_intake_uuid' do
+        it 'excludes pending attempts with nil benefits_intake_uuid' do
+          create(:form_submission_attempt, :pending, benefits_intake_uuid: nil)
+          valid_attempt = create(:form_submission_attempt, :pending)
+
+          response = double(body: { 'data' => [] }, success?: true)
+          expect_any_instance_of(BenefitsIntake::Service).to receive(:bulk_status)
+            .with(uuids: [valid_attempt.benefits_intake_uuid]).and_return(response)
+
+          BenefitsIntakeStatusJob.new.perform
+        end
+      end
+
       context 'multiple attempts on one form submission' do
         before do
           create(:form_submission_attempt, :success, form_submission:)

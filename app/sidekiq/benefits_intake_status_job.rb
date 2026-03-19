@@ -47,6 +47,7 @@ class BenefitsIntakeStatusJob
 
   def fetch_pending_attempts
     pending_attempts = FormSubmissionAttempt.where(aasm_state: 'pending')
+                                            .where.not(benefits_intake_uuid: nil)
                                             .includes(:form_submission).to_a
 
     form_ids = BenefitsIntake::SubmissionStatusJob::FORM_HANDLERS.keys.map(&:to_s)
@@ -223,6 +224,7 @@ class BenefitsIntakeStatusJob
   def form_submission_attempts_hash
     @_form_submission_attempts_hash ||= FormSubmissionAttempt
                                         .where(aasm_state: 'pending')
+                                        .where.not(benefits_intake_uuid: nil)
                                         .index_by(&:benefits_intake_uuid)
   end
 end
