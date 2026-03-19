@@ -35,17 +35,6 @@ RSpec.describe AccreditedRepresentativePortal::V0::PowerOfAttorneyRequestDecisio
   let!(:other_poa_request) { create(:power_of_attorney_request, poa_code: other_poa_code) }
   let(:time) { '2024-12-21T04:45:37.458Z' }
 
-  let(:power_of_attorney_holders) do
-    [
-      AccreditedRepresentativePortal::PowerOfAttorneyHolder.new(
-        type: 'veteran_service_organization',
-        poa_code:,
-        name: 'Org Name',
-        can_accept_digital_poa_requests: true
-      )
-    ]
-  end
-
   before do
     client_credentials_service = instance_double(Auth::ClientCredentials::Service)
     allow(Auth::ClientCredentials::Service).to receive(:new).and_return(client_credentials_service)
@@ -53,23 +42,6 @@ RSpec.describe AccreditedRepresentativePortal::V0::PowerOfAttorneyRequestDecisio
 
     poa_request.claimant.update!(icn: '1012666183V089914')
     login_as(test_user)
-
-    allow(Flipper).to receive(:enabled?).and_call_original
-    allow(Flipper).to receive(:enabled?)
-      .with(:accredited_representative_portal_individual_accept, anything)
-      .and_return(false)
-
-    allow(Flipper).to receive(:enabled?)
-      .with(:send_poa_to_corpdb)
-      .and_return(true)
-
-    allow_any_instance_of(AccreditedRepresentativePortal::PowerOfAttorneyHolderMemberships)
-      .to receive(:power_of_attorney_holders)
-      .and_return(power_of_attorney_holders)
-
-    allow_any_instance_of(AccreditedRepresentativePortal::PowerOfAttorneyHolderMemberships)
-      .to receive(:registration_numbers)
-      .and_return([representative.representative_id])
   end
 
   def stub_ar_monitoring(controller: 'power_of_attorney_request_decisions', action: 'create')
@@ -98,13 +70,11 @@ RSpec.describe AccreditedRepresentativePortal::V0::PowerOfAttorneyRequestDecisio
       from: request.created_at,
       tags: expected_tags
     )
-
-    metric =
-      if decision == 'accepted'
-        'ar.poa.request.accepted.duration'
-      else
-        'ar.poa.request.declined.duration'
-      end
+    metric = if decision == 'accepted'
+               'ar.poa.request.accepted.duration'
+             else
+               'ar.poa.request.declined.duration'
+             end
     expect(monitor).to have_received(:track_duration).with(
       metric,
       from: request.created_at,
@@ -114,25 +84,13 @@ RSpec.describe AccreditedRepresentativePortal::V0::PowerOfAttorneyRequestDecisio
 
   describe 'POST /accredited_representative_portal/v0/power_of_attorney_requests/:id/decision' do
     context "when user's VSO does not accept digital POAs" do
-      let(:power_of_attorney_holders) do
-        [
-          AccreditedRepresentativePortal::PowerOfAttorneyHolder.new(
-            type: 'veteran_service_organization',
-            poa_code:,
-            name: 'Org Name',
-            can_accept_digital_poa_requests: false
-          )
-        ]
-      end
-
       before { vso.update!(can_accept_digital_poa_requests: false) }
 
-      it 'returns 404 Not Found' do
+      it 'returns 403 Forbidden' do
         post "/accredited_representative_portal/v0/power_of_attorney_requests/#{poa_request.id}/decision",
              params: { decision: { type: 'acceptance' } }
 
-        expect(response).to have_http_status(:not_found)
-        expect(response.parsed_body).to eq({ 'errors' => ['Record not found'] })
+        expect(response).to have_http_status(:forbidden)
       end
     end
 
@@ -253,9 +211,7 @@ RSpec.describe AccreditedRepresentativePortal::V0::PowerOfAttorneyRequestDecisio
         end
 
         it 'does not enqueue SendPoaRequestToCorpDbJob if feature flag disabled' do
-          allow(Flipper).to receive(:enabled?)
-            .with(:send_poa_to_corpdb)
-            .and_return(false)
+          Flipper.disable(:send_poa_to_corpdb)
 
           expect(AccreditedRepresentativePortal::SendPoaRequestToCorpDbJob)
             .not_to receive(:perform_async)

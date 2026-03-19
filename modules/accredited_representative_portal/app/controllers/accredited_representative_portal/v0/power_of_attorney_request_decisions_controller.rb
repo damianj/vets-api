@@ -9,13 +9,15 @@ module AccreditedRepresentativePortal
       ACCEPT_METRIC = 'ar.poa.request.decision.accept'
       DECLINE_METRIC = 'ar.poa.request.decision.decline'
 
+      before_action do
+        authorize PowerOfAttorneyRequestDecision
+      end
+
       with_options only: :create do
         before_action do
           id = params[:power_of_attorney_request_id]
           set_poa_request(id)
-          return if render_404_if_withdrawn?(@poa_request)
-
-          authorize @poa_request, :create_decision?
+          render_404_if_withdrawn!(@poa_request)
         end
       end
 
