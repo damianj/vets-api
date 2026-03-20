@@ -1,0 +1,35 @@
+name: Security Alert Notifications
+
+on:
+  schedule:
+    - cron: '3 17 * * 1-5' # Weekdays 17:03 UTC (~12–1 PM ET, depending on DST)
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  security-events: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ASSUME_ROLE }}
+          aws-region: us-gov-west-1
+
+      - name: Get Slack bot token
+        uses: department-of-veterans-affairs/action-inject-ssm-secrets@d8e6de3bde4dd728c9d732baef58b3c854b8c4bb
+        with:
+          ssm_parameter: /devops/github_actions_slack_bot_user_token
+          env_variable_name: SLACK_BOT_TOKEN
+
+      - name: Check and notify security alerts
+        uses: department-of-veterans-affairs/vsp-github-actions/security-alert-slack-notify@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_bot_token: ${{ env.SLACK_BOT_TOKEN }}
+          channel_id: 'C02RLAUM2LV'
+          alert_types: 'code_scanning,secret_scanning'
