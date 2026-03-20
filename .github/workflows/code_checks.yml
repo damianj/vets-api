@@ -618,3 +618,11 @@ jobs:
             Please add or expand tests to improve coverage before merging.
 
             **View detailed coverage:** [Open test run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) → Scroll to **Artifacts** → Download **Coverage Report** → Open **index.html**
+
+      - name: Remove coverage comment when coverage is healthy
+        if: needs.tests.result == 'success' && github.event_name == 'pull_request' && fromJSON(steps.coverage.outputs.percent) >= 93
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          header: coverage
+          delete: true
