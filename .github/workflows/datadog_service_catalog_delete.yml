@@ -8,6 +8,9 @@ on:
     paths:
       - "datadog-service-catalog/**.yml"
 
+permissions:
+  contents: read
+
 jobs:
   get_deleted_services:
     name: 'Get deleted service filenames'

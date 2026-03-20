@@ -5,6 +5,9 @@ on:
    paths:
      - "datadog-service-catalog/**.yml"
 
+permissions:
+  contents: read
+
 jobs:
   validate_files:
     runs-on: ubuntu-latest

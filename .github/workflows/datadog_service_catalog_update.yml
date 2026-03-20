@@ -9,6 +9,9 @@ on:
     paths:
       - "datadog-service-catalog/**.yml"
 
+permissions:
+  contents: read
+
 jobs:
   get_files:
     name: 'Get all modified and added files'
