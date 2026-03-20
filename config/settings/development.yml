@@ -125,6 +125,7 @@ caseflow:
 cave:
   idp:
     base_url: ~
+    connect_url: ~
     hmac:
       key_id: ~
       secret: ~

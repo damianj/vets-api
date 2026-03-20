@@ -15,6 +15,7 @@
 # cave:
   # idp:
     # base_url: https://idp-api.example.com
+    # connect_url: https://vpce-123.execute-api.us-gov-west-1.vpce.amazonaws.com/stg/api/v1/doc
     # timeout: 15
     # mock: true
     # hmac:

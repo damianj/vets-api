@@ -3,6 +3,8 @@
 require 'cgi'
 require 'digest'
 require 'openssl'
+require 'resolv'
+require 'uri'
 
 module Idp
   class Client
@@ -12,13 +14,13 @@ module Idp
     HMAC_HEADER_KEY_ID = 'X-IDP-Key-Id'
     HMAC_HEADER_SIGNATURE = 'X-IDP-Signature'
 
-    def initialize(base_url: nil, timeout: nil, hmac_key_id: nil, hmac_secret: nil)
+    def initialize(base_url: nil, connect_url: nil, timeout: nil, hmac_key_id: nil, hmac_secret: nil)
       @base_url = base_url.presence ||
-                  Settings.dig(:cave, :idp, :base_url)
+                  Settings.dig(:cave, :idp, :base_url).presence
+      @connect_url = connect_url.presence ||
+                     Settings.dig(:cave, :idp, :connect_url).presence
 
-      @timeout = timeout ||
-                 Settings.dig(:cave, :idp, :timeout) ||
-                 DEFAULT_TIMEOUT
+      @timeout = resolved_timeout(timeout || Settings.dig(:cave, :idp, :timeout))
       @hmac_key_id = hmac_key_id.presence ||
                      Settings.dig(:cave, :idp, :hmac, :key_id) ||
                      ENV.fetch('bio__IDP_HMAC_KEY_ID', nil)
@@ -60,7 +62,7 @@ module Idp
 
     private
 
-    attr_reader :base_url, :timeout, :hmac_key_id, :hmac_secret
+    attr_reader :base_url, :connect_url, :timeout, :hmac_key_id, :hmac_secret
 
     def connection
       @connection ||= Faraday.new(url: normalized_base_url) do |conn|
@@ -69,12 +71,23 @@ module Idp
         conn.response :raise_error
         conn.options.timeout = timeout
         conn.options.open_timeout = timeout
-        conn.adapter Faraday.default_adapter
+        # Preserve the logical request URL for TLS/SNI while routing the TCP
+        # connection to the VPCE-resolved address when connect_url is present.
+        conn.adapter :net_http do |http|
+          apply_connect_override(http)
+        end
       end
     end
 
     def normalized_base_url
       base_url.end_with?('/') ? base_url : "#{base_url}/"
+    end
+
+    def resolved_timeout(timeout_value)
+      timeout_integer = Integer(timeout_value, exception: false)
+      return timeout_integer if timeout_integer&.positive?
+
+      DEFAULT_TIMEOUT
     end
 
     def get(path, params = {}, operation:, user_id:)
@@ -113,6 +126,12 @@ module Idp
           add_identity_headers(req:, request_context: signed_request_context)
         end
       end
+    end
+
+    def apply_connect_override(http)
+      return if connect_url.blank?
+
+      http.ipaddr = connect_ipaddr if http.respond_to?(:ipaddr=)
     end
 
     def add_identity_headers(req:, request_context:)
@@ -177,6 +196,27 @@ module Idp
       else
         value
       end
+    end
+
+    def connect_ipaddr
+      return if connect_url.blank?
+
+      @connect_ipaddr ||= resolve_connect_ipaddr ||
+                          raise(Idp::Error, 'IDP connect URL could not be resolved')
+    end
+
+    def resolve_connect_ipaddr
+      Resolv.getaddresses(connect_destination_host).find(&:present?)
+    rescue URI::InvalidURIError, Resolv::ResolvError, SocketError
+      nil
+    end
+
+    def connect_destination_host
+      parsed_connect_url.host.presence || connect_url
+    end
+
+    def parsed_connect_url
+      @parsed_connect_url ||= URI.parse(connect_url)
     end
 
     def perform_request(operation:)

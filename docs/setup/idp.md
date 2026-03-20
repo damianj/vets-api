@@ -26,6 +26,7 @@ IDP settings live under `cave.idp`:
 cave:
   idp:
     base_url: ~
+    connect_url: ~
     timeout: ~
     mock: true
     hmac:
@@ -33,7 +34,8 @@ cave:
       secret: ~
 ```
 
-- `base_url`: Base URL for the IDP API.
+- `base_url`: Logical base URL for the IDP API. This remains the request URL and provides the host used for `Host`, TLS SNI, and certificate validation.
+- `connect_url`: Optional alternate network destination used when the client must reach IDP through a different hostname, such as a VPCE endpoint. Only the hostname is used for the TCP connection override; the request path still comes from `base_url`.
 - `timeout`: Request timeout in seconds.
 - `mock`: When `true`, `Idp.client` uses `Idp::MockClient` (outside production).
 - `hmac.key_id`: Optional key identifier sent as `X-IDP-Key-Id`.
@@ -43,8 +45,9 @@ cave:
 
 `Idp::Client` and `Idp.client` use the following env vars:
 
-- `IDP_API_BASE_URL`: IDP API base URL.
-- `IDP_API_TIMEOUT`: Timeout in seconds.
+- `bio__IDP_API_BASE_URL`: Logical IDP API base URL.
+- `bio__IDP_API_CONNECT_URL`: Optional network connect URL for VPCE/private API access.
+- `bio__IDP_API_TIMEOUT`: Timeout in seconds.
 - `IDP_USE_LIVE`: If present, forces live client outside production.
 - `bio__IDP_HMAC_KEY_ID`: Optional HMAC key identifier for outbound signed requests.
 - `bio__IDP_HMAC_SECRET`: HMAC shared secret for outbound signed requests.
@@ -53,14 +56,15 @@ cave:
 
 For `Idp::Client` config:
 
-1. Constructor args (`base_url`, `timeout`, `hmac_key_id`, `hmac_secret`)
-2. `Settings.cave.idp.base_url` / `Settings.cave.idp.timeout` / `Settings.cave.idp.hmac.*`
-3. `IDP_API_BASE_URL` / `IDP_API_TIMEOUT` / `bio__IDP_HMAC_*`
+1. Constructor args (`base_url`, `connect_url`, `timeout`, `hmac_key_id`, `hmac_secret`)
+2. `Settings.cave.idp.base_url` / `Settings.cave.idp.connect_url` / `Settings.cave.idp.timeout` / `Settings.cave.idp.hmac.*`
+3. `bio__IDP_API_BASE_URL` / `bio__IDP_API_CONNECT_URL` / `bio__IDP_API_TIMEOUT` / `bio__IDP_HMAC_*`
 4. Default timeout of `15`
 
 Outbound identity/signature behavior:
 
 - `Idp::Client` always forwards `X-IDP-User-Id` from the authenticated `current_user`.
+- When `connect_url` is configured, `Idp::Client` keeps the logical `base_url` for the request URL and resolves the `connect_url` host to an alternate TCP destination, similar to `curl --connect-to`.
 - When `bio__IDP_HMAC_SECRET` (or `cave.idp.hmac.secret`) is configured, requests are signed and include:
   - `X-IDP-Timestamp`
   - `X-IDP-Key-Id` (when configured)
@@ -81,7 +85,8 @@ Use `config/settings.local.yml` to override local behavior, for example:
 ```yaml
 cave:
   idp:
-    base_url: https://idp-api.example.com
+    base_url: https://logical-api.execute-api.us-gov-west-1.amazonaws.com/stg/api/v1/doc
+    connect_url: https://vpce-connect.execute-api.us-gov-west-1.vpce.amazonaws.com/stg/api/v1/doc
     timeout: 15
     mock: true
     hmac:
@@ -99,15 +104,16 @@ Set environment-specific values in deployment config and parameter store/secrets
   - `devops/ansible/deployment/config/vets-api/`
   - Environment templates include `dev`, `staging`, and `prod` settings files.
 - Add or update these env vars per environment:
-  - `IDP_API_BASE_URL`
-  - `IDP_API_TIMEOUT`
+  - `bio__IDP_API_BASE_URL`
+  - `bio__IDP_API_CONNECT_URL`
+  - `bio__IDP_API_TIMEOUT`
   - `bio__IDP_HMAC_KEY_ID`
   - `bio__IDP_HMAC_SECRET`
 - Keep production/staging `mock: false` and do not set `IDP_USE_LIVE` unless intentionally overriding behavior.
 
 ### Production checklist
 
-1. Add/update `IDP_API_BASE_URL`, `IDP_API_TIMEOUT`, `bio__IDP_HMAC_KEY_ID`, and `bio__IDP_HMAC_SECRET` in production deployment config.
+1. Add/update `bio__IDP_API_BASE_URL`, `bio__IDP_API_CONNECT_URL`, `bio__IDP_API_TIMEOUT`, `bio__IDP_HMAC_KEY_ID`, and `bio__IDP_HMAC_SECRET` in production deployment config.
 2. Confirm runtime settings resolve to the expected values in production pods.
 3. Verify `/v0/cave*` requests can reach the IDP API and time out as expected.
 4. Verify IDP receives `X-IDP-User-Id` and HMAC headers on all five routes (`intake`, `status`, `output`, `download`, `update`).
