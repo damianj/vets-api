@@ -365,6 +365,26 @@
     "step_children": [
       {
         "who_does_the_stepchild_live_with": {
+          "first": "bypass",
+          "middle": "middle",
+          "last": "overflow"
+        },
+        "living_expenses_paid": "Less than half",
+        "address": {
+          "country": "USA",
+          "street": "456 fake street",
+          "street2": "2",
+          "city": "bypass",
+          "state": "NH",
+          "postal_code": "03301"
+        },
+        "supporting_stepchild": false,
+        "full_name": { "first": "stepchild", "middle": "sam", "last": "lastname" },
+        "ssn": "987654321",
+        "birth_date": "2009-04-01"
+      },
+      {
+        "who_does_the_stepchild_live_with": {
           "first": "parentreallylongfirstname",
           "middle": "middle",
           "last": "namereallylonglastname"

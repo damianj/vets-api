@@ -431,6 +431,7 @@ module PdfFill
           }, # end current_marriage_information
           'veteran_marriage_history' => {
             limit: 4,
+            bypass_overflow: true,
             first_key: 'full_name',
             'full_name' => {
               'first' => {
@@ -567,6 +568,7 @@ module PdfFill
           }, # end veteran_marriage_history
           'spouse_marriage_history' => {
             limit: 4,
+            bypass_overflow: true,
             first_key: 'full_name',
             'full_name' => {
               'first' => {
@@ -704,6 +706,7 @@ module PdfFill
           # -----------------  SECTION III: INFORMATION NEEDED TO ADD CHILD(REN)  ----------------- #
           'children_to_add' => {
             limit: 6,
+            bypass_overflow: true,
             first_key: 'full_name',
             'full_name' => {
               'first' => {
@@ -1034,6 +1037,7 @@ module PdfFill
           # -----------------  SECTION V: VETERAN/CLAIMANT REPORTING ON STEPCHILD(REN)  ----------------- #
           'step_children' => {
             limit: 2,
+            bypass_overflow: true,
             first_key: 'full_name',
             'biological_adopted_stepchild' => {
               'biological_adopted_stepchild_yes' => {
@@ -1204,6 +1208,7 @@ module PdfFill
           # -----------------  SECTION VI: VETERAN/CLAIMANT REPORTING DEATH OF A DEPENDENT  ----------------- #
           'deaths' => {
             limit: 2,
+            bypass_overflow: true,
             first_key: 'full_name',
             'dependent_type' => {
               'spouse' => { key: 'deaths.dependent_type.spouse[%iterator%]' },
@@ -1292,6 +1297,7 @@ module PdfFill
           # -----------------  SECTION VII: VETERAN/CLAIMANT REPORTING MARRIAGE OF CHILD  ----------------- #
           'child_marriage' => {
             limit: 1,
+            bypass_overflow: true,
             'full_name' => {
               'first' => {
                 key: 'form1[0].#subform[28].#subform[29].#subform[30].CHILDFirstName[30]',
@@ -1343,6 +1349,7 @@ module PdfFill
           # ---  SECTION VIII: VETERAN/CLAIMANT REPORTING A SCHOOLCHILD OVER 18 HAS STOPPED ATTENDING SCHOOL  --- #
           'child_stopped_attending_school' => {
             limit: 1,
+            bypass_overflow: true,
             'full_name' => {
               'first' => {
                 key: 'form1[0].#subform[28].#subform[29].#subform[30].NAMEOFSCHOOLCHILDFirstName[0]',

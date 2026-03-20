@@ -401,6 +401,43 @@ describe PdfFill::HashConverter do
         subject.transform_data(form_data:, pdftk_keys:)
       end
     end
+
+    context 'when bypass_overflow is true and array exceeds limit' do
+      it 'forces overflow elements beyond the limit to extras' do
+        form_data = [
+          { name: 'First', description: 'Description 1' },
+          { name: 'Second', description: 'Description 2' },
+          { name: 'Third', description: 'Description 3' }
+        ]
+
+        pdftk_keys = {
+          limit: 2,
+          bypass_overflow: true,
+          name: {
+            key: 'form.name',
+            question_num: 1,
+            question_text: 'Name'
+          },
+          description: {
+            key: 'form.description',
+            question_num: 2,
+            question_text: 'Description'
+          }
+        }
+
+        # Items 0 and 1 are within limit, so added to extras with overflow: false
+        verify_extras_text('First', i: 0, question_num: 1, question_text: 'Name', overflow: false)
+        verify_extras_text('Description 1', i: 0, question_num: 2, question_text: 'Description', overflow: false)
+        verify_extras_text('Second', i: 1, question_num: 1, question_text: 'Name', overflow: false)
+        verify_extras_text('Description 2', i: 1, question_num: 2, question_text: 'Description', overflow: false)
+
+        # Item 2 exceeds limit, so forced to overflow with overflow: true
+        verify_extras_text('Third', i: 2, question_num: 1, question_text: 'Name')
+        verify_extras_text('Description 3', i: 2, question_num: 2, question_text: 'Description')
+
+        subject.transform_data(form_data:, pdftk_keys:)
+      end
+    end
   end
 
   describe '#handle_overflow_and_label_all' do

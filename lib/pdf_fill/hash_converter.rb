@@ -119,11 +119,11 @@ module PdfFill
       end
     end
 
-    def set_value(v, key_data, i, from_array_overflow = false)
+    def set_value(v, key_data, i, from_array_overflow = false, force_overflow = false)
       k = key_from_iterator_else_key(key_data[:key_from_iterator], key_data[:key], i)
       new_value = convert_value(v, key_data)
 
-      if k.present? && overflow?(key_data, new_value, from_array_overflow)
+      if k.present? && (overflow?(key_data, new_value, from_array_overflow) || force_overflow)
         add_to_extras(key_data, new_value, i)
         # NOTE: Allows for accommodating fields that don't have enough space for the full placeholder text
         # PDFtk doesn't care and truncates the text at the field limit, but HexaPDF will error out if the text
@@ -223,23 +223,28 @@ module PdfFill
       end
     end
 
-    def transform_data(form_data:, pdftk_keys:, i: nil, from_array_overflow: false)
+    def transform_data(form_data:, pdftk_keys:, i: nil, from_array_overflow: false, force_overflow: false)
       return if form_data.nil? || pdftk_keys.nil?
 
       case form_data
       when Array
         transform_array(form_data, pdftk_keys)
       when Hash
+        # if there is a bypass overflow and we have filled up the pdf, force the next items into extras
+        overflow_element = i.present? && i >= pdftk_keys[:limit].to_i
+        force_overflow = true if pdftk_keys[:bypass_overflow].present? && overflow_element
+
         form_data.each do |k, v|
           transform_data(
             form_data: v,
             pdftk_keys: pdftk_keys[k],
             i:,
-            from_array_overflow:
+            from_array_overflow:,
+            force_overflow:
           )
         end
       else
-        set_value(form_data, pdftk_keys, i, from_array_overflow)
+        set_value(form_data, pdftk_keys, i, from_array_overflow, force_overflow)
       end
 
       @pdftk_form
