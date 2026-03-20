@@ -62,6 +62,7 @@ RSpec.describe AccreditedRepresentativePortal::ClaimantDetailsService do
       end
 
       it 'returns payload with claimant profile fields (SSN masked to last 4)' do
+        FactoryBot.rewind_sequences
         payload = service_call
 
         expect(payload).to be_a(Hash)
@@ -81,11 +82,35 @@ RSpec.describe AccreditedRepresentativePortal::ClaimantDetailsService do
           zip: '12345'
         )
         expect(data[:representative_name]).to eq('Space Force Cadets')
+        expect(data[:email]).to eq('person100@example.com')
       end
 
       it 'returns itf as an array' do
         payload = service_call
         expect(payload.dig(:data, :itf)).to eq([{ 'status' => 'ok' }])
+      end
+
+      context 'VA profile returns errors' do
+        let(:logger) { double }
+
+        before do
+          allow(VAProfile::ContactInformation::V2::Service).to receive(:get_person).and_raise(
+            Common::Exceptions::BackendServiceException
+          )
+          allow(Rails).to receive(:logger).and_return logger
+        end
+
+        it 'logs the error and returns an empty email' do
+          expect(logger).to receive(:error).with(
+            'ARP: Claimant Details - Unable to fetch claimant email from VA Profile. ' \
+            'Common::Exceptions::BackendServiceException'
+          )
+          payload = service_call
+          data = payload.fetch(:data)
+          expect(data[:first_name]).to eq('John')
+          expect(data[:last_name]).to eq('Smith')
+          expect(data[:email]).to be_nil
+        end
       end
     end
 
