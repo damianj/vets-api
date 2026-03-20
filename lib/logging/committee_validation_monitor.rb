@@ -8,10 +8,9 @@ module Logging
   #
   # Provides shared tracking for submission lifecycle, request codes,
   # PDF generation, and Committee validation error extraction.
-  # Currently used by Form214192::Monitor; Form21p530a::Monitor
-  # will be migrated in a follow-up PR. Form-specific monitors
-  # inherit from this and implement constants plus small hook
-  # methods for form-specific tag/context differences.
+  # Used by Form214192::Monitor and Form21p530a::Monitor.
+  # Form-specific monitors inherit from this and implement constants
+  # plus small hook methods for form-specific tag/context differences.
   class CommitteeValidationMonitor < ::Logging::BaseMonitor
     # Parameters allowed in logs (no PII)
     # Union of all form-specific allowlists
@@ -105,7 +104,7 @@ module Logging
         claim_guid: claim&.guid,
         error_class: error.class.name,
         error_message: error.message,
-        tags: ['action:create', 'status:failure']
+        tags: submission_failure_tags(error)
       )
       status_code = infer_status_code(error)
       track_request_code(status_code, action: 'create', user_uuid:, claim_guid: claim&.guid)
@@ -168,7 +167,7 @@ module Logging
         error_message: error.message,
         user_uuid:,
         claim_guid:,
-        tags: ['action:download_pdf', 'status:failure']
+        tags: pdf_failure_tags(error)
       )
       status_code = infer_status_code(error)
       track_request_code(status_code, action: 'download_pdf', user_uuid:, claim_guid:)
@@ -197,6 +196,18 @@ module Logging
     # @return [Array<String>]
     def submission_begun_tags
       ['action:create']
+    end
+
+    # Tags for submission failure events. Override in subclasses.
+    # @return [Array<String>]
+    def submission_failure_tags(_error)
+      ['action:create', 'status:failure']
+    end
+
+    # Tags for PDF generation failure events. Override in subclasses.
+    # @return [Array<String>]
+    def pdf_failure_tags(_error)
+      ['action:download_pdf', 'status:failure']
     end
 
     # Context payload for PDF generation success. Override to customize
