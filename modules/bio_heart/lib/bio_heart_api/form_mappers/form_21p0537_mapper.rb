@@ -7,6 +7,7 @@ module BioHeartApi
     class Form21p0537Mapper < BioHeartApi::FormMappers::BaseMapper
       FORM_TYPE = 'VA FORM 21P-0537, DEC 2025'
 
+      # rubocop:disable Metrics/MethodLength
       def call
         form = @params.to_h.with_indifferent_access
 
@@ -19,11 +20,14 @@ module BioHeartApi
           # 1B - Date of Marriage
           'DATE_OF_MARRIAGE' => parse_date(form.dig('remarriage', 'date_of_marriage')),
 
-          # 1C - Name of Spouse (VETERAN_FULL_NAME maps to VETERAN_NAME in output)
-          'VETERAN_NAME' => build_spouse_full_name(form),
+          # 1C - Name of Spouse
+          'SPOUSE_NAME' => build_spouse_full_name(form),
           'SPOUSE_FIRST_NAME' => form.dig('remarriage', 'spouse_name', 'first'),
           'SPOUSE_MIDDLE_INITIAL' => extract_middle_initial(form.dig('remarriage', 'spouse_name')),
           'SPOUSE_LAST_NAME' => form.dig('remarriage', 'spouse_name', 'last'),
+
+          # 1D - Spouse Date of Birth
+          'SPOUSE_DATE_OF_BIRTH' => parse_date(form.dig('remarriage', 'spouse_date_of_birth')),
 
           # 1E - Is your spouse a Veteran?
           'SPOUSE_VET_YES' => spouse_veteran_yes?(form),
@@ -32,6 +36,28 @@ module BioHeartApi
           # 1F - VA Claim Number or SSN
           'VA_CLAIM_NUMBER' => form.dig('remarriage', 'spouse_va_file_number').presence,
           'SSN' => format_ssn(form.dig('remarriage', 'spouse_ssn')),
+
+          # 1G - What was your age at the time of your Marriage?
+          'MARRIAGE_AGE' => form.dig('remarriage', 'age_at_marriage'),
+
+          # 2A - Has Your Remarriage been Terminated?
+          'MARR_TERM_YES' => marriage_terminated_yes?(form),
+          'MARR_TERM_NO' => marriage_terminated_no?(form),
+
+          # 2B - Date of Termination
+          'MARR_TERM_DATE' => parse_date(form.dig('remarriage', 'termination_date')),
+
+          # 2C - Reason for Termination
+          'MARR_TERM_REASON' => form.dig('remarriage', 'termination_reason'),
+
+          # 3A - Daytime Telephone Number
+          'DAY_PHONE' => format_phone(form.dig('recipient', 'phone', 'daytime')),
+
+          # 3B - Evening Telephone Number
+          'EVENING_PHONE' => format_phone(form.dig('recipient', 'phone', 'evening')),
+
+          # 4 - Email Address
+          'EMAIL' => form.dig('recipient', 'email'),
 
           # 5A - Signature
           'SIGNATURE' => form.dig('recipient', 'signature'),
@@ -43,6 +69,7 @@ module BioHeartApi
           'FORM_TYPE' => FORM_TYPE
         }
       end
+      # rubocop:enable Metrics/MethodLength
 
       private
 
@@ -76,6 +103,22 @@ module BioHeartApi
       # @return [Int] 1 if spouse is not veteran, 0 otherwise
       def spouse_veteran_no?(form)
         form.dig('remarriage', 'spouse_is_veteran') == false ? 1 : 0
+      end
+
+      # Determine if marriage terminated YES checkbox should be checked
+      #
+      # @param form [Hash] The form data
+      # @return [Int] 1 if marriage terminated, 0 otherwise
+      def marriage_terminated_yes?(form)
+        form.dig('remarriage', 'has_terminated') == true ? 1 : 0
+      end
+
+      # Determine if marriage terminated NO checkbox should be checked
+      #
+      # @param form [Hash] The form data
+      # @return [Int] 1 if marriage not terminated, 0 otherwise
+      def marriage_terminated_no?(form)
+        form.dig('remarriage', 'has_terminated') == false ? 1 : 0
       end
 
       # Build spouse full name from name hash

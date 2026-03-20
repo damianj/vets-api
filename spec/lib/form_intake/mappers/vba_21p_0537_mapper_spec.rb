@@ -15,16 +15,6 @@ RSpec.describe FormIntake::Mappers::VBA21p0537Mapper do
         'ssn' => { 'first3' => '987', 'middle2' => '65', 'last4' => '4321' },
         'va_file_number' => '123456789'
       },
-      'recipient' => {
-        'full_name' => { 'first' => 'Jane', 'middle' => 'R', 'last' => 'Recipient' },
-        'phone' => {
-          'daytime' => { 'area_code' => '123', 'prefix' => '456', 'line_number' => '7890' },
-          'evening' => { 'area_code' => '321', 'prefix' => '654', 'line_number' => '0987' }
-        },
-        'email' => 'jane.recipient@email.com',
-        'signature' => 'Jane R Recipient',
-        'signature_date' => { 'month' => '09', 'day' => '19', 'year' => '2025' }
-      },
       'in_reply_refer_to' => '987654321',
       'has_remarried' => true,
       'remarriage' => {
@@ -35,7 +25,19 @@ RSpec.describe FormIntake::Mappers::VBA21p0537Mapper do
         'age_at_marriage' => '50',
         'spouse_ssn' => { 'first3' => '555', 'middle2' => '66', 'last4' => '7777' },
         'spouse_va_file_number' => '888888888',
-        'has_terminated' => false
+        'has_terminated' => false,
+        'termination_date' => { 'month' => '12', 'day' => '31', 'year' => '2023' },
+        'termination_reason' => 'Divorce'
+      },
+      'recipient' => {
+        'full_name' => { 'first' => 'Jane', 'middle' => 'R', 'last' => 'Recipient' },
+        'phone' => {
+          'daytime' => { 'area_code' => '123', 'prefix' => '456', 'line_number' => '7890' },
+          'evening' => { 'area_code' => '321', 'prefix' => '654', 'line_number' => '0987' }
+        },
+        'email' => 'jane.recipient@email.com',
+        'signature' => 'Jane R Recipient',
+        'signature_date' => { 'month' => '09', 'day' => '19', 'year' => '2025' }
       }
     }.to_json
   end
@@ -61,10 +63,18 @@ RSpec.describe FormIntake::Mappers::VBA21p0537Mapper do
     end
 
     it 'maps spouse name fields' do
-      expect(payload['VETERAN_NAME']).to eq('Bob T Spouse')
+      expect(payload['SPOUSE_NAME']).to eq('Bob T Spouse')
       expect(payload['SPOUSE_FIRST_NAME']).to eq('Bob')
       expect(payload['SPOUSE_MIDDLE_INITIAL']).to eq('T')
       expect(payload['SPOUSE_LAST_NAME']).to eq('Spouse')
+    end
+
+    it 'maps spouse date of birth' do
+      expect(payload['SPOUSE_DATE_OF_BIRTH']).to eq('01/17/1978')
+    end
+
+    it 'maps marriage age' do
+      expect(payload['MARRIAGE_AGE']).to eq('50')
     end
 
     it 'maps spouse veteran status checkboxes' do
@@ -75,6 +85,25 @@ RSpec.describe FormIntake::Mappers::VBA21p0537Mapper do
     it 'maps spouse identification' do
       expect(payload['VA_CLAIM_NUMBER']).to eq('888888888')
       expect(payload['SSN']).to eq('555667777')
+    end
+
+    it 'maps marriage termination status checkboxes' do
+      expect(payload['MARR_TERM_YES']).to be false
+      expect(payload['MARR_TERM_NO']).to be true
+    end
+
+    it 'maps marriage termination date' do
+      expect(payload['MARR_TERM_DATE']).to eq('12/31/2023')
+    end
+
+    it 'maps marriage termination reason' do
+      expect(payload['MARR_TERM_REASON']).to eq('Divorce')
+    end
+
+    it 'maps contact information' do
+      expect(payload['DAY_PHONE']).to eq('1234567890')
+      expect(payload['EVENING_PHONE']).to eq('3216540987')
+      expect(payload['EMAIL']).to eq('jane.recipient@email.com')
     end
 
     it 'maps signature fields' do
@@ -99,7 +128,7 @@ RSpec.describe FormIntake::Mappers::VBA21p0537Mapper do
 
       it 'has nil remarriage fields' do
         expect(payload['DATE_OF_MARRIAGE']).to be_nil
-        expect(payload['VETERAN_NAME']).to be_nil
+        expect(payload['SPOUSE_NAME']).to be_nil
         expect(payload['SSN']).to be_nil
       end
     end
@@ -133,7 +162,22 @@ RSpec.describe FormIntake::Mappers::VBA21p0537Mapper do
 
       it 'handles missing middle initial gracefully' do
         expect(payload['SPOUSE_MIDDLE_INITIAL']).to be_nil
-        expect(payload['VETERAN_NAME']).to eq('Bob Spouse')
+        expect(payload['SPOUSE_NAME']).to eq('Bob Spouse')
+      end
+    end
+
+    context 'when marriage has been terminated' do
+      let(:terminated_marriage_data) do
+        data = JSON.parse(form_data)
+        data['remarriage']['has_terminated'] = true
+        data.to_json
+      end
+
+      let(:form_submission) { create(:form_submission, form_type: '21P-0537', form_data: terminated_marriage_data) }
+
+      it 'sets marriage termination checkboxes correctly' do
+        expect(payload['MARR_TERM_YES']).to be true
+        expect(payload['MARR_TERM_NO']).to be false
       end
     end
   end

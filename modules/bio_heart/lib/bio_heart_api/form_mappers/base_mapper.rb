@@ -64,6 +64,17 @@ module BioHeartApi
 
         "#{ssn_hash['first3']}#{ssn_hash['middle2']}#{ssn_hash['last4']}"
       end
+
+      # Format phone number from phone hash
+      #
+      # @param phone_hash [Hash, nil] Hash with 'area_code', 'prefix', 'line_number' keys
+      # @return [String, nil] Formatted phone number or nil
+      def format_phone(phone_hash)
+        return nil unless phone_hash && [phone_hash['area_code'], phone_hash['prefix'],
+                                         phone_hash['line_number']].none?(&:blank?)
+
+        "#{phone_hash['area_code']}#{phone_hash['prefix']}#{phone_hash['line_number']}"
+      end
     end
   end
 end
