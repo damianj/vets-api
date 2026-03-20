@@ -14,6 +14,10 @@ module SimpleFormsApi
     class UploadRetryJob
       include Sidekiq::Job
 
+      # Raised when the source file no longer exists on disk.
+      # Skips Sidekiq retries since the file will not reappear.
+      class FileNoLongerExistsError < StandardError; end
+
       sidekiq_options retry: 10
 
       STATSD_KEY_PREFIX = 'api.simple_forms_api.upload_retry_job'
@@ -24,6 +28,10 @@ module SimpleFormsApi
           'SimpleFormsApi::FormRemediation::UploadRetryJob retries exhausted',
           { exception: "#{ex.class} - #{ex.message}", backtrace: ex.backtrace&.join("\n").to_s }
         )
+      end
+
+      sidekiq_retry_in do |_count, exception|
+        :kill if exception.is_a?(FileNoLongerExistsError)
       end
 
       # Attempts to upload a file to S3 via the configured uploader.
@@ -67,7 +75,8 @@ module SimpleFormsApi
         return if path.blank? || File.exist?(path)
 
         StatsD.increment("#{STATSD_KEY_PREFIX}.file_missing")
-        raise "Retry file no longer exists at #{path}. Source was likely cleaned up after the initial upload failure."
+        raise FileNoLongerExistsError,
+              "Retry file no longer exists at #{path}. Source was likely cleaned up after the initial upload failure."
       end
 
       # Checks whether the S3 service is reachable in the given region.

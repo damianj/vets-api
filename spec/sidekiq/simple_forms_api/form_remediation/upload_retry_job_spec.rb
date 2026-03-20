@@ -63,10 +63,10 @@ RSpec.describe SimpleFormsApi::FormRemediation::UploadRetryJob, type: :worker do
         allow(File).to receive(:exist?).with('/tmp/test_file.txt').and_return(false)
       end
 
-      it 'raises an error and increments the file_missing StatsD counter' do
+      it 'raises a FileNoLongerExistsError and increments the file_missing StatsD counter' do
         expect do
           described_class.new.perform(file, directory, config)
-        end.to raise_error(RuntimeError, /Retry file no longer exists/)
+        end.to raise_error(described_class::FileNoLongerExistsError, /Retry file no longer exists/)
 
         expect(StatsD).to have_received(:increment).with('api.simple_forms_api.upload_retry_job.file_missing')
       end
@@ -76,7 +76,7 @@ RSpec.describe SimpleFormsApi::FormRemediation::UploadRetryJob, type: :worker do
 
         begin
           described_class.new.perform(file, directory, config)
-        rescue RuntimeError
+        rescue described_class::FileNoLongerExistsError
           nil
         end
 
@@ -123,6 +123,26 @@ RSpec.describe SimpleFormsApi::FormRemediation::UploadRetryJob, type: :worker do
           )
         end
       end
+    end
+  end
+
+  describe 'sidekiq_retry_in' do
+    it 'returns :kill for FileNoLongerExistsError to skip retries' do
+      job = described_class.new
+      exception = described_class::FileNoLongerExistsError.new('file gone')
+
+      result = job.sidekiq_retry_in_block.call(0, exception)
+
+      expect(result).to eq(:kill)
+    end
+
+    it 'returns nil for other errors to use default retry timing' do
+      job = described_class.new
+      exception = Aws::S3::Errors::ServiceError.new(nil, 'Service error')
+
+      result = job.sidekiq_retry_in_block.call(0, exception)
+
+      expect(result).to be_nil
     end
   end
 
