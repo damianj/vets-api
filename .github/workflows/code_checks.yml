@@ -40,6 +40,20 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 1
 
+      - name: Compute changed files for boundary check
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.sha }}"
+          git diff --name-only --diff-filter=ACMR "${{ github.event.pull_request.base.sha }}" HEAD > /tmp/changed-files.txt
+
+      - name: Check runtime does not depend on spec code
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            CHANGED_FILES_FILE=/tmp/changed-files.txt bash script/ci/check_runtime_spec_dependencies.sh
+          else
+            bash script/ci/check_runtime_spec_dependencies.sh
+          fi
+
       - uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true

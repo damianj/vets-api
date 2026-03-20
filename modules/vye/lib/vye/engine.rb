@@ -7,7 +7,10 @@ module Vye
     config.autoload_paths << (root / 'lib')
 
     initializer 'model_core.factories', after: 'factory_bot.set_factory_paths' do
-      FactoryBot.definition_file_paths << (root / 'spec/factories') if defined?(FactoryBot)
+      if defined?(FactoryBot)
+        path = root / 'spec/factories'
+        FactoryBot.definition_file_paths << path if Dir.exist?(path)
+      end
     end
   end
 end

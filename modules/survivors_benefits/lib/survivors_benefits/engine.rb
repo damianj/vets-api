@@ -7,7 +7,10 @@ module SurvivorsBenefits
     config.generators.api_only = true
 
     initializer 'model_core.factories', after: 'factory_bot.set_factory_paths' do
-      FactoryBot.definition_file_paths << File.expand_path('../../spec/factories', __dir__) if defined?(FactoryBot)
+      if defined?(FactoryBot)
+        path = File.expand_path('../../spec/factories', __dir__)
+        FactoryBot.definition_file_paths << path if Dir.exist?(path)
+      end
     end
 
     initializer 'survivors_benefits.pdf_fill.register_form' do |app|

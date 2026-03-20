@@ -5,7 +5,10 @@ module MockedAuthentication
     isolate_namespace MockedAuthentication
 
     initializer 'mocked_authentication.factories', after: 'factory_bot.set_factory_paths' do
-      FactoryBot.definition_file_paths << File.expand_path('../../spec/factories', __dir__) if defined?(FactoryBot)
+      if defined?(FactoryBot)
+        path = File.expand_path('../../spec/factories', __dir__)
+        FactoryBot.definition_file_paths << path if Dir.exist?(path)
+      end
     end
   end
 end
