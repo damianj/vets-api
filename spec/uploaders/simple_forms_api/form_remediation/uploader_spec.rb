@@ -81,17 +81,19 @@ RSpec.describe SimpleFormsApi::FormRemediation::Uploader do
   describe '#store!' do
     subject(:store!) { uploader_instance.store!(file) }
 
-    let(:file) { instance_double(CarrierWave::SanitizedFile, filename: 'test_file.txt') }
+    let(:file) { instance_double(CarrierWave::SanitizedFile, filename: 'test_file.txt', path: '/tmp/test_file.txt') }
 
     before { allow(config).to receive(:handle_error) }
 
     context 'when the file is nil' do
       let(:file) { nil }
-      let(:error_message) { 'An error occurred while uploading the file.' }
 
-      it 'logs an error and returns' do
+      it 'delegates to config.handle_error' do
         store!
-        expect(config).to have_received(:handle_error).with(error_message, an_instance_of(RuntimeError))
+        expect(config).to have_received(:handle_error).with(
+          'An error occurred while uploading the file.',
+          an_instance_of(RuntimeError)
+        )
       end
     end
 
@@ -115,7 +117,7 @@ RSpec.describe SimpleFormsApi::FormRemediation::Uploader do
           have_received(:error).with("Upload failed for #{file.filename}. Enqueuing for retry.", aws_service_error)
         )
         expect(SimpleFormsApi::FormRemediation::UploadRetryJob).to(
-          have_received(:perform_async).with(file, directory, config)
+          have_received(:perform_async).with(file.path, directory, config.class.name)
         )
       end
     end

@@ -37,7 +37,7 @@ module SimpleFormsApi
         super(file)
       rescue Aws::S3::Errors::ServiceError => e
         Rails.logger.error("Upload failed for #{file.filename}. Enqueuing for retry.", e)
-        UploadRetryJob.perform_async(file, @directory, config)
+        UploadRetryJob.perform_async(file.path, @directory, config.class.name)
       rescue RuntimeError => e
         config.handle_error('An error occurred while uploading the file.', e)
       end
