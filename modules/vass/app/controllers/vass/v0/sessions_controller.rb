@@ -191,7 +191,6 @@ module Vass
 
         session.set_contact_from_veteran_data(veteran_data)
         otp_code = session.generate_and_save_otp
-        Rails.logger.info("VASS OTP Generated for UUID #{session.uuid}: #{otp_code}") if Rails.env.development?
         send_otp_via_vanotify(session, otp_code)
       end
 
@@ -297,7 +296,8 @@ module Vass
       #
       def handle_vass_api_error(session, error)
         log_vass_event(action: 'vass_api_error', vass_uuid: session.uuid, level: :error,
-                       error_class: error.class.name)
+                       error_class: error.class.name,
+                       error_message: ::Logging::Helper::DataScrubber.scrub(error.message))
         render_session_error_response(
           code: 'service_error',
           detail: 'VASS service error',
@@ -384,7 +384,8 @@ module Vass
         when :authentication then handle_invalid_otp(session)
         when :vass_api
           log_vass_event(action: 'vass_api_error', vass_uuid: session.uuid, level: :error,
-                         error_class: error.class.name)
+                         error_class: error.class.name,
+                         error_message: ::Logging::Helper::DataScrubber.scrub(error.message))
           render_session_error_response(code: 'service_error', detail: 'VASS service error', status: :bad_gateway)
         end
       end

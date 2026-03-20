@@ -404,12 +404,31 @@ module Vass
 
     ##
     # Logs error information without PHI.
+    # Includes backend HTTP status and safe response fields (message, error, error_description) when available.
     #
     # @param error [Exception] The caught exception
     # @param method_name [String] Name of the method that raised the error
     #
     def log_error(error, method_name)
-      log_vass_event(action: method_name, level: :error, error_class: error.class.name, correlation_id:)
+      metadata = { action: method_name, level: :error, error_class: error.class.name, correlation_id: }
+      metadata[:backend_status] = error.original_status if error.respond_to?(:original_status) && error.original_status
+      if error.respond_to?(:original_body) && error.original_body.is_a?(Hash)
+        body = error.original_body
+        metadata[:backend_message] = redact_for_log(body['message']) if body['message'].present?
+        if body['error'].present?
+          metadata[:backend_error] = redact_for_log(body['error'])
+          if body['error_description'].present?
+            metadata[:backend_error_description] = redact_for_log(body['error_description'])
+          end
+        end
+      end
+      log_vass_event(**metadata)
+    end
+
+    def redact_for_log(value)
+      return value unless value.is_a?(String)
+
+      ::Logging::Helper::DataScrubber.scrub(value)
     end
 
     ##

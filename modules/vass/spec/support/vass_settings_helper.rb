@@ -21,7 +21,7 @@ module VassSettingsHelper
       client_id: 'test-client-id',
       client_secret: 'test-client-secret',
       jwt_secret: 'test-jwt-secret',
-      scope: 'https://api.va.gov/.default',
+      resource: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
       api_url: 'https://api.vass.va.gov',
       subscription_key: 'test-subscription-key',
       service_name: 'vass_api',

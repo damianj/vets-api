@@ -21,7 +21,7 @@ module Vass
 
     attr_reader :settings
 
-    def_delegators :settings, :auth_url, :tenant_id, :client_id, :client_secret, :scope,
+    def_delegators :settings, :auth_url, :tenant_id, :client_id, :client_secret, :resource,
                    :api_url, :subscription_key, :service_name
 
     ##
@@ -54,7 +54,7 @@ module Vass
         body = URI.encode_www_form({
                                      client_id:,
                                      client_secret:,
-                                     scope:,
+                                     resource:,
                                      grant_type: GRANT_TYPE
                                    })
 
