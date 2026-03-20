@@ -296,6 +296,10 @@ features:
     actor_type: user
     description: Enables the spouse (V2) confirmation flow in the 10-10EZR form.
     enable_in_development: true
+  ezr_updated_upload_pattern_enabled:
+    actor_type: user
+    description: Enables multiple file input (V3) upload pattern in the 10-10EZR form.
+    enable_in_development: false
   cerner_override_653:
     actor_type: user
     description: This will show the Cerner facility 653 as `isCerner`.
