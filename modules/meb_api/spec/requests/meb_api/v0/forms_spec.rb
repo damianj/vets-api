@@ -36,6 +36,9 @@ RSpec.describe 'MebApi::V0 Forms', type: :request do
 
   before do
     sign_in_as(user)
+    allow(Flipper).to receive(:enabled?).and_call_original
+    allow(Flipper).to receive(:enabled?).with(:show_forms_app).and_return(true)
+    allow(Flipper).to receive(:enabled?).with(:form1990emeb_confirmation_email).and_return(true)
   end
 
   describe 'POST /meb_api/v0/forms_sponsors' do
@@ -108,14 +111,14 @@ RSpec.describe 'MebApi::V0 Forms', type: :request do
           claim_status: 'ELIGIBLE', email: 'test@test.com', first_name: 'test'
         }
         expect(MebApi::V0::Submit1990emebFormConfirmation).to have_received(:perform_async)
-          .with('ELIGIBLE', 'test@test.com', 'TEST')
+          .with('ELIGIBLE', 'test@test.com', 'TEST', user.icn)
       end
 
       it 'uses current user email and name when params not provided' do
         allow(MebApi::V0::Submit1990emebFormConfirmation).to receive(:perform_async)
         post '/meb_api/v0/forms_send_confirmation_email', params: { claim_status: 'ELIGIBLE' }
         expect(MebApi::V0::Submit1990emebFormConfirmation).to have_received(:perform_async)
-          .with('ELIGIBLE', user.email, 'HERBERT')
+          .with('ELIGIBLE', user.email, 'HERBERT', user.icn)
       end
     end
 
@@ -162,13 +165,12 @@ RSpec.describe 'MebApi::V0 Forms', type: :request do
         expect(response).to have_http_status(:unprocessable_entity)
       end
 
-      it 'logs warning with attribute presence info' do
+      it 'logs warning via log_confirmation_email_skipped' do
         expect(Rails.logger).to receive(:warn).with(
-          '1990emeb confirmation email skipped due to missing attributes',
+          'MEB confirmation email skipped',
           hash_including(
-            status_present: false,
-            email_present: true,
-            first_name_present: true
+            form_tag: 'form:1990emeb',
+            reason: 'missing_attributes'
           )
         )
         post '/meb_api/v0/forms_send_confirmation_email', params: {

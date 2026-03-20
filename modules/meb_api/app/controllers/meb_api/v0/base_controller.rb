@@ -3,12 +3,15 @@
 require 'dgi/claimant/service'
 require 'dgi/letters/service'
 require 'dgi/status/service'
+require 'meb_api/confirmation_email_config'
 
 module MebApi
   module V0
     class BaseController < ::ApplicationController
       service_tag 'education-benefits'
       before_action :authorize_access
+
+      STATS_KEY = 'api.meb.confirmation_email'
 
       private
 
@@ -32,14 +35,61 @@ module MebApi
         MebApi::DGI::Claimant::Service.new(@current_user)
       end
 
-      def log_missing_email_attributes(form_tag, missing_attributes, status, email, first_name)
-        Rails.logger.warn(
-          "#{form_tag} confirmation email skipped due to missing attributes",
-          { status_present: status.present?, email_present: email.present?, first_name_present: first_name.present? }
+      # Shared confirmation email logging methods
+      def log_confirmation_email_request(form_tag, flipper_key)
+        Rails.logger.info(
+          'MEB confirmation email endpoint called',
+          {
+            form_tag:,
+            flipper_enabled: Flipper.enabled?(flipper_key),
+            params_claim_status: params[:claim_status],
+            params_email_present: params[:email].present?,
+            user_email_present: @current_user.email.present?
+          }
         )
-        StatsD.increment('api.meb.confirmation_email.skipped', tags: ["form:#{form_tag}", 'reason:missing_attributes'])
-        render json: { error: 'Missing required attributes for confirmation email', missing_attributes: },
-               status: :unprocessable_entity
+      end
+
+      def log_confirmation_email_skipped(form_tag, reason, status = nil)
+        Rails.logger.warn(
+          'MEB confirmation email skipped',
+          {
+            form_tag:,
+            reason:,
+            claim_status: status
+          }.compact
+        )
+        StatsD.increment("#{STATS_KEY}.skipped", tags: [form_tag, "reason:#{reason}"])
+      end
+
+      def validate_confirmation_email_attributes(form_tag)
+        claim_status = params[:claim_status]
+        email = params[:email] || @current_user.email
+        first_name = params[:first_name]&.upcase || @current_user.first_name&.upcase
+
+        if email.blank?
+          log_confirmation_email_skipped(form_tag, 'email_missing', claim_status)
+          return nil
+        end
+
+        unless claim_status.present? && first_name.present?
+          log_confirmation_email_skipped(form_tag, 'missing_attributes', claim_status)
+          return nil
+        end
+
+        { claim_status:, email:, first_name: }
+      end
+
+      def log_confirmation_email_dispatched(form_tag, status)
+        normalized_status = MebApi::ConfirmationEmailConfig.normalize_claim_status(status)
+        Rails.logger.info(
+          'MEB confirmation email worker dispatched',
+          {
+            form_tag:,
+            claim_status: status
+          }
+        )
+        StatsD.increment("#{STATS_KEY}.dispatched",
+                         tags: [form_tag, "claim_status:#{normalized_status}"])
       end
 
       def log_submission_error(error, log_message)

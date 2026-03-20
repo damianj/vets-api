@@ -11,6 +11,10 @@ module MebApi
       before_action :check_forms_flipper
       before_action :set_type, only: %i[claim_letter claim_status claimant_info]
 
+      FORM_TYPE = MebApi::ConfirmationEmailConfig::FORM_1990EMEB
+      FORM_TAG = MebApi::ConfirmationEmailConfig::TAG_1990EMEB
+      FLIPPER_KEY = :form1990emeb_confirmation_email
+
       def claim_letter
         claimant_response = claimant_service.get_claimant_info(@form_type)
         claimant_id = claimant_response.claimant_id
@@ -78,28 +82,33 @@ module MebApi
       end
 
       def send_confirmation_email
-        return head :no_content unless Flipper.enabled?(:form1990emeb_confirmation_email)
+        log_confirmation_email_request(FORM_TAG, FLIPPER_KEY)
 
-        status = params[:claim_status]
-        email = params[:email] || @current_user.email
-        first_name = params[:first_name]&.upcase || @current_user.first_name&.upcase
-
-        missing_attributes = []
-        missing_attributes << 'claim_status' if status.blank?
-        missing_attributes << 'email' if email.blank?
-        missing_attributes << 'first_name' if first_name.blank?
-
-        if missing_attributes.any?
-          return log_missing_email_attributes('1990emeb', missing_attributes, status, email, first_name)
+        unless Flipper.enabled?(FLIPPER_KEY)
+          log_confirmation_email_skipped(FORM_TAG, 'flipper_disabled')
+          return head :no_content
         end
 
-        MebApi::V0::Submit1990emebFormConfirmation.perform_async(status, email, first_name)
+        attrs = validate_confirmation_email_attributes(FORM_TAG)
+        return head :unprocessable_entity unless attrs
+
+        dispatch_confirmation_email(attrs[:email])
       end
 
       private
 
       def set_type
         @form_type = params['type'] == 'ToeSubmission' ? 'toe' : params['type']&.capitalize
+      end
+
+      def dispatch_confirmation_email(email)
+        MebApi::V0::Submit1990emebFormConfirmation.perform_async(
+          params[:claim_status],
+          email,
+          params[:first_name]&.upcase || @current_user.first_name&.upcase,
+          @current_user.icn
+        )
+        log_confirmation_email_dispatched(FORM_TAG, params[:claim_status])
       end
 
       def valid_claimant_response?(response)

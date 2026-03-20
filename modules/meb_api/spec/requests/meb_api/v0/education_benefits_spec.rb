@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-Rspec.describe 'MebApi::V0 EducationBenefits', type: :request do
+RSpec.describe 'MebApi::V0 EducationBenefits', type: :request do
   include SchemaMatchers
   include ActiveSupport::Testing::TimeHelpers
 
@@ -35,6 +35,8 @@ Rspec.describe 'MebApi::V0 EducationBenefits', type: :request do
   before do
     allow(faraday_response).to receive(:env)
     sign_in_as(user)
+    allow(Flipper).to receive(:enabled?).and_call_original
+    allow(Flipper).to receive(:enabled?).with(:form1990meb_confirmation_email).and_return(true)
   end
 
   describe 'GET /meb_api/v0/claimant_info' do
@@ -424,7 +426,7 @@ Rspec.describe 'MebApi::V0 EducationBenefits', type: :request do
           claim_status: 'ELIGIBLE', email: 'test@test.com', first_name: 'test'
         }
         expect(MebApi::V0::Submit1990mebFormConfirmation).to have_received(:perform_async)
-          .with('ELIGIBLE', 'test@test.com', 'TEST')
+          .with('ELIGIBLE', 'test@test.com', 'TEST', user.icn)
       end
     end
 
@@ -471,13 +473,12 @@ Rspec.describe 'MebApi::V0 EducationBenefits', type: :request do
         expect(response).to have_http_status(:unprocessable_entity)
       end
 
-      it 'logs warning with attribute presence info' do
+      it 'logs warning via log_confirmation_email_skipped' do
         expect(Rails.logger).to receive(:warn).with(
-          '1990meb confirmation email skipped due to missing attributes',
+          'MEB confirmation email skipped',
           hash_including(
-            status_present: false,
-            email_present: true,
-            first_name_present: true
+            form_tag: 'form:1990meb',
+            reason: 'missing_attributes'
           )
         )
         post '/meb_api/v0/send_confirmation_email', params: {
