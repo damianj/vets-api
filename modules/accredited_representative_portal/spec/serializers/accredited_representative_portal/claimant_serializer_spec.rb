@@ -56,6 +56,22 @@ RSpec.describe AccreditedRepresentativePortal::ClaimantSerializer, type: :serial
     end
   end
 
+  describe '#has_pending_poa_request' do
+    context 'when there is an unresolved poa request' do
+      it 'returns true' do
+        expect(subject.dig('data', 'attributes', 'hasPendingPoaRequest')).to be true
+      end
+    end
+
+    context 'when all poa requests are resolved' do
+      let!(:poa_request) { create(:power_of_attorney_request, :with_acceptance) }
+
+      it 'returns false' do
+        expect(subject.dig('data', 'attributes', 'hasPendingPoaRequest')).to be false
+      end
+    end
+  end
+
   describe '#city' do
     it 'returns the city name capitalized' do
       expect(subject.dig('data', 'attributes', 'city')).to eq 'New Haven'

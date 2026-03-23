@@ -83,6 +83,7 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimantController, type: :re
         end
         expect(response).to have_http_status(:ok)
         expect(parsed_response.dig('data', 'poaRequests').map { |poa| poa['id'] }).to eq([poa_request.id])
+        expect(parsed_response.dig('data', 'hasPendingPoaRequest')).to be true
       end
 
       context 'there are multiple PoA request attempts' do

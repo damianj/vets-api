@@ -38,6 +38,10 @@ module AccreditedRepresentativePortal
       end
     end
 
+    attribute :has_pending_poa_request do |object|
+      object[:power_of_attorney_requests].unresolved.exists?
+    end
+
     attribute :poa_requests do |object|
       poa_requests = object[:power_of_attorney_requests]
       pending_poa_requests = poa_requests.unresolved.order(created_at: :desc)
