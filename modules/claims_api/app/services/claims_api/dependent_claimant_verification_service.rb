@@ -52,24 +52,25 @@ module ClaimsApi
 
     def any_matching_dependents?(dependents)
       Array.wrap(dependents).any? do |dependent|
-        # If the claimant_participant_id is present (most v2), use it to verify the dependent
-        return matching_participant_id?(dependent) if @claimant_participant_id.present?
+        if @claimant_participant_id.present?
+          matching_participant_id?(dependent) # let any? see true/false
+        else
+          normalized_claimant_first_name = normalize(@claimant_first_name)
+          normalized_claimant_last_name  = normalize(@claimant_last_name)
+          normalized_dependent_first_name = normalize(dependent[:first_nm])
+          normalized_dependent_last_name  = normalize(dependent[:last_nm])
 
-        # Otherwise, we need to verify the dependent by first and last name (all v1 and some v2 without participant_ids)
-        normalized_claimant_first_name = normalize(@claimant_first_name)
-        normalized_claimant_last_name = normalize(@claimant_last_name)
-        normalized_dependent_first_name = normalize(dependent[:first_nm])
-        normalized_dependent_last_name = normalize(dependent[:last_nm])
-
-        return false if [normalized_claimant_first_name, normalized_claimant_last_name,
+          next false if [normalized_claimant_first_name, normalized_claimant_last_name,
                          normalized_dependent_first_name, normalized_dependent_last_name].any?(&:blank?)
 
-        if normalized_claimant_first_name == normalized_dependent_first_name &&
-           normalized_claimant_last_name == normalized_dependent_last_name
-          @claimant_participant_id = dependent[:ptcpnt_id]
-          @claimant_ssn = dependent[:ssn_nbr]
-
-          return true
+          if normalized_claimant_first_name == normalized_dependent_first_name &&
+             normalized_claimant_last_name  == normalized_dependent_last_name
+            @claimant_participant_id = dependent[:ptcpnt_id]
+            @claimant_ssn = dependent[:ssn_nbr]
+            true # block returns true → any? short-circuits and returns true
+          else
+            false
+          end
         end
       end
     end

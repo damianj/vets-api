@@ -121,7 +121,10 @@ module ClaimsApi
           target_veteran
 
           poa_code = form_attributes.dig('representative', 'poaCode')
-          @claims_api_forms_validation_errors = validate_form_2122_and_2122a_submission_values(user_profile:)
+          @claims_api_forms_validation_errors = validate_form_2122_and_2122a_submission_values(
+            user_profile:, veteran_participant_id: target_veteran.participant_id, poa_code:,
+            base: 'representative'
+          )
 
           validate_json_schema(FORM_NUMBER)
           validate_accredited_representative(poa_code)

@@ -49,8 +49,8 @@ Rspec.describe ClaimsApi::DependentClaimantVerificationService do
     end
 
     context 'when the claimant name belongs to one of participantʼs (many) dependents' do
-      let(:valid_first_name) { 'MARK' }
-      let(:valid_last_name) { ' bailey ' } # case and whitespace should not matter
+      let(:valid_first_name) { 'RAM' }
+      let(:valid_last_name) { ' vajrala ' } # case and whitespace should not matter
 
       subject do
         described_class.new(veteran_participant_id: valid_participant_id_two_dependents,

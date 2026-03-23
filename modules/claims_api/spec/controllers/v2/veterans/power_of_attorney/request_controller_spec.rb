@@ -909,6 +909,34 @@ Rspec.describe ClaimsApi::V2::Veterans::PowerOfAttorney::RequestController, type
         end
       end
 
+      describe '#validate_form_2122_and_2122a_submission_values' do
+        it 'is called with the required attributes to trigger validating the dependent relationship' do
+          mock_ccg(scopes) do |auth_header|
+            form_attributes.merge!(claimant_information)
+            # mock this since the actual data doesn't matter, but it must respond to
+            # profile and profile.participant_id to match controller expectations
+            user_profile_double = double(
+              'user_profile',
+              profile: double('profile', participant_id: '123456789')
+            )
+            allow_any_instance_of(
+              ClaimsApi::V2::Veterans::PowerOfAttorney::BaseController
+            ).to receive(:fetch_claimant).and_return(user_profile_double)
+            # just need to verify it gets called with these values
+            expect_any_instance_of(
+              ClaimsApi::V2::Veterans::PowerOfAttorney::RequestController
+            ).to receive(:validate_form_2122_and_2122a_submission_values).with(
+              user_profile: be_present,
+              veteran_participant_id: be_present,
+              poa_code: be_present,
+              base: 'representative'
+            )
+
+            create_request_with(veteran_id:, form_attributes:, auth_header:)
+          end
+        end
+      end
+
       describe '#validate_country_code' do
         let(:min_form_attributes) do
           {
