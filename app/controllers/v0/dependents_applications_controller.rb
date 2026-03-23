@@ -56,6 +56,7 @@ module V0
             response = SavedClaimSerializer.new(claim).serializable_hash
             response[:data][:digital_forms_api] = { submission: }
 
+            clear_saved_form(claim.form_id)
             return render json: response
           end
         rescue => e
