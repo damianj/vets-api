@@ -310,7 +310,7 @@ module Vass
     end
 
     def perform_with_custom_connection(server_url, method, path, params, request_config)
-      config.connection(server_url:).send(method.to_sym, path, params || {}) do |request|
+      config.oauth_connection(server_url:).send(method.to_sym, path, params || {}) do |request|
         request.headers.update(request_config[:headers] || {})
         (request_config[:options] || {}).each { |option, value| request.options.send("#{option}=", value) }
       end.env

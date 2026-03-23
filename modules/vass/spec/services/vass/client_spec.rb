@@ -219,8 +219,8 @@ describe Vass::Client do
         allow(Settings.vass).to receive_messages(auth_url:, api_url:)
       end
 
-      it 'uses auth_url for OAuth requests' do
-        expect(subject.config).to receive(:connection).with(server_url: auth_url).and_call_original
+      it 'uses oauth_connection with auth_url for OAuth requests' do
+        expect(subject.config).to receive(:oauth_connection).with(server_url: auth_url).and_call_original
 
         allow_any_instance_of(Faraday::Connection).to receive(:post).and_return(
           double('response', env: double('env', body: { 'access_token' => oauth_token, 'expires_in' => 3600 }))
@@ -246,10 +246,16 @@ describe Vass::Client do
         conn2 = subject.config.connection(server_url: auth_url)
         conn3 = subject.config.connection(server_url: api_url)
 
-        # Same URL should return same connection instance (pooling)
         expect(conn1).to be(conn2)
+        expect(conn1).not_to be(conn3)
+      end
 
-        # Different URL should return different connection instance
+      it 'oauth_connection method uses connection pooling for different URLs' do
+        conn1 = subject.config.oauth_connection(server_url: auth_url)
+        conn2 = subject.config.oauth_connection(server_url: auth_url)
+        conn3 = subject.config.oauth_connection(server_url: api_url)
+
+        expect(conn1).to be(conn2)
         expect(conn1).not_to be(conn3)
       end
     end
