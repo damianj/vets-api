@@ -2543,9 +2543,6 @@ features:
   mobile_cerner_transition:
     actor_type: user
     description: For mobile app, a facility is being transitioned to cerner.
-  mobile_iam_authentication_disabled:
-    actor_type: user
-    description: For mobile app, disable iam authentication method.
   mobile_military_indicator_logger:
     actor_type: user
     description: For mobile app, enables logging of military discharge codes

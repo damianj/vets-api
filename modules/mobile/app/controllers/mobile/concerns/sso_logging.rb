@@ -33,11 +33,7 @@ module Mobile::Concerns::SSOLogging
         'signIn' => @current_user.identity.sign_in.deep_transform_keys { |key| key.to_s.camelize(:lower) },
         'credential_used' => @current_user.identity.sign_in[:service_name],
         'credential_uuid' => credential_uuid,
-        'expirationTime' => if sis_authentication?
-                              sign_in_expiration_time
-                            else
-                              @current_user.identity.expiration_timestamp
-                            end }
+        'expirationTime' => sign_in_expiration_time }
     end
 
     def credential_uuid
@@ -52,14 +48,10 @@ module Mobile::Concerns::SSOLogging
     end
 
     def sign_in_expiration_time
-      if sis_authentication?
-        if sign_in_service_session
-          sign_in_service_session.refresh_expiration.iso8601(0)
-        else
-          @session_object.ttl_in_time.iso8601(0)
-        end
+      if sign_in_service_session
+        sign_in_service_session.refresh_expiration.iso8601(0)
       else
-        @current_user.identity.expiration_timestamp
+        @session_object.ttl_in_time.iso8601(0)
       end
     end
 

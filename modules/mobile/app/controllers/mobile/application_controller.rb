@@ -18,40 +18,18 @@ module Mobile
     attr_reader :current_user
 
     def authenticate
+      raise_unauthorized('Missing Authorization header') if request.headers['Authentication-Method'].blank?
       return super if sis_authentication?
 
-      if Flipper.enabled?(:mobile_iam_authentication_disabled)
-        raise_unauthorized('Authentication method not supported')
-      else
-        StatsD.increment('iam_ssoe_oauth.auth.total')
-        raise_unauthorized('Missing Authorization header') if request.headers['Authorization'].nil?
-        raise_unauthorized('Authorization header Bearer token is blank') if access_token.blank?
-
-        session_manager = IAMSSOeOAuth::SessionManager.new(access_token)
-        @current_user = session_manager.find_or_create_user
-        StatsD.increment('iam_ssoe_oauth.auth.success')
-        @current_user
-      end
+      raise_unauthorized('Authentication method not supported')
     end
 
     def sis_authentication?
       request.headers['Authentication-Method'] == 'SIS'
     end
 
-    def access_token
-      return super if sis_authentication?
-
-      @access_token ||= bearer_token
-    end
-
     def raise_unauthorized(detail)
       raise Common::Exceptions::Unauthorized.new(detail:)
-    end
-
-    def session
-      return super if sis_authentication?
-
-      Session.obscure_token(access_token)
     end
 
     def set_sentry_tags_and_extra_context

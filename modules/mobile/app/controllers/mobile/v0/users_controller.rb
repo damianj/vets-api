@@ -15,13 +15,6 @@ module Mobile
         head(:ok)
       end
 
-      def logout
-        session_manager = IAMSSOeOAuth::SessionManager.new(access_token)
-        session_manager.logout
-
-        head(:ok)
-      end
-
       private
 
       def options

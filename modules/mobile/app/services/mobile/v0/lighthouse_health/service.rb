@@ -9,7 +9,7 @@ module Mobile
       class Service < Common::Client::Base
         configuration Configuration
 
-        # @param user IAMUser the user requesting the records
+        # @param user User the user requesting the records
         #
         def initialize(user)
           @user = user

@@ -45,4 +45,12 @@ end
 
 RSpec.configure do |config|
   config.include SISSessionHelper
+
+  config.before :each, type: :request do
+    Flipper.enable('va_online_scheduling')
+  end
+
+  config.before :each, type: :controller do
+    Flipper.enable('va_online_scheduling')
+  end
 end

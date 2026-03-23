@@ -2,24 +2,17 @@
 
 require 'rails_helper'
 require_relative '../support/helpers/sis_session_helper'
-require_relative '../support/helpers/iam_session_helper'
 require_relative '../support/matchers/json_schema_matcher'
 
-RSpec.shared_examples 'sso logging' do |type|
-  describe "#{type} logging" do
+RSpec.shared_examples 'sso logging' do
+  describe 'sis logging' do
     before do
       allow(Rails.logger).to receive(:warn)
 
-      if type == :sis
-        user = sis_user
-        @new_headers = sis_headers
-        # prevent fingerprint mismatch that raises a warning and complicates tests
-        request.remote_ip = user.fingerprint
-      else
-        allow(Flipper).to receive(:enabled?).with(:mobile_iam_authentication_disabled).and_return(false)
-        @new_headers = iam_headers
-        iam_sign_in
-      end
+      user = sis_user
+      @new_headers = sis_headers
+      # prevent fingerprint mismatch that raises a warning and complicates tests
+      request.remote_ip = user.fingerprint
     end
 
     it 'logs after create' do
@@ -93,6 +86,5 @@ RSpec.describe Mobile::V0::ProfileBaseController, type: :controller do
     end
   end
 
-  include_examples 'sso logging', :iam
-  include_examples 'sso logging', :sis
+  include_examples 'sso logging'
 end

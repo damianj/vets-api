@@ -25,7 +25,7 @@ module Mobile
       class MissingUserError < StandardError; end
 
       def perform(uuid)
-        user = IAMUser.find(uuid) || ::User.find(uuid)
+        user = ::User.find(uuid)
         raise MissingUserError, uuid unless user
 
         if user.icn.blank?
