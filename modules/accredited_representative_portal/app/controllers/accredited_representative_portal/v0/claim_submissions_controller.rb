@@ -5,7 +5,14 @@ module AccreditedRepresentativePortal
     class ClaimSubmissionsController < ApplicationController
       class NotFound < StandardError; end
 
+      ATTEMPT_METRIC = 'ar.submissions.index.attempt'
+      SUCCESS_METRIC = 'ar.submissions.index.success'
+      ERROR_METRIC   = 'ar.submissions.index.error'
+
       def index
+        monitoring = ar_monitoring
+        monitoring.track_count(ATTEMPT_METRIC, tags: default_tags)
+
         if params[:id].present? && !Flipper.enabled?(:accredited_representative_portal_claimant_details)
           raise Common::Exceptions::BadRequest.new(detail: 'Claimant details is not enabled.')
         end
@@ -13,13 +20,18 @@ module AccreditedRepresentativePortal
         authorize nil, policy_class: SavedClaimClaimantRepresentativePolicy
         serializer = SavedClaimClaimantRepresentativeSerializer.new(claim_submissions)
         render json: ({
-          data: serializer.serializable_hash,
-          meta: pagination_meta(claim_submissions)
+          data: serializer.serializable_hash, meta: pagination_meta(claim_submissions)
         }.tap do |json|
           include_claimant(json) if params[:id].present?
         end)
+        monitoring.track_count(SUCCESS_METRIC, tags: default_tags)
       rescue ActiveRecord::RecordNotFound, NotFound
+        monitoring&.track_count(ERROR_METRIC, tags: default_tags + ['reason:not_found'])
         render json: { error: 'Claimant id not found.' }, status: :not_found
+      rescue => e
+        normalized_reason = e.class.name.split('::').last
+        monitoring.track_count(ERROR_METRIC, tags: default_tags + ["reason:#{normalized_reason}"])
+        raise
       end
 
       private
@@ -88,6 +100,17 @@ module AccreditedRepresentativePortal
           { form_submissions: :form_submission_attempts },
           %i[form_attachment persistent_attachments]
         ] }]
+      end
+
+      def ar_monitoring
+        AccreditedRepresentativePortal::Monitoring.new(
+          AccreditedRepresentativePortal::Monitoring::NAME,
+          default_tags:
+        )
+      end
+
+      def default_tags
+        ["claimant_filter:#{params[:id].present?}"]
       end
     end
   end

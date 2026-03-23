@@ -46,6 +46,7 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimantController, type: :re
   let(:time_plus_one_day) { '2024-12-22T04:45:37.000Z' }
 
   let(:feature_flag_state) { true }
+  let(:monitoring) { instance_double(AccreditedRepresentativePortal::Monitoring) }
 
   describe 'GET /accredited_representative_portal/v0/claimant/search' do
     context 'when providing incomplete search params' do
@@ -224,6 +225,8 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimantController, type: :re
           }
         }
       )
+      allow(AccreditedRepresentativePortal::Monitoring).to receive(:new).and_return monitoring
+      allow(monitoring).to receive(:track_count)
     end
 
     context 'when feature flag is disabled' do
@@ -254,6 +257,19 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimantController, type: :re
         expect(data['last_name']).to eq('Smith')
         expect(data['birth_date']).to eq('1980-01-01')
         expect(data['ssn']).to eq('6666')
+      end
+
+      it 'tracks attempts and success in Datadog' do
+        expect(monitoring).to receive(:track_count).with('ar.unique_session.count')
+        expect(monitoring).to receive(:track_count).with(
+          described_class::ATTEMPT_METRIC, tags: ['org_resolve:failed']
+        )
+        expect(monitoring).to receive(:track_count).with(
+          described_class::SUCCESS_METRIC, tags: ['org_resolve:failed']
+        )
+        get(path, params: { benefitType: benefit_type }, headers: json_headers)
+
+        expect(response).to have_http_status(:ok)
       end
 
       it 'includes itf payload' do
@@ -316,6 +332,17 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimantController, type: :re
         get(path, params: { benefitType: benefit_type }, headers: json_headers)
         expect(response).to have_http_status(:not_found)
       end
+
+      it 'tracks attempts and errors in Datadog' do
+        expect(monitoring).to receive(:track_count).with('ar.unique_session.count')
+        expect(monitoring).to receive(:track_count).with(
+          described_class::ATTEMPT_METRIC, tags: ['org_resolve:failed']
+        )
+        expect(monitoring).to receive(:track_count).with(
+          described_class::ERROR_METRIC, tags: ['org_resolve:failed', 'reason:RecordNotFound']
+        )
+        get(path, params: { benefitType: benefit_type }, headers: json_headers)
+      end
     end
 
     context 'when the temporary identifier does not exist' do
@@ -326,6 +353,17 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimantController, type: :re
       it 'returns 404 not found' do
         get(path, params: { benefitType: benefit_type }, headers: json_headers)
         expect(response).to have_http_status(:not_found)
+      end
+
+      it 'tracks attempts and errors in Datadog' do
+        expect(monitoring).to receive(:track_count).with('ar.unique_session.count')
+        expect(monitoring).to receive(:track_count).with(
+          described_class::ATTEMPT_METRIC, tags: ['org_resolve:failed']
+        )
+        expect(monitoring).to receive(:track_count).with(
+          described_class::ERROR_METRIC, tags: ['org_resolve:failed', 'reason:RecordNotFound']
+        )
+        get(path, params: { benefitType: benefit_type }, headers: json_headers)
       end
     end
   end

@@ -32,6 +32,7 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimSubmissionsController, t
     end
     let!(:vso) { create(:organization, poa: poa_code, can_accept_digital_poa_requests: false) }
     let(:search_identifier) { SecureRandom.uuid }
+    let(:monitoring) { instance_double(AccreditedRepresentativePortal::Monitoring) }
 
     # Default two that should be visible to the rep.
     # Make them older so the sorting test can deterministically place newer records on page 1.
@@ -58,6 +59,11 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimSubmissionsController, t
     end
 
     describe 'GET /accredited_representative_portal/v0/claims_submissions' do
+      before do
+        allow(AccreditedRepresentativePortal::Monitoring).to receive(:new).and_return monitoring
+        allow(monitoring).to receive(:track_count)
+      end
+
       it 'returns only claims submissions that the rep is allowed to view' do
         get '/accredited_representative_portal/v0/claim_submissions'
         expect(response).to have_http_status(:ok)
@@ -103,6 +109,18 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimSubmissionsController, t
             }
           }
         )
+      end
+
+      it 'tracks attempts and success in Datadog' do
+        expect(monitoring).to receive(:track_count).with('ar.unique_session.count')
+        expect(monitoring).to receive(:track_count).with(
+          described_class::ATTEMPT_METRIC, tags: ['claimant_filter:false']
+        )
+        expect(monitoring).to receive(:track_count).with(
+          described_class::SUCCESS_METRIC, tags: ['claimant_filter:false']
+        )
+        get '/accredited_representative_portal/v0/claim_submissions'
+        expect(response).to have_http_status(:ok)
       end
 
       context 'rep does not have any valid PoA codes' do
@@ -181,6 +199,20 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimSubmissionsController, t
                 )
               end
             end
+
+            it 'tracks attempts and success in Datadog' do
+              VCR.use_cassette('mpi/find_candidate/find_profile_with_identifier') do
+                expect(monitoring).to receive(:track_count).with('ar.unique_session.count')
+                expect(monitoring).to receive(:track_count).with(
+                  described_class::ATTEMPT_METRIC, tags: ['claimant_filter:true']
+                )
+                expect(monitoring).to receive(:track_count).with(
+                  described_class::SUCCESS_METRIC, tags: ['claimant_filter:true']
+                )
+                get "/accredited_representative_portal/v0/claim_submissions?id=#{search_identifier}"
+                expect(response).to have_http_status(:ok)
+              end
+            end
           end
 
           context 'a known but invalid claimant identifier is supplied' do
@@ -188,6 +220,19 @@ RSpec.describe AccreditedRepresentativePortal::V0::ClaimSubmissionsController, t
               VCR.use_cassette('mpi/find_candidate/icn_not_found') do
                 get "/accredited_representative_portal/v0/claim_submissions?id=#{search_identifier}"
                 expect(response).to have_http_status(:not_found)
+              end
+            end
+
+            it 'tracks attempt and errors in Datadog' do
+              VCR.use_cassette('mpi/find_candidate/icn_not_found') do
+                expect(monitoring).to receive(:track_count).with('ar.unique_session.count')
+                expect(monitoring).to receive(:track_count).with(
+                  described_class::ATTEMPT_METRIC, tags: ['claimant_filter:true']
+                )
+                expect(monitoring).to receive(:track_count).with(
+                  described_class::ERROR_METRIC, tags: ['claimant_filter:true', 'reason:not_found']
+                )
+                get "/accredited_representative_portal/v0/claim_submissions?id=#{search_identifier}"
               end
             end
           end
