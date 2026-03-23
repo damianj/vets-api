@@ -37,7 +37,7 @@ describe PdfFill::Forms::Va220803 do
     it 'does fills in the file number field with ssn' do
       merged_data = subject.merge_fields
 
-      expect(merged_data['fileNumber']).to eq('123-45-6789 AB')
+      expect(merged_data['fileNumber']).to eq('123-45-6789')
     end
 
     it 'formats the test date' do

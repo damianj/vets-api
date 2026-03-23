@@ -101,15 +101,11 @@ module PdfFill
       end
 
       def format_file_number(form_data)
-        file_number = form_data['vaFileNumber'].presence || form_data['ssn'].presence
-        if file_number.present?
-          formatted_file_number = [file_number[0..2],
-                                   file_number[3..4],
-                                   file_number[5..]].join('-')
-          form_data['fileNumber'] = "#{formatted_file_number} #{form_data['payeeNumber']}"
-        else
-          form_data['fileNumber'] = ''
-        end
+        form_data['fileNumber'] = if form_data['vaFileNumber'].present? && form_data['vaBenefitProgram'] == 'chapter35'
+                                    "#{format_ssn(form_data['vaFileNumber'])} #{form_data['payeeNumber']}"
+                                  else
+                                    format_ssn(form_data['ssn'])
+                                  end
       end
 
       def format_previously_applied(form_data)
@@ -143,6 +139,14 @@ module PdfFill
         Date.parse(date_str).strftime(format)
       rescue
         date_str
+      end
+
+      def format_ssn(ssn_str)
+        return '' if ssn_str.blank?
+
+        [ssn_str[0..2],
+         ssn_str[3..4],
+         ssn_str[5..]].join('-')
       end
     end
   end

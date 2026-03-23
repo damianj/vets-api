@@ -151,7 +151,12 @@ module PdfFill
         format_address(@form_data['mailingAddress'])
         format_phone
         @form_data['ssn'] = split_ssn(@form_data['ssn']).values.join('-')
-        @form_data['vaFileNumber'].concat('-', @form_data['payeeNumber'])
+        if @form_data['vaFileNumber'].present? && @form_data['vaBenefitProgram'] == 'chapter35'
+          @form_data['vaFileNumber'] =
+            split_ssn(@form_data['vaFileNumber']).values.join('-') + " #{@form_data['payeeNumber']}"
+        else
+          @form_data['vaFileNumber'] = @form_data['ssn']
+        end
       end
 
       def format_applicant_name(name)

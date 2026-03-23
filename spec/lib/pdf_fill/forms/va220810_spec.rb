@@ -47,7 +47,7 @@ describe PdfFill::Forms::Va220810 do
     end
 
     it 'formats va file number' do
-      expect(merged_fields['vaFileNumber']).to eq("#{form_data['vaFileNumber']}-#{form_data['payeeNumber']}")
+      expect(merged_fields['vaFileNumber']).to eq('999-00-1234')
     end
 
     it 'converts hasPreviouslyApplied boolean to Yes/Off' do
@@ -75,6 +75,14 @@ describe PdfFill::Forms::Va220810 do
     it 'formats dates to MM/DD/YYYY' do
       %w[examDate dateSigned].each do |field|
         expect(merged_fields[field]).to match(%r{^(0[1-9]|1[0-2])/(0[1-9]|[12][0-9]|3[01])/\d{4}$})
+      end
+    end
+
+    context 'with a chapter 35 benefit' do
+      let(:form_data) { get_fixture('pdf_fill/22-0810/chapter_35') }
+
+      it 'uses the full va file number and payee suffix' do
+        expect(merged_fields['vaFileNumber']).to eq('123-45-6789 AB')
       end
     end
   end
