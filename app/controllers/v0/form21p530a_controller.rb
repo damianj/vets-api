@@ -8,8 +8,9 @@ module V0
     include PdfFill::Forms::FormHelper
 
     service_tag 'state-tribal-interment-allowance'
-    skip_before_action :authenticate, only: %i[create download_pdf]
-    before_action :load_user, :check_feature_enabled
+    skip_before_action :authenticate, unless: :auth_required?
+    before_action :load_user, unless: :auth_required?
+    before_action :check_feature_enabled
 
     def create
       claim = build_claim
@@ -116,6 +117,10 @@ module V0
           status: '500'
         }]
       }, status: :internal_server_error
+    end
+
+    def auth_required?
+      Flipper.enabled?(:aquia_bio_auth_required, current_user)
     end
   end
 end

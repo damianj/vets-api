@@ -5,8 +5,11 @@ require Rails.root.join('spec', 'rswag_override.rb').to_s
 require 'rails_helper'
 
 RSpec.describe 'Form 21P-530a API', openapi_spec: 'config/openapi/openapi.json', type: :request do
+  let(:user) { create(:user, :loa1) }
+
   before do
     host! Settings.hostname
+    sign_in_as(user)
     allow(SecureRandom).to receive(:uuid).and_return('12345678-1234-1234-1234-123456789abc')
     allow(Time).to receive(:current).and_return(Time.zone.parse('2025-01-15 10:30:00 UTC'))
   end
@@ -16,6 +19,17 @@ RSpec.describe 'Form 21P-530a API', openapi_spec: 'config/openapi/openapi.json',
     it 'returns a 422 when request fails schema validation' do |example|
       submit_request(example.metadata)
       expect(response).to have_http_status(:unprocessable_entity)
+    end
+  end
+
+  # Shared example for unauthenticated request
+  shared_examples 'returns 401 for unauthenticated request' do |endpoint_description|
+    it "returns a 401 for unauthenticated #{endpoint_description}" do |example|
+      allow(Flipper).to receive(:enabled?).and_call_original
+      allow(Flipper).to receive(:enabled?).with(:aquia_bio_auth_required, anything).and_return(true)
+      cookies.delete('api_session')
+      submit_request(example.metadata)
+      expect(response).to have_http_status(:unauthorized)
     end
   end
 
@@ -39,7 +53,8 @@ RSpec.describe 'Form 21P-530a API', openapi_spec: 'config/openapi/openapi.json',
       consumes 'application/json'
       produces 'application/json'
       description 'Submit a Form 21P-530a (Application for Burial Allowance - State/Tribal Organizations). ' \
-                  'This endpoint is unauthenticated and may be used by cemetery officials.'
+                  'This endpoint requires authentication.'
+      security [{ apiKey: [] }]
 
       parameter name: :form_data, in: :body, required: true, schema: Openapi::Requests::Form21p530a::FORM_SCHEMA
 
@@ -69,6 +84,19 @@ RSpec.describe 'Form 21P-530a API', openapi_spec: 'config/openapi/openapi.json',
 
         include_examples 'validates schema and returns 422'
       end
+
+      response '401', 'Unauthorized - not authenticated' do
+        produces 'application/json'
+        schema '$ref' => '#/components/schemas/Errors'
+
+        let(:form_data) do
+          JSON.parse(
+            Rails.root.join('spec', 'fixtures', 'form21p530a', 'valid_form.json').read
+          ).with_indifferent_access
+        end
+
+        include_examples 'returns 401 for unauthenticated request', 'form submission'
+      end
     end
   end
 
@@ -78,7 +106,9 @@ RSpec.describe 'Form 21P-530a API', openapi_spec: 'config/openapi/openapi.json',
       operationId 'downloadForm21p530aPdf'
       consumes 'application/json'
       produces 'application/pdf'
-      description 'Generate and download a filled PDF for Form 21P-530a (Application for Burial Allowance)'
+      description 'Generate and download a filled PDF for Form 21P-530a (Application for Burial Allowance). ' \
+                  'This endpoint requires authentication.'
+      security [{ apiKey: [] }]
 
       parameter name: :form_data, in: :body, required: true, schema: Openapi::Requests::Form21p530a::FORM_SCHEMA
 
@@ -146,6 +176,19 @@ RSpec.describe 'Form 21P-530a API', openapi_spec: 'config/openapi/openapi.json',
           submit_request(example.metadata)
           expect(response).to have_http_status(:internal_server_error)
         end
+      end
+
+      response '401', 'Unauthorized - not authenticated' do
+        produces 'application/json'
+        schema '$ref' => '#/components/schemas/Errors'
+
+        let(:form_data) do
+          JSON.parse(
+            Rails.root.join('spec', 'fixtures', 'form21p530a', 'valid_form.json').read
+          ).with_indifferent_access
+        end
+
+        include_examples 'returns 401 for unauthenticated request', 'PDF download'
       end
     end
   end

@@ -2789,10 +2789,20 @@ RSpec.describe 'the v0 API documentation', order: :defined, type: %i[apivore req
     end
 
     describe 'form 21-0779 nursing home information' do
+      let(:user) { create(:user, :loa1) }
       let(:saved_claim) { create(:va210779) }
+      let(:auth_headers) do
+        {
+          '_headers' => {
+            'Cookie' => sign_in(user, nil, true),
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json'
+          }
+        }
+      end
 
       before do
-        allow(Flipper).to receive(:enabled?).with(:form_0779_enabled, nil).and_return(true)
+        allow(Flipper).to receive(:enabled?).with(:form_0779_enabled, anything).and_return(true)
       end
 
       it 'supports submitting a form 21-0779' do
@@ -2800,7 +2810,7 @@ RSpec.describe 'the v0 API documentation', order: :defined, type: %i[apivore req
           :post,
           '/v0/form210779',
           200,
-          json_headers.merge('_data' => { form: VetsJsonSchema::EXAMPLES['21-0779'].to_json }.to_json)
+          auth_headers.merge('_data' => { form: VetsJsonSchema::EXAMPLES['21-0779'].to_json }.to_json)
         )
       end
 
@@ -2809,7 +2819,7 @@ RSpec.describe 'the v0 API documentation', order: :defined, type: %i[apivore req
           :post,
           '/v0/form210779',
           422,
-          json_headers.merge('_data' => { form: { foo: :bar }.to_json }.to_json)
+          auth_headers.merge('_data' => { form: { foo: :bar }.to_json }.to_json)
         )
       end
 
@@ -2818,7 +2828,7 @@ RSpec.describe 'the v0 API documentation', order: :defined, type: %i[apivore req
           :post,
           '/v0/form210779',
           400,
-          json_headers.merge('_data' => { foo: :bar }.to_json)
+          auth_headers.merge('_data' => { foo: :bar }.to_json)
         )
       end
 
@@ -2827,7 +2837,7 @@ RSpec.describe 'the v0 API documentation', order: :defined, type: %i[apivore req
           :get,
           '/v0/form210779/download_pdf/{guid}',
           200,
-          'guid' => saved_claim.guid
+          auth_headers.merge('guid' => saved_claim.guid)
         )
       end
 
@@ -2836,19 +2846,19 @@ RSpec.describe 'the v0 API documentation', order: :defined, type: %i[apivore req
           :get,
           '/v0/form210779/download_pdf/{guid}',
           404,
-          'guid' => 'bad-id'
+          auth_headers.merge('guid' => 'bad-id')
         )
       end
 
       context 'when feature toggle is disabled' do
-        before { allow(Flipper).to receive(:enabled?).with(:form_0779_enabled, nil).and_return(false) }
+        before { allow(Flipper).to receive(:enabled?).with(:form_0779_enabled, anything).and_return(false) }
 
         it 'supports submitting a form 21-0779' do
           expect(subject).to validate(
             :post,
             '/v0/form210779',
             404,
-            json_headers.merge('_data' => { form: VetsJsonSchema::EXAMPLES['21-0779'].to_json }.to_json)
+            auth_headers.merge('_data' => { form: VetsJsonSchema::EXAMPLES['21-0779'].to_json }.to_json)
           )
         end
 
@@ -2857,7 +2867,7 @@ RSpec.describe 'the v0 API documentation', order: :defined, type: %i[apivore req
             :get,
             '/v0/form210779/download_pdf/{guid}',
             404,
-            'guid' => saved_claim.guid
+            auth_headers.merge('guid' => saved_claim.guid)
           )
         end
       end

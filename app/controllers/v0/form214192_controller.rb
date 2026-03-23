@@ -7,8 +7,9 @@ module V0
     include RetriableConcern
 
     service_tag 'employment-information'
-    skip_before_action :authenticate, only: %i[create download_pdf]
-    before_action :load_user, :check_feature_enabled
+    skip_before_action :authenticate, unless: :auth_required?
+    before_action :load_user, unless: :auth_required?
+    before_action :check_feature_enabled
 
     def create
       claim = build_claim
@@ -78,6 +79,10 @@ module V0
         PdfFill::Filler.fill_ancillary_form(parsed_form, SecureRandom.uuid, '21-4192')
       end
       PdfFill::Forms::Va214192.stamp_signature(source_file_path, parsed_form)
+    end
+
+    def auth_required?
+      Flipper.enabled?(:aquia_bio_auth_required, current_user)
     end
   end
 end

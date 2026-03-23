@@ -3055,6 +3055,12 @@ features:
     actor_type: cookie_id
     enable_in_development: true
     description: "Toggle the sending of data to IBM GOVCIO for form 21-4192 (Request for Employment Information)"
+  aquia_bio_auth_required:
+    actor_type: user
+    enable_in_development: true
+    description: >
+      When enabled, requires IAL1 authentication for Forms 21-0779, 21P-530a, and 21-4192.
+      When disabled, these forms allow unauthenticated access.
   form_2680_enabled:
     actor_type: user
     enable_in_development: true

@@ -7,8 +7,59 @@ RSpec.describe 'V0::Form210779',
   include StatsD::Instrument::Helpers
   let(:form_data) { { form: VetsJsonSchema::EXAMPLES['21-0779'].to_json }.to_json }
   let(:saved_claim) { create(:va210779) }
+  let(:user) { create(:user, :loa1) }
+
+  describe 'when unauthenticated' do
+    context 'when aquia_bio_auth_required is enabled' do
+      before do
+        allow(Flipper).to receive(:enabled?).and_call_original
+        allow(Flipper).to receive(:enabled?).with(:form_0779_enabled, anything).and_return(true)
+        allow(Flipper).to receive(:enabled?).with(:aquia_bio_auth_required, anything).and_return(true)
+      end
+
+      describe 'POST /v0/form210779' do
+        it 'returns 401 Unauthorized' do
+          post('/v0/form210779', params: form_data, headers: { 'Content-Type' => 'application/json' })
+          expect(response).to have_http_status(:unauthorized)
+        end
+      end
+
+      describe 'GET /v0/form210779/download_pdf' do
+        it 'returns 401 Unauthorized' do
+          get("/v0/form210779/download_pdf/#{saved_claim.guid}", headers: { 'Content-Type' => 'application/json' })
+          expect(response).to have_http_status(:unauthorized)
+        end
+      end
+    end
+
+    context 'when aquia_bio_auth_required is disabled' do
+      before do
+        allow(Flipper).to receive(:enabled?).and_call_original
+        allow(Flipper).to receive(:enabled?).with(:form_0779_enabled, anything).and_return(true)
+        allow(Flipper).to receive(:enabled?).with(:aquia_bio_auth_required, anything).and_return(false)
+      end
+
+      describe 'POST /v0/form210779' do
+        it 'allows unauthenticated access' do
+          post('/v0/form210779', params: form_data, headers: { 'Content-Type' => 'application/json' })
+          expect(response).to have_http_status(:ok)
+        end
+      end
+
+      describe 'GET /v0/form210779/download_pdf' do
+        it 'allows unauthenticated access' do
+          get("/v0/form210779/download_pdf/#{saved_claim.guid}", headers: { 'Content-Type' => 'application/json' })
+          expect(response).to have_http_status(:ok)
+        end
+      end
+    end
+  end
 
   describe 'POST /v0/form210779' do
+    before do
+      sign_in_as(user)
+    end
+
     context 'when inflection header provided' do
       it 'returns a success' do
         metrics = capture_statsd_calls do
@@ -40,6 +91,10 @@ RSpec.describe 'V0::Form210779',
   end
 
   describe 'GET /v0/form210779/download_pdf' do
+    before do
+      sign_in_as(user)
+    end
+
     it 'returns a success' do
       metrics = capture_statsd_calls do
         get("/v0/form210779/download_pdf/#{saved_claim.guid}", headers: {

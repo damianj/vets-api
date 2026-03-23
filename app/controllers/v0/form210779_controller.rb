@@ -6,8 +6,8 @@ module V0
   class Form210779Controller < ApplicationController
     include RetriableConcern
     service_tag 'nursing-home-information'
-    skip_before_action :authenticate
-    before_action :load_user
+    skip_before_action :authenticate, unless: :auth_required?
+    before_action :load_user, unless: :auth_required?
     before_action :check_feature_enabled
 
     def create
@@ -106,6 +106,10 @@ module V0
 
     def cleanup_pdf_file(source_file_path)
       File.delete(source_file_path) if defined?(source_file_path) && source_file_path && File.exist?(source_file_path)
+    end
+
+    def auth_required?
+      Flipper.enabled?(:aquia_bio_auth_required, current_user)
     end
   end
 end
