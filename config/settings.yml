@@ -1385,7 +1385,7 @@ sidekiq:
   github_api_key: <%= ENV['sidekiq__github_api_key'] %>
   github_oauth_key: <%= ENV['sidekiq__github_oauth_key'] %>
   github_oauth_secret: <%= ENV['sidekiq__github_oauth_secret'] %>
-  github_organization: department-of-veterans-affairs
+  github_organization: <%= ENV['sidekiq__github_organization'] %>
   github_team: <%= ENV['sidekiq__github_team'] %>
 sidekiq_admin_panel: <%= ENV['sidekiq_admin_panel'] %>
 survivors_benefits:
