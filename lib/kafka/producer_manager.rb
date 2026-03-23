@@ -29,37 +29,39 @@ module Kafka
           'sasl.mechanisms': Settings.kafka_producer.sasl_mechanisms
         }
         config.logger = Rails.logger
-        config.client_class = if Rails.env.test?
+        config.client_class = if Rails.env.to_s == 'test'
                                 WaterDrop::Clients::Buffered
                               else
                                 WaterDrop::Clients::Rdkafka
                               end
 
         # Authentication to MSK via IAM OauthBearer token
-        # Once we're ready to test connection to the Event Bus, this should be uncommented
-        config.oauth.token_provider_listener = Kafka::OauthTokenRefresher.new unless Rails.env.test?
+        # Credential provisioning is skipped in test environment to avoid unnecessary OAuth calls
+        config.oauth.token_provider_listener = Kafka::OauthTokenRefresher.new unless Rails.env.to_s == 'test'
       end
       setup_instrumentation
     end
 
     def setup_instrumentation
-      producer.monitor.subscribe('error.occurred') do |event|
-        producer_id = event[:producer_id]
-        case event[:type]
-        when 'librdkafka.dispatch_error'
-          Rails.logger.error(
-            "Waterdrop [#{producer_id}]: Message with label: #{event[:delivery_report].label} failed to be delivered"
-          )
-        else
-          Rails.logger.error "Waterdrop [#{producer_id}]: #{event[:type]} occurred"
+      unless Rails.env.to_s == 'test'
+        producer.monitor.subscribe('error.occurred') do |event|
+          producer_id = event[:producer_id]
+          case event[:type]
+          when 'librdkafka.dispatch_error'
+            Rails.logger.error(
+              "Waterdrop [#{producer_id}]: Message with label: #{event[:delivery_report].label} failed to be delivered"
+            )
+          else
+            Rails.logger.error "Waterdrop [#{producer_id}]: #{event[:type]} occurred"
+          end
         end
-      end
 
-      producer.monitor.subscribe('message.acknowledged') do |event|
-        producer_id = event[:producer_id]
-        offset = event[:offset]
+        producer.monitor.subscribe('message.acknowledged') do |event|
+          producer_id = event[:producer_id]
+          offset = event[:offset]
 
-        Rails.logger.info "WaterDrop [#{producer_id}] delivered message with offset: #{offset}"
+          Rails.logger.info "Waterdrop [#{producer_id}] delivered message with offset: #{offset}"
+        end
       end
 
       setup_datadog_instrumentation

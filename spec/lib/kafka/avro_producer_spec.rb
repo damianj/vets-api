@@ -48,7 +48,7 @@ describe Kafka::AvroProducer do
 
     context 'in other environments' do
       before do
-        allow(Rails.env).to receive(:test?).and_return(false)
+        allow(Rails.env).to receive(:to_s).and_return('development')
         Singleton.__init__(Kafka::ProducerManager)
       end
 

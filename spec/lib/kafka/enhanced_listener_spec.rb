@@ -211,5 +211,36 @@ RSpec.describe Kafka::EnhancedListener do
 
       expect(monitor).to have_received(:subscribe).with(instance_of(described_class))
     end
+
+    it 'does not subscribe Waterdrop logging callbacks in test environment' do
+      Kafka::ProducerManager.instance
+
+      expect(monitor).not_to have_received(:subscribe).with('error.occurred')
+      expect(monitor).not_to have_received(:subscribe).with('message.acknowledged')
+    end
+
+    it 'does not subscribe Waterdrop logging callbacks when Rails.env.test? is stubbed false' do
+      allow(Rails.env).to receive(:test?).and_return(false)
+
+      Kafka::ProducerManager.instance
+
+      expect(monitor).not_to have_received(:subscribe).with('error.occurred')
+      expect(monitor).not_to have_received(:subscribe).with('message.acknowledged')
+      expect(monitor).to have_received(:subscribe).with(instance_of(described_class))
+    end
+
+    it 'subscribes Waterdrop logging callbacks in non-test environments' do
+      allow(Rails.env).to receive(:to_s).and_return('development')
+      Singleton.__init__(Kafka::ProducerManager)
+
+      Kafka::ProducerManager.instance
+
+      expect(monitor).to have_received(:subscribe).with('error.occurred')
+      expect(monitor).to have_received(:subscribe).with('message.acknowledged')
+      expect(monitor).to have_received(:subscribe).with(instance_of(described_class))
+    ensure
+      # Explicitly reset again to ensure the mocked instance doesn't leak into subsequent tests
+      Singleton.__init__(Kafka::ProducerManager)
+    end
   end
 end
