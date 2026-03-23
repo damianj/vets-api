@@ -37,7 +37,6 @@ RSpec.describe 'MebApi::V0 Forms', type: :request do
   before do
     sign_in_as(user)
     allow(Flipper).to receive(:enabled?).and_call_original
-    allow(Flipper).to receive(:enabled?).with(:show_forms_app).and_return(true)
     allow(Flipper).to receive(:enabled?).with(:form1990emeb_confirmation_email).and_return(true)
   end
 
@@ -176,6 +175,74 @@ RSpec.describe 'MebApi::V0 Forms', type: :request do
         post '/meb_api/v0/forms_send_confirmation_email', params: {
           email: 'test@test.com', first_name: 'test'
         }
+      end
+    end
+
+    context 'with form_type=10297' do
+      context 'when the feature flag is enabled' do
+        before do
+          allow(Flipper).to receive(:enabled?).and_call_original
+          allow(Flipper).to receive(:enabled?).with(:form10297_meb_confirmation_email).and_return(true)
+        end
+
+        it 'dispatches the 10297 worker with provided params' do
+          allow(MebApi::V0::Submit10297FormConfirmation).to receive(:perform_async)
+          post '/meb_api/v0/forms_send_confirmation_email', params: {
+            form_type: '10297', claim_status: 'ELIGIBLE', email: 'test@test.com', first_name: 'test'
+          }
+          expect(MebApi::V0::Submit10297FormConfirmation).to have_received(:perform_async)
+            .with('ELIGIBLE', 'test@test.com', 'TEST', user.icn)
+        end
+
+        it 'uses current user email and name when params not provided' do
+          allow(MebApi::V0::Submit10297FormConfirmation).to receive(:perform_async)
+          post '/meb_api/v0/forms_send_confirmation_email', params: {
+            form_type: '10297', claim_status: 'ELIGIBLE'
+          }
+          expect(MebApi::V0::Submit10297FormConfirmation).to have_received(:perform_async)
+            .with('ELIGIBLE', user.email, 'HERBERT', user.icn)
+        end
+
+        it 'does not dispatch the 1990emeb worker' do
+          allow(MebApi::V0::Submit10297FormConfirmation).to receive(:perform_async)
+          allow(MebApi::V0::Submit1990emebFormConfirmation).to receive(:perform_async)
+          post '/meb_api/v0/forms_send_confirmation_email', params: {
+            form_type: '10297', claim_status: 'DENIED', email: 'test@test.com', first_name: 'test'
+          }
+          expect(MebApi::V0::Submit1990emebFormConfirmation).not_to have_received(:perform_async)
+        end
+      end
+
+      context 'when the feature flag is disabled' do
+        before do
+          allow(Flipper).to receive(:enabled?).and_call_original
+          allow(Flipper).to receive(:enabled?).with(:form10297_meb_confirmation_email).and_return(false)
+        end
+
+        it 'does not send the confirmation email' do
+          allow(MebApi::V0::Submit10297FormConfirmation).to receive(:perform_async)
+          post '/meb_api/v0/forms_send_confirmation_email', params: {
+            form_type: '10297', claim_status: 'ELIGIBLE', email: 'test@test.com', first_name: 'test'
+          }
+          expect(MebApi::V0::Submit10297FormConfirmation).not_to have_received(:perform_async)
+          expect(response).to have_http_status(:no_content)
+        end
+      end
+
+      context 'when required attributes are missing' do
+        before do
+          allow(Flipper).to receive(:enabled?).and_call_original
+          allow(Flipper).to receive(:enabled?).with(:form10297_meb_confirmation_email).and_return(true)
+          allow(MebApi::V0::Submit10297FormConfirmation).to receive(:perform_async)
+        end
+
+        it 'does not send email when claim_status is missing' do
+          post '/meb_api/v0/forms_send_confirmation_email', params: {
+            form_type: '10297', email: 'test@test.com', first_name: 'test'
+          }
+          expect(MebApi::V0::Submit10297FormConfirmation).not_to have_received(:perform_async)
+          expect(response).to have_http_status(:unprocessable_entity)
+        end
       end
     end
   end

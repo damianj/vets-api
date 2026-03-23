@@ -8,12 +8,21 @@ require 'dgi/forms/service/letter_service'
 module MebApi
   module V0
     class FormsController < MebApi::V0::BaseController
-      before_action :check_forms_flipper
       before_action :set_type, only: %i[claim_letter claim_status claimant_info]
 
+      # Default form type constants (used when form_type param is not provided)
       FORM_TYPE = MebApi::ConfirmationEmailConfig::FORM_1990EMEB
       FORM_TAG = MebApi::ConfirmationEmailConfig::TAG_1990EMEB
       FLIPPER_KEY = :form1990emeb_confirmation_email
+
+      # Form-type-aware configuration for confirmation emails
+      CONFIRMATION_EMAIL_CONFIG = {
+        '10297' => {
+          worker: MebApi::V0::Submit10297FormConfirmation,
+          form_tag: MebApi::ConfirmationEmailConfig::TAG_10297,
+          flipper_key: :form10297_meb_confirmation_email
+        }
+      }.freeze
 
       def claim_letter
         claimant_response = claimant_service.get_claimant_info(@form_type)
@@ -82,17 +91,18 @@ module MebApi
       end
 
       def send_confirmation_email
-        log_confirmation_email_request(FORM_TAG, FLIPPER_KEY)
+        config = resolve_email_config
+        log_confirmation_email_request(config[:form_tag], config[:flipper_key])
 
-        unless Flipper.enabled?(FLIPPER_KEY)
-          log_confirmation_email_skipped(FORM_TAG, 'flipper_disabled')
+        unless Flipper.enabled?(config[:flipper_key])
+          log_confirmation_email_skipped(config[:form_tag], 'flipper_disabled')
           return head :no_content
         end
 
-        attrs = validate_confirmation_email_attributes(FORM_TAG)
+        attrs = validate_confirmation_email_attributes(config[:form_tag])
         return head :unprocessable_entity unless attrs
 
-        dispatch_confirmation_email(attrs[:email])
+        dispatch_confirmation_email(attrs[:email], config)
       end
 
       private
@@ -101,14 +111,22 @@ module MebApi
         @form_type = params['type'] == 'ToeSubmission' ? 'toe' : params['type']&.capitalize
       end
 
-      def dispatch_confirmation_email(email)
-        MebApi::V0::Submit1990emebFormConfirmation.perform_async(
+      def resolve_email_config
+        CONFIRMATION_EMAIL_CONFIG.fetch(params[:form_type].to_s, {
+                                          worker: MebApi::V0::Submit1990emebFormConfirmation,
+                                          form_tag: FORM_TAG,
+                                          flipper_key: FLIPPER_KEY
+                                        })
+      end
+
+      def dispatch_confirmation_email(email, config)
+        config[:worker].perform_async(
           params[:claim_status],
           email,
           params[:first_name]&.upcase || @current_user.first_name&.upcase,
           @current_user.icn
         )
-        log_confirmation_email_dispatched(FORM_TAG, params[:claim_status])
+        log_confirmation_email_dispatched(config[:form_tag], params[:claim_status])
       end
 
       def valid_claimant_response?(response)
