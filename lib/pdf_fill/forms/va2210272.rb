@@ -14,23 +14,24 @@ module PdfFill
           limit: 54
         },
         'address' => {
-          question_num: 2,
           'mailing' => {
             key: 'mailingAddress',
             question_text: 'MAILING ADDRESS (Complete Street Address, City, State and 9-Digit ZIP Code)',
+            question_num: 2,
             question_suffix: 'A',
-            limit: 340
+            limit: 340,
+            multiline_limit: 4
           },
           'email' => {
             key: 'emailAddress',
             question_text: 'APPLICANT\'S EMAIL ADDRESS',
+            question_num: 2,
             question_suffix: 'B',
             limit: 65
           }
         },
         'phone' => {
           question_text: 'TELEPHONE NUMBER (Include Area Code)',
-          question_num: 3,
           'homePhone' => {
             key: 'homePhone',
             question_text: 'HOME',
@@ -88,20 +89,23 @@ module PdfFill
           key: 'orgNameAndAddress',
           question_text: 'NAME OF ORGANIZATION AWARDING LICENSE OR CERTIFICATION (Include address)',
           question_num: 8,
-          limit: 340
+          limit: 340,
+          multiline_limit: 4
         },
         'prepCourseName' => {
           key: 'prepCourseName',
           question_text: 'NAME OF COURSE',
           question_num: 9,
-          limit: 46
+          limit: 46,
+          multiline_limit: 2
         },
         'prepCourseOrgNameAndAddress' => {
           key: 'prepCourseOrgNameAndAddress',
           question_text: 'ORGANIZATION GIVING PREP COURSE (Please include address)',
           question_num: 10,
           question_suffix: 'A',
-          limit: 234
+          limit: 234,
+          multiline_limit: 5
         },
         'prepCourseTakenOnline' => {
           question_text: 'TAKEN ONLINE?',
@@ -134,13 +138,15 @@ module PdfFill
           key: 'prepCourseCost',
           question_text: 'ITEMIZE PREP COURSE COST INCLUDING FEES (Attach receipt)',
           question_num: 12,
-          limit: 524
+          limit: 524,
+          multiline_limit: 14
         },
         'remarks' => {
           key: 'remarks',
           question_text: 'REMARKS',
           question_num: 14,
-          limit: 3200
+          limit: 3200,
+          multiline_limit: 37
         },
         'statementOfTruthSignature' => {
           key: 'statementOfTruthSignature',

@@ -704,4 +704,40 @@ describe PdfFill::HashConverter do
       converter.add_to_extras(key_data, 'test value', nil)
     end
   end
+
+  describe '#overflow?' do
+    let(:key_data) { { key: 'name', question_text: 'NAME', question_num: 1, limit: 10, multiline_limit: 3 } }
+
+    context 'when value is within character limit' do
+      let(:value) { 'Spongebob' }
+
+      it 'returns false' do
+        expect(converter.overflow?(key_data, value)).to be false
+      end
+    end
+
+    context 'when value exceeds character limit' do
+      let(:value) { 'Spongebob X. Squarepants' }
+
+      it 'returns true' do
+        expect(converter.overflow?(key_data, value)).to be true
+      end
+    end
+
+    context 'when value is within multiline limit' do
+      let(:value) { "Sponge\nbob" }
+
+      it 'returns false' do
+        expect(converter.overflow?(key_data, value)).to be false
+      end
+    end
+
+    context 'when value exceeds multiline limit' do
+      let(:value) { "Sponge\nbob\nSquare\npants" }
+
+      it 'returns true' do
+        expect(converter.overflow?(key_data, value)).to be true
+      end
+    end
+  end
 end

@@ -70,8 +70,9 @@ module PdfFill
       value = value.to_s if value.is_a?(Numeric)
 
       limit = key_data.try(:[], :limit)
+      multiline_limit = key_data.try(:[], :multiline_limit)
 
-      limit.present? && value.size > limit
+      (limit.present? && value.size > limit) || multiline_overflow?(value, multiline_limit)
     end
 
     def add_to_extras(key_data, v, i, overflow: true, array_key_data: nil)
@@ -248,6 +249,14 @@ module PdfFill
       end
 
       @pdftk_form
+    end
+
+    private
+
+    def multiline_overflow?(value, line_limit)
+      return false if line_limit.blank?
+
+      value.scan("\n").length + 1 > line_limit
     end
   end
 end

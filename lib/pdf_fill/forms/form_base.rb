@@ -70,6 +70,7 @@ module PdfFill
         [
           address['street'],
           address['street2'],
+          address['street3'],
           [address['city'], address['state'], postal_code].compact.join(', '),
           address['country']
         ].compact.join("\n")

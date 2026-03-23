@@ -20,7 +20,8 @@ module PdfFill
           question_text: 'APPLICANT\'S ADDRESS (Number and street or rural route, P.O. Box, City, State, Zip Code)',
           question_num: 2,
           question_suffix: 'A',
-          limit: 120
+          limit: 120,
+          multiline_limit: 2
         },
         'emailAddress' => {
           key: 'emailAddress',
@@ -113,13 +114,15 @@ module PdfFill
           key: 'examCost',
           question_text: 'ITEMIZE EXAM COST INCLUDING FEES (Attach exam receipt)',
           question_num: 10,
-          limit: 265
+          limit: 265,
+          multiline_limit: 6
         },
         'remarks' => {
           key: 'remarks',
           question_text: 'REMARKS (Optional)',
           question_num: 11,
-          limit: 635
+          limit: 635,
+          multiline_limit: 7
         },
         'statementOfTruthSignature' => {
           key: 'statementOfTruthSignature',
