@@ -4,13 +4,13 @@ This directory contains the OpenAPI specification and documentation for the VA M
 
 ## Files
 
-- `openapi.yaml` - Source of truth for API documentation (edit this file)
-- `openapi.json` - Generated JSON version of the spec (auto-generated, do not edit)
-- `index.html` - Generated static HTML documentation (auto-generated, do not edit)
+- `openapi.yaml` - Source of truth for API documentation (edit this file). Also the file hosted for our OpenAPI specs via Docusaurus on the va-mobile-app repo.
+- `openapi.json` - Generated JSON version of the spec (auto-generated, do not edit). Used by the Committee gem for schema validation in RSpec.
+- `index.html` - Generated static HTML documentation for local browsing only (gitignored, not committed to the repo)
 - `schemas/` - Reusable schema definitions referenced in openapi.yaml
 - `examples/` - Example request/response payloads
 - `params/` - Reusable parameter definitions
-- `generate_static_docs.sh` - Script to manually generate static docs
+- `generate_static_docs.sh` - Script to manually generate static docs locally
 - `validate_route_coverage.rb` - Script to validate all routes are documented
 
 ## Automated Documentation Generation
@@ -20,23 +20,32 @@ When you modify `openapi.yaml`, `routes.rb`, schemas, examples, or params in a p
 1. **Validates route coverage** - Ensures all routes in `config/routes.rb` are documented in `openapi.yaml`
    - Uses flexible parameter matching (e.g., `{id}` in routes matches `{appointmentId}` in OpenAPI)
    - Fails the build if undocumented routes are found
-2. **Generates static docs** - Creates `index.html` and `openapi.json` from `openapi.yaml`
-3. **Commits changes** - Automatically commits the generated files to your PR branch
+2. **Generates openapi.json** - Bundles `openapi.yaml` into `openapi.json`
+3. **Commits changes** - Automatically commits the generated file to your PR branch
 
-This means you only need to edit `openapi.yaml` and related schema files - the static files are generated for you!
+This means you only need to edit `openapi.yaml` and related schema files - `openapi.json` is generated for you!
 
 ## Manual Generation
 
-If you need to generate the docs locally:
+If you need to generate `openapi.json` locally:
+
+```bash
+cd modules/mobile/docs
+redocly bundle openapi.yaml -o openapi.json
+```
+
+To also generate `index.html` for local browsing:
 
 ```bash
 cd modules/mobile/docs
 ./generate_static_docs.sh
 ```
 
-Note: You may need to install `redocly` in order to use the `./generate_static_docs.sh` script 
+Note: You may need to install `redocly` first:
 
-```npm install -g @redocly/cli```
+```bash
+npm install -g @redocly/cli
+```
 
 
 ## Validating Route Coverage
@@ -67,6 +76,4 @@ When you add a new route to `config/routes.rb`:
 
 ## Viewing Documentation
 
-The generated `index.html` located in `modules/mobile/docs/index.html` can be used to view the documentation.
-
-Your can either right-click and open the html file in the browser if there is an option to, or copy the absolute path of the file and paste it into the browser to view the interactive API documentation.
+`index.html` is gitignored and not committed to the repo. To view the documentation locally, generate it first using `./generate_static_docs.sh`, then either right-click the file and open it in a browser, or copy the absolute file path and paste it into the browser.
