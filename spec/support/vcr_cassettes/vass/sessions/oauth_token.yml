@@ -2,10 +2,10 @@
 http_interactions:
   - request:
       method: post
-      uri: <VASS_AUTH_URL>/test-tenant-id/oauth2/v2.0/token
+      uri: <VASS_AUTH_URL>/test-tenant-id/oauth2/token
       body:
         encoding: UTF-8
-        string: client_id=test-client-id&client_secret=test-client-secret&scope=https://api.va.gov/.default&grant_type=client_credentials
+        string: client_id=test-client-id&client_secret=test-client-secret&resource=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee&grant_type=client_credentials
       headers:
         Content-Type:
           - application/x-www-form-urlencoded

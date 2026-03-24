@@ -1263,7 +1263,7 @@
   :base_uri: <%= "#{URI(Settings.vass.auth_url).host}:#{URI(Settings.vass.auth_url).port || 443}" %>
   :endpoints:
     - :method: :post
-      :path: <%= "/#{Settings.vass.tenant_id}/oauth2/v2.0/token" %>
+      :path: <%= "/#{Settings.vass.tenant_id}/oauth2/token" %>
       :file_path: "/vass/oauth_token/default"
 
 # VASS API

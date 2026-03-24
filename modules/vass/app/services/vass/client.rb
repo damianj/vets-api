@@ -59,7 +59,7 @@ module Vass
                                    })
 
         headers = { 'Content-Type' => 'application/x-www-form-urlencoded' }
-        perform(:post, "#{tenant_id}/oauth2/v2.0/token", body, headers, { server_url: auth_url })
+        perform(:post, "#{tenant_id}/oauth2/token", body, headers, { server_url: auth_url })
       end
     end
 
