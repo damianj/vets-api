@@ -10,8 +10,7 @@ class HttpMethodNotAllowed
 
   def call(env)
     if ActionDispatch::Request::HTTP_METHODS.include?(env['REQUEST_METHOD'].upcase)
-      @status, @headers, @response = @app.call(env)
-      [@status, @headers, @response]
+      @app.call(env)
     else
       Rails.logger.info("ActionController::UnknownHttpMethod: #{env['REQUEST_METHOD']}")
       [405, { 'Content-Type' => 'text/plain' }, ['Method Not Allowed']]
