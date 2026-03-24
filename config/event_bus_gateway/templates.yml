@@ -1,0 +1,54 @@
+development:
+  email:
+    default_template: 'dev_template123'
+    pension_claims_template: 'dev_pension_template123'
+    mobile_link_template: 'dev_mobile_link_template123'
+    pension_mobile_link_template: 'dev_pension_mobile_link_template123'
+  push:
+    default_template: 'dev_push_template123'
+  sms:
+    default_template: 'dev_sms_template123'
+
+test:
+  email:
+    default_template: 'test_template123'
+    pension_claims_template: 'test_pension_template123'
+    mobile_link_template: 'test_mobile_link_template123'
+    pension_mobile_link_template: 'test_pension_mobile_link_template123'
+  push:
+    default_template: 'test_push_template123'
+  sms:
+    default_template: 'test_sms_template123'
+
+staging:
+  email:
+    default_template: '520c5a6b-a24e-4c94-91e4-2ef50a667876'
+    pension_claims_template: '0f5f9393-225f-42f4-8773-6fe179ae0707'
+    mobile_link_template: 'f8982107-1cb2-49e6-bcd2-c4ccd9a3f443'
+    pension_mobile_link_template: '97f6e9c4-a5cc-4b97-bde8-603ed91911d7'
+  push:
+    default_template: '9B25046E39874A21BB8FD4867E6B452D'
+  sms:
+    default_template: '705ef1bf-1074-4042-aca8-bbed918c2e52'
+
+production:
+  email:
+    default_template: 'b5830306-3339-49ea-a80a-4b5105263aaf'
+    pension_claims_template: 'b600ae50-07e3-4e2e-81e5-05be8157f714'
+    mobile_link_template: ''
+    pension_mobile_link_template: ''
+  push:
+    default_template: '5D7D1E2BE5C149B0918E30F7116EC1CA'
+  sms:
+    default_template: 'be6761df-f739-4924-b86f-fddb4f501d29'
+
+blank:
+  email:
+    default_template: ''
+    pension_claims_template: ''
+    mobile_link_template: ''
+    pension_mobile_link_template: ''
+  push:
+    default_template: ''
+  sms:
+    default_template: ''

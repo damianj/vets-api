@@ -229,6 +229,8 @@ features:
     description: "Gateway: Enable decision letter email notifications for EP600 predetermined notice"
   event_bus_gateway_ep930_decision_letter_notifications:
     description: "Gateway: Enable decision letter email notifications for EP930 review, referrals, and other"
+  event_bus_gateway_letter_ready_email_universal_link:
+    description: Percentage rollout flag for universal link in letter ready email notifications
   event_bus_gateway_letter_ready_push_notifications:
     description: Percentage rollout flag for push notifications in LetterReadyNotificationJob
   event_bus_gateway_letter_ready_sms_notifications:
@@ -241,6 +243,10 @@ features:
     description: "Gateway: Enable sms notifications"
   event_bus_gateway_sign_in_token_validation:
     description: Enables SignInService token validation
+  event_bus_gateway_controller_visibility:
+    description: Enables detailed logging in EventBusGatewayController for debugging and monitoring
+  event_bus_gateway_controller_validation_visibility:
+    description: System-wide flag to enable validation logging in EventBusGatewayController
   hca_browser_monitoring_enabled:
     actor_type: user
     description: Enables browser monitoring for the health care application.

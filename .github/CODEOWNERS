@@ -719,6 +719,7 @@ config/coverband.rb @department-of-veterans-affairs/backend-review-group
 config/database.yml @department-of-veterans-affairs/backend-review-group
 config/environment.rb @department-of-veterans-affairs/backend-review-group
 config/environments @department-of-veterans-affairs/backend-review-group
+config/event_bus_gateway/templates.yml @department-of-veterans-affairs/benefits-management-tools-be @department-of-veterans-affairs/backend-review-group
 config/features.yml @department-of-veterans-affairs/backend-review-group
 config/form_profile_mappings/0873.yml @department-of-veterans-affairs/vfs-virtual-agent-chatbot @department-of-veterans-affairs/backend-review-group
 config/form_profile_mappings/10-10EZR.yml @department-of-veterans-affairs/health-apps-backend @department-of-veterans-affairs/backend-review-group
