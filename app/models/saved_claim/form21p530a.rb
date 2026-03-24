@@ -87,11 +87,10 @@ class SavedClaim::Form21p530a < SavedClaim
   def to_ibm
     vet_info = parsed_form['veteranInformation'] || {}
     burial_info = parsed_form['burialInformation'] || {}
-    place_of_burial = burial_info['placeOfBurial'] || {}
     certification = parsed_form['certification'] || {}
-    recipient_org = burial_info['recipientOrganization'] || {}
+    service_periods_data = parsed_form['veteranServicePeriods'] || {}
 
-    build_ibm_hash(vet_info, burial_info, place_of_burial, certification, recipient_org)
+    build_ibm_hash(vet_info, burial_info, certification, service_periods_data)
   end
 
   private
@@ -114,15 +113,16 @@ class SavedClaim::Form21p530a < SavedClaim
   # Build the IBM VBA Data Dictionary hash with all 48 required fields
   # @param vet_info [Hash] Veteran information from parsed form
   # @param burial_info [Hash] Burial information from parsed form
-  # @param place_of_burial [Hash] Place of burial from parsed form
   # @param certification [Hash] Certification information from parsed form
-  # @param recipient_org [Hash] Recipient organization information from parsed form
+  # @param service_periods_data [Hash] Veteran service periods data from parsed form
   # @return [Hash] VBA Data Dictionary payload
-  def build_ibm_hash(vet_info, burial_info, place_of_burial, certification, recipient_org)
+  def build_ibm_hash(vet_info, burial_info, certification, service_periods_data)
     full_name = vet_info['fullName'] || {}
+    place_of_burial = burial_info['placeOfBurial'] || {}
+    recipient_org = burial_info['recipientOrganization'] || {}
 
     build_veteran_fields(vet_info, full_name)
-      .merge(build_service_history_fields(vet_info))
+      .merge(build_service_history_fields(service_periods_data))
       .merge(build_burial_fields(burial_info, place_of_burial))
       .merge(build_recipient_org_fields(recipient_org))
       .merge(build_certification_fields(certification))
@@ -158,10 +158,10 @@ class SavedClaim::Form21p530a < SavedClaim
   end
 
   # Build service history fields for up to 3 service periods (Boxes 8-10)
-  # @param vet_info [Hash] Veteran information containing service periods
+  # @param service_periods_data [Hash] Veteran service periods data
   # @return [Hash] VBA Data Dictionary service history fields
-  def build_service_history_fields(vet_info)
-    service_periods = vet_info.dig('veteranServicePeriods', 'periods') || []
+  def build_service_history_fields(service_periods_data)
+    service_periods = service_periods_data['periods'] || []
     fields = {}
 
     # Always create all 3 service period slots (Boxes 8-9)
@@ -177,7 +177,7 @@ class SavedClaim::Form21p530a < SavedClaim
     end
 
     # Box 10 - Veteran served under other name
-    fields['VET_NAME_OTHER'] = vet_info.dig('veteranServicePeriods', 'servedUnderDifferentName')
+    fields['VET_NAME_OTHER'] = service_periods_data['servedUnderDifferentName']
 
     fields
   end

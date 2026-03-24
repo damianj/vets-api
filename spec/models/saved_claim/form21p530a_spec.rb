@@ -349,8 +349,8 @@ RSpec.describe SavedClaim::Form21p530a, type: :model do
         expect(ibm_data).to have_key('SEPARATION_PLACE_3')
       end
 
-      it 'formats service dates without slashes (MMDDYYYY)' do
-        # Dates in service history use MMDDYYYY format per data dictionary
+      it 'formats service dates with slashes (MM/DD/YYYY)' do
+        # Dates in service history use MM/DD/YYYY format
         date_fields = %w[
           DATE_ENTERED_TO_SERVICE_1 DATE_ENTERED_TO_SERVICE_2 DATE_ENTERED_TO_SERVICE_3
           SEPARATION_DATE_1 SEPARATION_DATE_2 SEPARATION_DATE_3
@@ -359,7 +359,8 @@ RSpec.describe SavedClaim::Form21p530a, type: :model do
         date_fields.each do |field|
           value = ibm_data[field]
           if value.present?
-            expect(value).to match(/\A\d{8}\z/), "Expected #{field} to match MMDDYYYY format, got: #{value}"
+            expect(value).to match(%r{\A\d{2}/\d{2}/\d{4}\z}),
+                             "Expected #{field} to match MM/DD/YYYY format, got: #{value}"
           end
         end
       end
