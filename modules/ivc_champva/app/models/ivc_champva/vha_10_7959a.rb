@@ -63,7 +63,7 @@ module IvcChampva
     def stamp_metadata
       return unless Flipper.enabled?(:champva_claims_duty_to_assist) && dta?
 
-      { metadata: build_dta_metadata, attachment_id: 'CVA Duty to Assist' }
+      { metadata: build_dta_metadata, attachment_id: 'Duty to Assist' }
     end
 
     def dta?

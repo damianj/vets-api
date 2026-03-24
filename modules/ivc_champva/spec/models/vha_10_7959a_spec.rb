@@ -186,7 +186,7 @@ RSpec.describe IvcChampva::VHA107959a do
           result = form_dta.stamp_metadata
 
           expect(result).to be_a(Hash)
-          expect(result[:attachment_id]).to eq('CVA Duty to Assist')
+          expect(result[:attachment_id]).to eq('Duty to Assist')
           expect(result[:metadata]).to include('provider_name', 'service_start_date', 'service_end_date')
         end
       end

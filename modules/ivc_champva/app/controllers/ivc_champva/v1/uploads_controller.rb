@@ -862,7 +862,7 @@ module IvcChampva
       ##
       # Builds the attachment_ids array for the given form submission.
       # For 10-7959a resubmissions:
-      #  - If DTA applies (has_claim_docs == false): all documents labeled "CVA Duty to Assist"
+      #  - If DTA applies (has_claim_docs == false): all documents labeled "Duty to Assist"
       #  - If Control number selected: the main claim sheet is labeled "CVA Reopen",
       #    supporting docs retain original types.
       #  - If PDI selected: all documents labeled "CVA Bene Response".
@@ -916,7 +916,7 @@ module IvcChampva
 
       ##
       # Builds the attachment_ids array for DTA submissions.
-      # All documents (main form, DTA info PDF, and supporting docs) are labeled "CVA Duty to Assist".
+      # All documents (main form, DTA info PDF, and supporting docs) are labeled "Duty to Assist".
       #
       # @param [Hash] parsed_form_data complete form submission data object
       # @param [Integer] applicant_rounded_number number of main form attachments needed
@@ -924,7 +924,7 @@ module IvcChampva
       def build_dta_attachment_ids(parsed_form_data, applicant_rounded_number)
         supporting_doc_count = parsed_form_data['supporting_docs']&.count.to_i
         total_doc_count = applicant_rounded_number + supporting_doc_count
-        Array.new(total_doc_count) { 'CVA Duty to Assist' }
+        Array.new(total_doc_count) { 'Duty to Assist' }
       end
 
       ##

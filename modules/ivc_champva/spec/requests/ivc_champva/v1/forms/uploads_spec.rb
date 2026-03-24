@@ -1368,8 +1368,8 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
 
         result = controller.send(:build_attachment_ids, 'vha_10_7959a', parsed_form_data, 1)
 
-        # DTA takes priority - all docs get "CVA Duty to Assist"
-        expect(result).to eq(['CVA Duty to Assist', 'CVA Duty to Assist'])
+        # DTA takes priority - all docs get "Duty to Assist"
+        expect(result).to eq(['Duty to Assist', 'Duty to Assist'])
       end
 
       it 'overrides Control number resubmission logic with DTA attachment IDs' do
@@ -1388,8 +1388,8 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
 
         result = controller.send(:build_attachment_ids, 'vha_10_7959a', parsed_form_data, 1)
 
-        # DTA takes priority - all docs get "CVA Duty to Assist"
-        expect(result).to eq(['CVA Duty to Assist', 'CVA Duty to Assist'])
+        # DTA takes priority - all docs get "Duty to Assist"
+        expect(result).to eq(['Duty to Assist', 'Duty to Assist'])
       end
     end
 
