@@ -2827,7 +2827,7 @@ describe UnifiedHealthData::Service, type: :service do
               'date' => '2025-12-10T16:20:00-06:00',
               'dose_number' => 'Unknown',
               'dose_series' => nil,
-              'group_name' => 'influenza virus vaccine, inactivated',
+              'group_name' => 'INFLUENZA VIRUS VACCINE, INACTIVATED',
               'location' => '556 Captain James A Lovell IL VA Medical Center',
               'manufacturer' => 'Seqirus USA Inc',
               'note' => 'Added comment "note"',

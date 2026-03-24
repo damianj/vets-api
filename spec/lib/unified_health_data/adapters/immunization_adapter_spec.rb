@@ -53,7 +53,7 @@ RSpec.describe 'ImmunizationAdapter' do
           'date' => '2025-12-10T16:20:00-06:00',
           'dose_number' => 'Unknown',
           'dose_series' => nil,
-          'group_name' => 'influenza virus vaccine, inactivated',
+          'group_name' => 'INFLUENZA VIRUS VACCINE, INACTIVATED',
           'location' => '556 Captain James A Lovell IL VA Medical Center',
           'manufacturer' => 'Seqirus USA Inc',
           'note' => 'Added comment "note"',
@@ -166,14 +166,14 @@ RSpec.describe 'ImmunizationAdapter' do
                   service: 'unified_health_data'
                 }
               })
-      expect(adapter.send(:extract_group_name, vaccine_code_default)).to eq('human papillomavirus vaccine')
+      expect(adapter.send(:extract_group_name, vaccine_code_default)).to eq('HUMAN PAPILLOMAVIRUS VACCINE')
     end
 
     it 'returns the vaccineCode.text for name if present (but does not log names if flipper disabled)' do
       allow(Flipper).to receive(:enabled?).with(:mhv_vaccine_uhd_name_logging, user).and_return(false)
       expect(PersonalInformationLog).not_to receive(:create!)
 
-      expect(adapter.send(:extract_group_name, vaccine_code_default)).to eq('human papillomavirus vaccine')
+      expect(adapter.send(:extract_group_name, vaccine_code_default)).to eq('HUMAN PAPILLOMAVIRUS VACCINE')
     end
 
     it 'returns the cvx display if no text' do
@@ -181,7 +181,7 @@ RSpec.describe 'ImmunizationAdapter' do
       vaccine_code['vaccineCode'].delete('text')
       expect(adapter.send(:extract_group_name,
                           vaccine_code))
-        .to eq('human papillomavirus vaccine 9-valent intramuscular suspension')
+        .to eq('HUMAN PAPILLOMAVIRUS VACCINE 9-VALENT INTRAMUSCULAR SUSPENSION')
     end
 
     it 'returns the cerner system display if no text or cvx code' do
@@ -217,7 +217,7 @@ RSpec.describe 'ImmunizationAdapter' do
         ]
       } }
       expect(adapter.send(:extract_group_name,
-                          vaccine_code)).to eq('Gardasil 9')
+                          vaccine_code)).to eq('GARDASIL 9')
     end
 
     it 'returns the first display if no text, and system data does not match' do
@@ -238,7 +238,7 @@ RSpec.describe 'ImmunizationAdapter' do
       } }
 
       expect(adapter.send(:extract_group_name,
-                          vaccine_code)).to eq('Vaccine name')
+                          vaccine_code)).to eq('VACCINE NAME')
     end
   end
 

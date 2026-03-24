@@ -119,9 +119,10 @@ module UnifiedHealthData
         log_vaccine_group_names(resource) if Flipper.enabled?(:mhv_vaccine_uhd_name_logging, @user)
 
         # For now check for vaccineCode.text first,
-        resource.dig('vaccineCode', 'text') ||
-          # else go to fallback methods, based on system priority
-          fallback_group_name(resource.dig('vaccineCode', 'coding'))
+        name = resource.dig('vaccineCode', 'text') ||
+               # else go to fallback methods, based on system priority
+               fallback_group_name(resource.dig('vaccineCode', 'coding'))
+        name&.upcase
       end
 
       def fallback_group_name(coding)
