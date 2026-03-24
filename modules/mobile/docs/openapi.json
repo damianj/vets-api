@@ -15740,6 +15740,11 @@
                           }
                         }
                       }
+                    },
+                    "receivableId": {
+                      "type": "string",
+                      "nullable": true,
+                      "example": "123456789"
                     }
                   }
                 }
@@ -15949,6 +15954,11 @@
                         }
                       }
                     }
+                  },
+                  "receivableId": {
+                    "type": "string",
+                    "nullable": true,
+                    "example": "123456789"
                   }
                 }
               }

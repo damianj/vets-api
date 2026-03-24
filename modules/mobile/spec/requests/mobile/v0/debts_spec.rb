@@ -34,7 +34,8 @@ RSpec.describe 'Mobile::V0::Debts', type: :request do
             [{ 'date' => '08/08/2018', 'letterCode' => '608', 'description' => 'Full C&P Benefit Offset Notification' },
              { 'date' => '07/19/2018', 'letterCode' => '100',
                'description' => 'First Demand Letter - Inactive Benefits - Due Process' }],
-          'fiscalTransactionData' => []
+          'fiscalTransactionData' => [],
+          'receivableId' => nil
         } }
   end
   let(:debt4) do
@@ -59,7 +60,8 @@ RSpec.describe 'Mobile::V0::Debts', type: :request do
              { 'date' => '04/08/2015', 'letterCode' => '608', 'description' => 'Full C&P Benefit Offset Notification' },
              { 'date' => '03/26/2015', 'letterCode' => '100',
                'description' => 'First Demand Letter - Inactive Benefits - Due Process' }],
-          'fiscalTransactionData' => []
+          'fiscalTransactionData' => [],
+          'receivableId' => nil
         }
     }
   end
@@ -79,7 +81,8 @@ RSpec.describe 'Mobile::V0::Debts', type: :request do
         'originalAr' => 166.67,
         'currentAr' => 0.0,
         'debtHistory' => [],
-        'fiscalTransactionData' => []
+        'fiscalTransactionData' => [],
+        'receivableId' => '123456789'
       }
     }
   end
@@ -102,7 +105,8 @@ RSpec.describe 'Mobile::V0::Debts', type: :request do
             [{ 'date' => '02/12/2009',
                'letterCode' => '487',
                'description' => 'Death Case Pending Action' }],
-          'fiscalTransactionData' => [] }
+          'fiscalTransactionData' => [],
+          'receivableId' => nil }
 
     }
   end
@@ -139,7 +143,8 @@ RSpec.describe 'Mobile::V0::Debts', type: :request do
              { 'date' => '11/15/1994', 'letterCode' => '603', 'description' => 'Late Or Missed Payment Notification' },
              { 'date' => '09/10/1994', 'letterCode' => '123',
                'description' => 'Third Demand Letter - Potential Treasury Referral' }],
-          'fiscalTransactionData' => [] } }
+          'fiscalTransactionData' => [],
+          'receivableId' => nil } }
   end
 
   before do
@@ -244,7 +249,8 @@ RSpec.describe 'Mobile::V0::Debts', type: :request do
                     'amountWithheld' => 50.0,
                     'originalAR' => 1177.0,
                     'currentAR' => 123.34,
-                    'debtHistory' => []
+                    'debtHistory' => [],
+                    'receivableId' => '123456789'
                   }
                 ]
               }
@@ -279,7 +285,8 @@ RSpec.describe 'Mobile::V0::Debts', type: :request do
                     'originalAR' => 1177.0,
                     'currentAR' => 123.34,
                     'debtHistory' => [],
-                    'fiscalTransactionData' => nil
+                    'fiscalTransactionData' => nil,
+                    'receivableId' => '123456789'
                   }
                 ]
               }
@@ -316,7 +323,8 @@ RSpec.describe 'Mobile::V0::Debts', type: :request do
             'debtHistory' =>
               [{ 'date' => '09/12/1998', 'letterCode' => '123',
                  'description' => 'Third Demand Letter - Potential Treasury Referral' }],
-            'fiscalTransactionData' => [] }
+            'fiscalTransactionData' => [],
+            'receivableId' => '123456789' }
       }
     end
 
@@ -335,7 +343,8 @@ RSpec.describe 'Mobile::V0::Debts', type: :request do
                  'debtHistory' =>
                    [{ 'date' => '09/12/1998', 'letterCode' => '123',
                       'description' => 'Third Demand Letter - Potential Treasury Referral' }],
-                 'fiscalTransactionData' => [] }]
+                 'fiscalTransactionData' => [],
+                 'receivableId' => '123456789' }]
       debts[0]['id'] = debt_id
       debt_store = DebtManagementCenter::DebtStore.find_or_build(user.uuid)
       debt_store.update(debts:, uuid: user.uuid)
@@ -394,7 +403,8 @@ RSpec.describe 'Mobile::V0::Debts', type: :request do
               'debtHistory' =>
                 [{ 'date' => '09/12/1998', 'letterCode' => '123',
                    'description' => 'Third Demand Letter - Potential Treasury Referral' }],
-              'fiscalTransactionData' => [] }
+              'fiscalTransactionData' => [],
+              'receivableId' => '123456789' }
         }
       end
 
@@ -412,7 +422,8 @@ RSpec.describe 'Mobile::V0::Debts', type: :request do
                    'currentAR' => 123.34,
                    'debtHistory' =>
                      [{ 'date' => '09/12/1998', 'letterCode' => '123',
-                        'description' => 'Third Demand Letter - Potential Treasury Referral' }] }]
+                        'description' => 'Third Demand Letter - Potential Treasury Referral' }],
+                   'receivableId' => '123456789' }]
         debts[0]['id'] = debt_id
         debt_store = DebtManagementCenter::DebtStore.find_or_build(user.uuid)
         debt_store.update(debts:, uuid: user.uuid)
@@ -450,7 +461,8 @@ RSpec.describe 'Mobile::V0::Debts', type: :request do
                        'debtHistory' =>
                          [{ 'date' => '09/12/1998', 'letterCode' => '123',
                             'description' => 'Third Demand Letter - Potential Treasury Referral' }],
-                       'fiscalTransactionData' => nil }]
+                       'fiscalTransactionData' => nil,
+                       'receivableId' => '123456789' }]
             debts[0]['id'] = debt_id
             debt_store = DebtManagementCenter::DebtStore.find_or_build(user.uuid)
             debt_store.update(debts:, uuid: user.uuid)

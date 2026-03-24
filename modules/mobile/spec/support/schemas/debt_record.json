@@ -119,6 +119,9 @@
               }
             }
           }
+        },
+        "receivableId": {
+          "type": ["string", "null"]
         }
       }
     }

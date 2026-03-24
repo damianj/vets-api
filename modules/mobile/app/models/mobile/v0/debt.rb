@@ -23,6 +23,7 @@ module Mobile
         attribute :description, Types::String
       end
       attribute :fiscal_transaction_data, Types::Array
+      attribute :receivable_id, Types::String
     end
   end
 end
