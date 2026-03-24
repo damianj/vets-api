@@ -49,6 +49,10 @@ class SavedClaim::EducationBenefits::VA10203 < SavedClaim::EducationBenefits
     save
   end
 
+  def retention_period
+    60.days
+  end
+
   private
 
   def get_gi_bill_status

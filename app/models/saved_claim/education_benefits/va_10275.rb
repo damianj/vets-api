@@ -24,6 +24,10 @@ class SavedClaim::EducationBenefits::VA10275 < SavedClaim::EducationBenefits
     )
   end
 
+  def retention_period
+    60.days
+  end
+
   private
 
   def callback_metadata

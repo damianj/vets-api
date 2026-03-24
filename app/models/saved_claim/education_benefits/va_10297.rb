@@ -14,6 +14,10 @@ class SavedClaim::EducationBenefits::VA10297 < SavedClaim::EducationBenefits
     send_confirmation_email(parsed_form_data, email)
   end
 
+  def retention_period
+    60.days
+  end
+
   private
 
   def send_confirmation_email(parsed_form_data, email)

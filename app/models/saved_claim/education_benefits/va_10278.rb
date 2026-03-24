@@ -38,4 +38,8 @@ class SavedClaim::EducationBenefits::VA10278 < SavedClaim::EducationBenefits
   def email
     parsed_form['claimantContactInformation']['emailAddress']
   end
+
+  def retention_period
+    60.days
+  end
 end

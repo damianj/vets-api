@@ -21,6 +21,12 @@ RSpec.describe SavedClaim::EducationBenefits::VA10203 do
     end
   end
 
+  describe 'retention_period' do
+    it 'returns the correct period' do
+      expect(instance.retention_period).to be_within(1.minute).of(60.days)
+    end
+  end
+
   describe '#after_submit' do
     context 'when form 10203 claimant flipper enabled' do
       before { allow(Flipper).to receive(:enabled?).with(:form_10203_claimant_service).and_return(true) }

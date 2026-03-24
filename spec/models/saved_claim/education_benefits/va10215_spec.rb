@@ -9,4 +9,10 @@ RSpec.describe SavedClaim::EducationBenefits::VA10215 do
   it_behaves_like 'saved_claim'
 
   validate_inclusion(:form_id, '22-10215')
+
+  describe 'retention_period' do
+    it 'returns the correct period' do
+      expect(instance.retention_period).to be_within(1.minute).of(60.days)
+    end
+  end
 end

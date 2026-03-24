@@ -2,4 +2,8 @@
 
 class SavedClaim::EducationBenefits::VA8794 < SavedClaim::EducationBenefits
   add_form_and_validation('22-8794')
+
+  def retention_period
+    60.days
+  end
 end
