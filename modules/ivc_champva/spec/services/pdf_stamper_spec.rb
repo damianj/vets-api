@@ -4,15 +4,15 @@ require 'rails_helper'
 require IvcChampva::Engine.root.join('spec', 'spec_helper.rb')
 
 describe IvcChampva::PdfStamper do
+  let(:test_payload) { 'vha_10_10d_extended' }
   let(:data) { JSON.parse(File.read("modules/ivc_champva/spec/fixtures/form_json/#{test_payload}.json")) }
-  let(:form) { "IvcChampva::#{test_payload.titleize.gsub(' ', '')}".constantize.new(data) }
-  let(:template_path) { "modules/ivc_champva/templates/#{test_payload}.pdf" }
+  let(:form_model) { 'vha_10_10d_2027' }
+  let(:form) { "IvcChampva::#{form_model.titleize.gsub(' ', '')}".constantize.new(data) }
+  let(:template_path) { "modules/ivc_champva/templates/#{form_model}.pdf" }
   let(:path) { 'tmp/pii_stuff.pdf' }
 
   describe '.stamp_pdf' do
     subject(:stamp_pdf) { described_class.stamp_pdf(path, form, 2) }
-
-    let(:test_payload) { 'vha_10_10d' }
 
     before do
       FileUtils.copy(template_path, path)
@@ -123,6 +123,7 @@ describe IvcChampva::PdfStamper do
 
       # Use a form that is NOT in FORM_REQUIRES_STAMP (10-7959F-2 doesn't require stamping)
       let(:test_payload) { 'vha_10_7959f_2' }
+      let(:form_model) { test_payload }
       let(:stamps) { [] }
 
       it 'does not call :stamp' do
@@ -136,7 +137,6 @@ describe IvcChampva::PdfStamper do
         stamp_signature
       end
 
-      let(:test_payload) { 'vha_10_10d' }
       let(:signature) { form.data['statement_of_truth_signature'] }
       let(:page_config) do
         [
@@ -150,8 +150,6 @@ describe IvcChampva::PdfStamper do
     end
 
     context 'when flipper toggle is enabled and not in production' do
-      let(:test_payload) { 'vha_10_10d' }
-
       before do
         allow(Flipper).to receive(:enabled?).with(:champva_stamper_logging).and_return(true)
         allow(Settings).to receive(:vsp_environment).and_return('development')
@@ -179,8 +177,6 @@ describe IvcChampva::PdfStamper do
     end
 
     context 'when flipper toggle is disabled' do
-      let(:test_payload) { 'vha_10_10d' }
-
       before do
         allow(Flipper).to receive(:enabled?).with(:champva_stamper_logging).and_return(false)
         allow(Settings).to receive(:vsp_environment).and_return('development')
@@ -208,8 +204,6 @@ describe IvcChampva::PdfStamper do
     end
 
     context 'when in production environment' do
-      let(:test_payload) { 'vha_10_10d' }
-
       before do
         allow(Flipper).to receive(:enabled?).with(:champva_stamper_logging).and_return(true)
         allow(Settings).to receive(:vsp_environment).and_return('production')

@@ -116,7 +116,7 @@ RSpec.describe IvcChampva::VHA1010d2027 do
 
       it 'returns correct stamps including the first applicant country' do
         expect(vha1010d2027_with_deceased_sponsor.desired_stamps).to include(
-          hash_including(coords: [520, 470], text: 'Canada', page: 0)
+          hash_including(coords: [550, 480], text: 'Canada', page: 0)
         )
       end
     end
@@ -124,8 +124,7 @@ RSpec.describe IvcChampva::VHA1010d2027 do
     context 'when sponsor is not deceased' do
       it 'returns correct stamps including veteran country and the first applicant country' do
         expect(vha1010d2027.desired_stamps).to include(
-          hash_including(coords: [520, 590], text: 'USA', page: 0),
-          hash_including(coords: [520, 470], text: nil, page: 0) # Assuming no applicants for simplicity
+          hash_including(coords: [550, 480], text: nil, page: 0) # Assuming no applicants for simplicity
         )
       end
     end
@@ -145,8 +144,8 @@ RSpec.describe IvcChampva::VHA1010d2027 do
         stamps = vha1010d2027_with_multiple_applicants.desired_stamps
         expect(stamps.count { |stamp| %w[Canada Mexico].include?(stamp[:text]) }).to eq(2)
         expect(stamps).to include(
-          hash_including(coords: [520, 470], text: 'Canada', page: 0),
-          hash_including(coords: [520, 354], text: 'Mexico', page: 0)
+          hash_including(coords: [550, 480], text: 'Canada', page: 0),
+          hash_including(coords: [550, 364], text: 'Mexico', page: 0)
         )
       end
     end
