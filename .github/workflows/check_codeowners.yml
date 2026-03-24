@@ -12,6 +12,7 @@ on:
 permissions:
   id-token: write
   contents: read
+
 jobs:
   check-additions:
     name: Check Codeowners Additions
@@ -43,26 +44,51 @@ jobs:
 
     - name: Respond to PR if check CODEOWNERS exists for new files fails
       if: ${{ failure() }}
-      uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
+      uses: actions/github-script@v8
       with:
-        message: 'Error: A file (or its parent directories) does not have a CODEOWNERS entry. Please update the .github/CODEOWNERS file and add the entry for the Offending file: ${{ env.offending_file }}'
         github-token: ${{ env.VA_VSP_BOT_GITHUB_TOKEN }}
+        script: |
+          const prNumber = context.payload.pull_request.number
+          const offendingFile = process.env.offending_file
+          const body = `Error: A file (or its parent directories) does not have a CODEOWNERS entry. Please update the .github/CODEOWNERS file and add the entry for the Offending file: ${offendingFile}`
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            body,
+          })
 
     - name: Add Failure label
-      uses: actions-ecosystem/action-add-labels@v1
       if: ${{ failure() }}
+      uses: actions/github-script@v8
       with:
-        number: ${{ github.event.pull_request.number }}
-        labels: |
-          codeowners-addition-failure
+        github-token: ${{ env.VA_VSP_BOT_GITHUB_TOKEN }}
+        script: |
+          const prNumber = context.payload.pull_request.number
+          await github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            labels: ['codeowners-addition-failure'],
+          })
 
     - name: Remove Failure label
-      uses: actions-ecosystem/action-remove-labels@v1
       if: ${{ success() }}
+      uses: actions/github-script@v8
       with:
-        number: ${{ github.event.pull_request.number }}
-        labels: |
-          codeowners-addition-failure
+        github-token: ${{ env.VA_VSP_BOT_GITHUB_TOKEN }}
+        script: |
+          const prNumber = context.payload.pull_request.number
+          try {
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              name: 'codeowners-addition-failure',
+            })
+          } catch (e) {
+            if (e.status !== 404) throw e
+          }
 
   check-deletions:
     name: Check Codeowners Deletions
@@ -94,23 +120,48 @@ jobs:
 
     - name: Respond to PR if check CODEOWNERS exists for deleted files fails
       if: ${{ failure() }}
-      uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
+      uses: actions/github-script@v8
       with:
-        message: 'Error: A file (or its parent directories) was deleted but its reference still exists in CODEOWNERS. Please update the .github/CODEOWNERS file and delete the entry for the Offending file: ${{ env.offending_file }}'
         github-token: ${{ env.VA_VSP_BOT_GITHUB_TOKEN }}
+        script: |
+          const prNumber = context.payload.pull_request.number
+          const offendingFile = process.env.offending_file
+          const body = `A deleted file (or one of its parent directories) still has a CODEOWNERS entry. Please update the .github/CODEOWNERS file and remove the stale entry for the offending file: ${offendingFile}`
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            body,
+          })
 
     - name: Add Failure label
-      uses: actions-ecosystem/action-add-labels@v1
       if: ${{ failure() }}
+      uses: actions/github-script@v8
       with:
-        number: ${{ github.event.pull_request.number }}
-        labels: |
-          codeowners-delete-failure
+        github-token: ${{ env.VA_VSP_BOT_GITHUB_TOKEN }}
+        script: |
+          const prNumber = context.payload.pull_request.number
+          await github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            labels: ['codeowners-deletion-failure'],
+          })
 
     - name: Remove Failure label
-      uses: actions-ecosystem/action-remove-labels@v1
       if: ${{ success() }}
+      uses: actions/github-script@v8
       with:
-        number: ${{ github.event.pull_request.number }}
-        labels: |
-          codeowners-delete-failure
+        github-token: ${{ env.VA_VSP_BOT_GITHUB_TOKEN }}
+        script: |
+          const prNumber = context.payload.pull_request.number
+          try {
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              name: 'codeowners-deletion-failure',
+            })
+          } catch (e) {
+            if (e.status !== 404) throw e
+          }

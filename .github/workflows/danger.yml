@@ -28,8 +28,14 @@ jobs:
 
       - name: Add Danger Label
         if: ${{ failure() }}
-        uses: actions-ecosystem/action-remove-labels@v1
+        uses: actions/github-script@v8
         with:
-          number: ${{ github.event.pull_request.number }}
-          labels: |
-            danger-alert
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: ['danger-alert'],
+            })

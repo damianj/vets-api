@@ -81,17 +81,35 @@ jobs:
       # Always add the "lint-failure" label on failure and remove it on success
       - name: Add Lint Failure label
         if: ${{ failure() && github.event_name == 'pull_request' }}
-        uses: actions-ecosystem/action-add-labels@v1
+        uses: actions/github-script@v8
         with:
-          number: ${{ github.event.pull_request.number }}
-          labels: lint-failure
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: ['lint-failure'],
+            })
 
       - name: Remove Lint Failure label
         if: ${{ success() && github.event_name == 'pull_request' }}
-        uses: actions-ecosystem/action-remove-labels@v1
+        uses: actions/github-script@v8
         with:
-          number: ${{ github.event.pull_request.number }}
-          labels: lint-failure
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                name: 'lint-failure',
+              })
+            } catch (e) {
+              if (e.status !== 404) throw e
+            }
 
   build:
     name: Build and Cache Docker Image
@@ -348,10 +366,17 @@ jobs:
 
       - name: Add Test Failure label
         if: ${{ needs.tests.result == 'failure' && github.event_name == 'pull_request' }}
-        uses: actions-ecosystem/action-add-labels@v1
+        uses: actions/github-script@v8
         with:
-          number: ${{ github.event.pull_request.number }}
-          labels: test-failure
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: ['test-failure'],
+            })
 
       - name: Fail job if tests failed
         if: ${{ needs.tests.result == 'failure' }}
@@ -359,10 +384,21 @@ jobs:
 
       - name: Remove Test Failure label
         if: ${{ needs.tests.result == 'success' && github.event_name == 'pull_request' }}
-        uses: actions-ecosystem/action-remove-labels@v1
+        uses: actions/github-script@v8
         with:
-          number: ${{ github.event.pull_request.number }}
-          labels: test-failure
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                name: 'test-failure',
+              })
+            } catch (e) {
+              if (e.status !== 404) throw e
+            }
 
       # Convert JUnit XML test results into a parallel_test runtime log so that
       # future runs can use --group-by runtime (runtime-based shard balancing).

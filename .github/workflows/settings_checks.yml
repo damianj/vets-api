@@ -33,17 +33,35 @@ jobs:
 
       - name: Add Settings Failure label
         if: failure() && github.event_name == 'pull_request'
-        uses: actions-ecosystem/action-add-labels@v1
+        uses: actions/github-script@v8
         with:
-          number: ${{ github.event.pull_request.number }}
-          labels: settings-failure
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: ['settings-failure'],
+            })
 
       - name: Remove Settings Failure label
         if: success() && github.event_name == 'pull_request'
-        uses: actions-ecosystem/action-remove-labels@v1
+        uses: actions/github-script@v8
         with:
-          number: ${{ github.event.pull_request.number }}
-          labels: settings-failure
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                name: 'settings-failure',
+              })
+            } catch (e) {
+              if (e.status !== 404) throw e
+            }
   check-parameters:
     runs-on: ubuntu-32-cores-latest
 
@@ -169,12 +187,19 @@ jobs:
           fi
       - name: Respond to PR if invalid parameters are found
         if: env.INVALID_PARAMETERS != ''
-        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
+        uses: actions/github-script@v8
         with:
-          message: |
-            :warning: The following Parameter Store values are invalid. Please make sure the values are correct and exist in AWS Parameter Store before merging:
-            ${{ env.INVALID_PARAMETERS }}
           github-token: ${{ env.VA_VSP_BOT_GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number
+            const invalidParameters = process.env.INVALID_PARAMETERS || ''
+            const body = `:warning: The following Parameter Store values are invalid. Please make sure the values are correct and exist in AWS Parameter Store before merging:\n\n${invalidParameters}`
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            })
 
       - name: Fail if invalid parameters are found
         if: env.INVALID_PARAMETERS != ''
@@ -182,8 +207,14 @@ jobs:
 
       - name: Respond to PR if no invalid parameters are found
         if: env.INVALID_PARAMETERS == '' && env.PARAM_STORE_VARS == 'true'
-        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
+        uses: actions/github-script@v8
         with:
-          message: |
-            :+1: All Parameter Store values in this PR are valid
           github-token: ${{ env.VA_VSP_BOT_GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: ':+1: All Parameter Store values in this PR are valid',
+            })
