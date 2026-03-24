@@ -1,0 +1,94 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+
+RSpec.describe VAOS::V2::UnifiedProviderSerializer do
+  subject(:serializer) { described_class.new }
+
+  let(:va_provider) do
+    VAOS::V2::Unified::VAProvider.new(
+      id: '983',
+      name: 'Cheyenne VA Medical Center',
+      address: { street1: '2360 E Pershing Blvd', city: 'Cheyenne', state: 'WY', zip: '82001' },
+      phone: '307-778-7550',
+      latitude: 41.1456,
+      longitude: -104.7892,
+      distance_from_user: 3.24,
+      schedulable_services: %w[primaryCare urology]
+    )
+  end
+
+  let(:eps_provider) do
+    VAOS::V2::Unified::EpsProvider.new(
+      id: '9mN718pH',
+      name: 'Dr. Bones @ Melbourne Medical',
+      address: { street1: '1105 Palmetto Ave', city: 'Melbourne', state: 'FL', zip: '32901' },
+      phone: '555-555-0001',
+      latitude: 28.08061,
+      longitude: -80.60322,
+      npi: '91560381x',
+      distance_from_user: 2.1,
+      schedulable_services: ['Urology']
+    )
+  end
+
+  describe '#serialize' do
+    it 'returns an array of serialized providers' do
+      result = serializer.serialize([va_provider, eps_provider])
+
+      expect(result.size).to eq(2)
+      expect(result.first[:type]).to eq('unified_provider')
+      expect(result.last[:type]).to eq('unified_provider')
+    end
+
+    it 'serializes VA provider attributes' do
+      result = serializer.serialize([va_provider]).first
+
+      expect(result[:id]).to eq('983')
+      expect(result[:attributes][:name]).to eq('Cheyenne VA Medical Center')
+      expect(result[:attributes][:providerType]).to eq('va')
+      expect(result[:attributes][:distanceInMiles]).to eq(3.2)
+      expect(result[:attributes][:schedulableServices]).to eq(%w[primaryCare urology])
+    end
+
+    it 'serializes EPS provider attributes' do
+      result = serializer.serialize([eps_provider]).first
+
+      expect(result[:id]).to eq('9mN718pH')
+      expect(result[:attributes][:name]).to eq('Dr. Bones @ Melbourne Medical')
+      expect(result[:attributes][:providerType]).to eq('community_care')
+    end
+
+    it 'marks the referral provider correctly' do
+      result = serializer.serialize([eps_provider], referral_npi: '91560381x').first
+
+      expect(result[:attributes][:isReferralProvider]).to be true
+    end
+
+    it 'does not mark non-referral providers' do
+      result = serializer.serialize([va_provider], referral_npi: '91560381x').first
+
+      expect(result[:attributes][:isReferralProvider]).to be false
+    end
+
+    it 'serializes address structure with all street lines' do
+      result = serializer.serialize([va_provider]).first
+
+      expect(result[:attributes][:address]).to eq({
+                                                    street1: '2360 E Pershing Blvd',
+                                                    street2: nil,
+                                                    street3: nil,
+                                                    city: 'Cheyenne',
+                                                    state: 'WY',
+                                                    zip: '82001'
+                                                  })
+    end
+
+    it 'includes sort order' do
+      result = serializer.serialize([va_provider, eps_provider])
+
+      expect(result[0][:attributes][:sortOrder]).to eq(0)
+      expect(result[1][:attributes][:sortOrder]).to eq(1)
+    end
+  end
+end

@@ -147,6 +147,43 @@ module Eps
       raise e
     end
 
+    ##
+    # Search for provider services by geographic location.
+    # Uses the EPS nearLocation parameter to find providers within a given radius.
+    #
+    # @param latitude [Float] Latitude of the search origin
+    # @param longitude [Float] Longitude of the search origin
+    # @param radius [Integer] Maximum miles from the origin (default: 25)
+    # @param specialty [String] Optional specialty to filter by (case-insensitive)
+    # @return [Array<Hash>] Self-schedulable provider services near the location
+    #
+    def search_by_location(latitude:, longitude:, radius: 25, specialty: nil)
+      lat, lon, radius_miles = validate_location_search_params!(latitude, longitude, radius)
+
+      query_params = build_search_params(
+        near_location: "#{lat},#{lon}",
+        max_miles_from_near: radius_miles,
+        is_self_schedulable: true
+      )
+
+      with_monitoring do
+        response = perform(:get, "/#{config.base_path}/provider-services", query_params,
+                           request_headers_with_correlation_id)
+
+        all_providers = response.body[:provider_services] || []
+        self_schedulable = filter_self_schedulable(all_providers)
+
+        if specialty.present?
+          filter_by_specialty(self_schedulable, specialty)
+        else
+          self_schedulable
+        end
+      end
+    rescue Eps::ServiceException => e
+      handle_eps_error!(e, 'search_by_location')
+      raise e
+    end
+
     private
 
     ##
@@ -553,6 +590,42 @@ module Eps
         isSelfSchedulable: params[:is_self_schedulable],
         nextToken: params[:next_token]
       }.compact
+    end
+
+    def validate_location_search_params!(latitude, longitude, radius)
+      lat = Float(latitude)
+      lon = Float(longitude)
+      radius_miles = Integer(radius)
+
+      raise ArgumentError, 'latitude must be a number between -90 and 90' unless lat.between?(-90.0, 90.0)
+      raise ArgumentError, 'longitude must be a number between -180 and 180' unless lon.between?(-180.0, 180.0)
+      raise ArgumentError, 'radius must be a positive integer' unless radius_miles.positive?
+
+      [lat, lon, radius_miles]
+    rescue ArgumentError, TypeError
+      raise ArgumentError, 'latitude must be a number between -90 and 90' if latitude.blank? || invalid_float?(latitude)
+
+      if longitude.blank? || invalid_float?(longitude)
+        raise ArgumentError,
+              'longitude must be a number between -180 and 180'
+      end
+      raise ArgumentError, 'radius must be a positive integer' if radius.blank? || invalid_integer?(radius)
+
+      raise
+    end
+
+    def invalid_float?(value)
+      Float(value)
+      false
+    rescue ArgumentError, TypeError
+      true
+    end
+
+    def invalid_integer?(value)
+      parsed = Integer(value)
+      !parsed.is_a?(Integer)
+    rescue ArgumentError, TypeError
+      true
     end
 
     def validate_npi_param(npi, specialty, address, referral_number)

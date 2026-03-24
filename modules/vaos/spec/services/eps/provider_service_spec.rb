@@ -1823,6 +1823,126 @@ describe Eps::ProviderService do
     end
   end
 
+  describe '#search_by_location' do
+    let(:config) { instance_double(Eps::Configuration) }
+    let(:headers) { { 'Authorization' => 'Bearer token123', 'X-Correlation-ID' => 'test-correlation-id' } }
+    let(:response_body) do
+      {
+        provider_services: [
+          {
+            id: 'provider-self-urology',
+            specialties: [{ name: 'Urology' }],
+            features: {
+              is_digital: true,
+              direct_booking: { is_enabled: true }
+            }
+          },
+          {
+            id: 'provider-self-cardiology',
+            specialties: [{ name: 'Cardiology' }],
+            features: {
+              is_digital: true,
+              direct_booking: { is_enabled: true }
+            }
+          },
+          {
+            id: 'provider-not-self',
+            specialties: [{ name: 'Urology' }],
+            features: {
+              is_digital: false,
+              direct_booking: { is_enabled: true }
+            }
+          }
+        ]
+      }
+    end
+    let(:response) do
+      double('Response', status: 200, body: response_body,
+                         response_headers: { 'Content-Type' => 'application/json' })
+    end
+
+    before do
+      allow(config).to receive_messages(base_path: 'api/v1', mock_enabled?: false,
+                                        request_types: %i[get put post delete])
+      allow(service).to receive_messages(config:)
+      allow(service).to receive(:request_headers_with_correlation_id).and_return(headers)
+      allow_any_instance_of(VAOS::SessionService).to receive(:perform).and_return(response)
+    end
+
+    it 'maps location params to EPS query params and filters by specialty' do
+      expect_any_instance_of(VAOS::SessionService).to receive(:perform).with(
+        :get,
+        '/api/v1/provider-services',
+        hash_including(
+          nearLocation: '28.08,-80.6',
+          maxMilesFromNear: 30,
+          isSelfSchedulable: true
+        ),
+        headers
+      ).and_return(response)
+
+      result = service.search_by_location(latitude: '28.08', longitude: '-80.6', radius: '30', specialty: 'Urology')
+
+      expect(result.map { |p| p[:id] }).to eq(['provider-self-urology'])
+    end
+
+    it 'returns self-schedulable providers when specialty is not provided' do
+      result = service.search_by_location(latitude: 28.08, longitude: -80.6, radius: 30)
+
+      expect(result.map { |p| p[:id] }).to contain_exactly('provider-self-urology', 'provider-self-cardiology')
+    end
+
+    it 'raises ArgumentError when latitude is out of range' do
+      expect do
+        service.search_by_location(latitude: 91, longitude: -80.6, radius: 30)
+      end.to raise_error(ArgumentError, 'latitude must be a number between -90 and 90')
+    end
+
+    it 'raises ArgumentError when longitude is invalid' do
+      expect do
+        service.search_by_location(latitude: 28.08, longitude: 'oops', radius: 30)
+      end.to raise_error(ArgumentError, 'longitude must be a number between -180 and 180')
+    end
+
+    it 'raises ArgumentError when radius is not positive' do
+      expect do
+        service.search_by_location(latitude: 28.08, longitude: -80.6, radius: 0)
+      end.to raise_error(ArgumentError, 'radius must be a positive integer')
+    end
+
+    context 'when Eps::ServiceException is raised' do
+      let(:eps_exception) do
+        create_eps_exception(
+          code: 'VAOS_500',
+          status: 500,
+          body: '{"error":"Internal Service Exception"}'
+        )
+      end
+
+      before do
+        allow_any_instance_of(VAOS::SessionService).to receive(:perform).and_raise(eps_exception)
+        allow(Rails.logger).to receive(:error)
+      end
+
+      it 'logs EPS error and re-raises' do
+        expect(Rails.logger).to receive(:error).with(
+          'Community Care Appointments: EPS service error',
+          hash_including(
+            service: 'EPS',
+            method: 'search_by_location',
+            error_class: 'Eps::ServiceException',
+            code: 'VAOS_500',
+            upstream_status: 500
+          )
+        )
+
+        expect do
+          service.search_by_location(latitude: 28.08, longitude: -80.6, radius: 25)
+        end.to raise_error(Eps::ServiceException)
+      end
+    end
+  end
+
   describe '#fetch_provider_services' do
     let(:npi) { '1234567890' }
     let(:config) { instance_double(Eps::Configuration) }
