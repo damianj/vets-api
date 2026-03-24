@@ -76,6 +76,22 @@ RSpec.describe 'transactions' do
       end
     end
 
+    context 'when the requested transaction does not exist' do
+      it 'returns a 404 with the standard VA error envelope', :aggregate_failures do
+        non_existent_id = 'non-existent-id'
+
+        get("/v0/profile/status/#{non_existent_id}")
+
+        expect(response).to have_http_status(:not_found)
+
+        error = JSON.parse(response.body)['errors'].first
+        expect(error['status']).to eq('404')
+        expect(error['title']).to eq('Record not found')
+        expect(error['detail']).to include('non-existent-id')
+        expect(error['code']).to eq('404')
+      end
+    end
+
     context 'cache invalidation' do
       it 'invalidates the cache for the va-profile-2-contact-info-response Redis key' do
         VCR.use_cassette('va_profile/v2/contact_information/address_transaction_status') do

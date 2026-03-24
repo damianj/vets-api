@@ -142,5 +142,21 @@ RSpec.describe 'V0::Profile::Persons', type: :request do
         end
       end
     end
+
+    context 'when the requested transaction does not exist' do
+      it 'returns a 404 with the standard VA error envelope', :aggregate_failures do
+        non_existent_id = 'non-existent-id'
+
+        get("/v0/profile/person/status/#{non_existent_id}", params: nil, headers:)
+
+        expect(response).to have_http_status(:not_found)
+
+        error = JSON.parse(response.body)['errors'].first
+        expect(error['status']).to eq('404')
+        expect(error['title']).to eq('Record not found')
+        expect(error['detail']).to include('non-existent-id')
+        expect(error['code']).to eq('404')
+      end
+    end
   end
 end
