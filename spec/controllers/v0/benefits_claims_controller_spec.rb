@@ -637,11 +637,6 @@ RSpec.describe V0::BenefitsClaimsController, type: :controller do
           .to receive(:enabled_provider_classes)
           .with(an_instance_of(User))
           .and_return([mock_provider_class_one, mock_provider_class_two])
-        allow(BenefitsClaims::Providers::ProviderRegistry)
-          .to receive(:enabled_providers)
-          .with(an_instance_of(User))
-          .and_return([{ name: :mockproviderone, class: mock_provider_class_one },
-                       { name: :mockprovidertwo, class: mock_provider_class_two }])
       end
 
       it 'aggregates claims from multiple providers' do
@@ -2291,11 +2286,6 @@ RSpec.describe V0::BenefitsClaimsController, type: :controller do
         .to receive(:enabled_provider_classes)
         .with(user)
         .and_return(providers)
-      allow(BenefitsClaims::Providers::ProviderRegistry)
-        .to receive(:enabled_providers)
-        .with(user)
-        .and_return([{ name: :mockprovider, class: mock_provider_class },
-                     { name: :secondprovider, class: second_provider_class }])
     end
 
     context 'with single provider' do
