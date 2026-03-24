@@ -21,7 +21,8 @@ class GIBillFeedback < Common::RedisStore
     'ta' => 'TA',
     'taAgr' => 'TA-AGR',
     'myCaa' => 'MyCAA',
-    'ffa' => 'FFA'
+    'ffa' => 'FFA',
+    'vetTec' => 'VET TEC'
   }.freeze
 
   def get_user_details
