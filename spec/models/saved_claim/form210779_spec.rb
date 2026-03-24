@@ -154,7 +154,7 @@ RSpec.describe SavedClaim::Form210779, type: :model do
       ibm_payload = claim.to_ibm
       expect(ibm_payload['FORM_TYPE_1']).to eq('VA FORM 0779, NOV 2023')
       expect(ibm_payload['FLASH_TEXT']).to be_nil
-      expect(ibm_payload['CB_VA_STAMP']).to be_nil
+      expect(ibm_payload['CB_VA_STAMP']).to eq(0)
     end
 
     it 'returns complete VBA Data Dictionary payload with all 40 required fields' do
@@ -221,7 +221,7 @@ RSpec.describe SavedClaim::Form210779, type: :model do
       # Form metadata (3 fields including system fields)
       expect(ibm_payload).to include(
         'FLASH_TEXT' => nil,
-        'CB_VA_STAMP' => nil,
+        'CB_VA_STAMP' => 0,
         'FORM_TYPE_1' => 'VA FORM 0779, NOV 2023'
       )
     end

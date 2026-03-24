@@ -191,7 +191,7 @@ class SavedClaim::Form210779 < SavedClaim
   def build_form_metadata_fields
     {
       'FLASH_TEXT' => nil,
-      'CB_VA_STAMP' => nil,
+      'CB_VA_STAMP' => 0, # VA date stamp not applied for online submissions via SavedClaim path
       'FORM_TYPE_1' => 'VA FORM 0779, NOV 2023'
     }
   end
