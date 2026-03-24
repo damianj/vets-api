@@ -653,6 +653,11 @@ features:
   cst_filter_ep_960:
     actor_type: user
     description: When enabled, benefits_claims/get_claims service filters 960 EP code claims from the response
+  cst_claim_letters_log_stale_or_empty:
+    actor_type: user
+    description: >-
+      When enabled, logs user details when they visit claim letters and have
+      no letters or no letters newer than 1 day old.
   cst_claim_letters_use_lighthouse_api_provider:
     actor_type: user
     description: When enabled, claims_letters from the Lighthouse API Provider

@@ -15,6 +15,7 @@ module V0
     def index
       docs = service.get_letters
       log_metadata_to_datadog(docs)
+      log_stale_or_empty_letters(docs)
 
       render json: docs
     rescue => e
@@ -55,12 +56,32 @@ module V0
 
     def log_metadata_to_datadog(docs)
       docs_metadata = []
-      docs.each do |d|
+      docs&.each do |d|
         docs_metadata << { doc_type: d[:doc_type], type_description: d[:type_description] }
       end
       ::Rails.logger.info('DDL Document Types Metadata',
                           { message_type: 'ddl.doctypes_metadata',
                             document_type_metadata: docs_metadata })
+    end
+
+    def log_stale_or_empty_letters(docs)
+      return unless Flipper.enabled?(:cst_claim_letters_log_stale_or_empty, @current_user)
+
+      decision_letters = docs&.select { |d| d[:doc_type] == '184' }
+      newest_letter_date = decision_letters&.filter_map { |d| d[:received_at].presence&.to_datetime }&.max
+      no_letters = decision_letters.blank?
+      all_stale = !no_letters && (newest_letter_date.nil? || newest_letter_date < 1.day.ago)
+
+      return unless no_letters || all_stale
+
+      ::Rails.logger.info('Claim letters stale or empty for user', {
+                            message_type: 'cst.claim_letters.stale_or_empty',
+                            user_uuid: @current_user.uuid,
+                            user_account_uuid: @current_user.user_account_uuid,
+                            letter_count: decision_letters&.size,
+                            newest_letter_date: newest_letter_date&.iso8601,
+                            reason: no_letters ? 'no_letters' : 'all_stale'
+                          })
     end
 
     def log_api_provider_error(error)

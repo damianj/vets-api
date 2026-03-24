@@ -227,6 +227,80 @@ RSpec.describe V0::ClaimLettersController, type: :controller do
                 ))
       end
     end
+
+    context 'stale or empty letters logging' do
+      before do
+        allow(Rails.logger).to receive(:info)
+      end
+
+      context 'when cst_claim_letters_log_stale_or_empty is disabled' do
+        before do
+          allow(Flipper).to receive(:enabled?)
+            .with(:cst_claim_letters_log_stale_or_empty, anything)
+            .and_return(false)
+        end
+
+        it 'does not log stale or empty letters' do
+          get(:index)
+          expect(Rails.logger).not_to have_received(:info)
+            .with('Claim letters stale or empty for user',
+                  hash_including(message_type: 'cst.claim_letters.stale_or_empty'))
+        end
+      end
+
+      context 'when cst_claim_letters_log_stale_or_empty is enabled' do
+        before do
+          allow(Flipper).to receive(:enabled?)
+            .with(:cst_claim_letters_log_stale_or_empty, anything)
+            .and_return(true)
+          allow_any_instance_of(ClaimStatusTool::ClaimLetterDownloader)
+            .to receive(:get_letters)
+            .and_return([
+                          { doc_type: '184', received_at: '2022-09-22' },
+                          { doc_type: '184', received_at: '2022-08-31' }
+                        ])
+        end
+
+        it 'logs when all 184 letters are older than 1 day' do
+          get(:index)
+          expect(Rails.logger).to have_received(:info)
+            .with('Claim letters stale or empty for user',
+                  hash_including(message_type: 'cst.claim_letters.stale_or_empty',
+                                 reason: 'all_stale'))
+        end
+
+        it 'does not include icn in the log payload' do
+          allow_any_instance_of(ClaimStatusTool::ClaimLetterDownloader)
+            .to receive(:get_letters).and_return([{ doc_type: '184', received_at: 2.days.ago.to_s }])
+
+          get(:index)
+          expect(Rails.logger).to have_received(:info)
+            .with('Claim letters stale or empty for user',
+                  hash_not_including(:icn))
+        end
+
+        it 'logs when there are no 184 letters' do
+          allow_any_instance_of(ClaimStatusTool::ClaimLetterDownloader)
+            .to receive(:get_letters).and_return([{ doc_type: '27', received_at: '2022-05-30' }])
+
+          get(:index)
+          expect(Rails.logger).to have_received(:info)
+            .with('Claim letters stale or empty for user',
+                  hash_including(message_type: 'cst.claim_letters.stale_or_empty',
+                                 reason: 'no_letters',
+                                 letter_count: 0))
+        end
+
+        it 'does not log when a 184 letter is newer than 1 day' do
+          allow_any_instance_of(ClaimStatusTool::ClaimLetterDownloader)
+            .to receive(:get_letters).and_return([{ doc_type: '184', received_at: 1.hour.ago.to_s }])
+
+          get(:index)
+          expect(Rails.logger).not_to have_received(:info)
+            .with('Claim letters stale or empty for user', anything)
+        end
+      end
+    end
   end
 
   # VBMS to Lighthouse migration. Retain these tests to ensure the LighthouseClaimLettersProvider
