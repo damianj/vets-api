@@ -18,6 +18,10 @@ module UnifiedHealthData
 
       DEFAULT_FILTERED_STATUSES = %w[cancelled entered-in-error].freeze
 
+      def initialize(current_user = nil)
+        @current_user = current_user
+      end
+
       # Parses an Oracle Health FHIR MedicationRequest into a UnifiedHealthData::Prescription
       #
       # @param resource [Hash] FHIR MedicationRequest resource from Oracle Health
@@ -394,8 +398,8 @@ module UnifiedHealthData
       # @param has_in_progress_dispense [Boolean] Whether the most recent dispense is in-progress
       # @return [String] VistA status value
       def normalize_active_status(_refills_remaining, expiration_date, has_in_progress_dispense, resource = nil)
-        # Rule: Expired more than 120 days ago → discontinued
-        return 'discontinued' if expiration_date && expiration_date < 120.days.ago.utc
+        # Rule: Expired more than 120 days ago
+        return status_for_long_expired if expiration_date && expiration_date < 120.days.ago.utc
 
         # Rule: Most recent dispense is in-progress → refillinprocess
         # This takes priority over expired status since an active refill is being processed
@@ -420,9 +424,20 @@ module UnifiedHealthData
         return 'discontinued' if expiration_date.nil?
 
         if expiration_date < 120.days.ago.utc
-          'discontinued'
+          status_for_long_expired
         else
           'expired'
+        end
+      end
+
+      # Returns the appropriate status for prescriptions expired more than 120 days ago.
+      # When the renewal request feature flag is enabled, reports 'expired' instead of
+      # 'discontinued' to support the medication renewal request flow (S12-GAP-1).
+      def status_for_long_expired
+        if Flipper.enabled?(:mhv_secure_messaging_medications_renewal_request, @current_user)
+          'expired'
+        else
+          'discontinued'
         end
       end
 

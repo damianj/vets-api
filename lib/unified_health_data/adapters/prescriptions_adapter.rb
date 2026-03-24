@@ -17,7 +17,7 @@ module UnifiedHealthData
       def initialize(current_user = nil)
         @current_user = current_user
         @vista_adapter = VistaPrescriptionAdapter.new
-        @oracle_adapter = OracleHealthPrescriptionAdapter.new
+        @oracle_adapter = OracleHealthPrescriptionAdapter.new(current_user)
       end
 
       # @param body [Hash] The raw UHD response body
