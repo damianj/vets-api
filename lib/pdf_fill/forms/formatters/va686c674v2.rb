@@ -30,6 +30,26 @@ module PdfFill
           end
 
           ##
+          # Expands marriage end reason if it's "Other" and adds explanation to remarks
+          #
+          # If the reason for marriage ending is "Other" and an explanation is provided (i.e. could be an annulment),
+          # it adds the explanation to the remarks section of the form.
+          #
+          # @param form_data [Hash] The complete form data hash
+          # @return [void] Modifies form_data in place
+          def expand_marriage_end_reason(form_data)
+            divorce = form_data['dependents_application']['report_divorce']
+            return if divorce.blank?
+
+            explanation = divorce['explanation_of_other']
+            return if explanation.blank?
+
+            if form_data['remarks'].blank?
+              add_remarks_to_form(form_data, ["20 Report Divorce Explanation: #{explanation}"])
+            end
+          end
+
+          ##
           # Processes spouse no SSN case and adds to remarks
           # @param form_data [Hash] The complete form data hash
           # @param remarks [Array] Array to append spouse no SSN reason to
@@ -101,13 +121,17 @@ module PdfFill
           def add_remarks_to_form(form_data, remarks)
             return if remarks.empty?
 
-            combined_text = remarks.join(', ')
             form_data['remarks'] ||= {}
+            form_remarks = form_data['remarks']
+            # Handle if no ssn remarks have been added or vice versa
+            index_offset = form_remarks.blank? ? 0 : form_remarks.keys.size
+
+            combined_text = remarks.join(', ')
 
             # Split text into chunks of up to 35 characters and assign to remark lines
             # 35 characters is remark line limit in pdf
             combined_text.scan(/.{1,35}/).each_with_index do |chunk, index|
-              form_data['remarks']["remarks_line#{index + 1}"] = chunk
+              form_remarks["remarks_line#{index + 1 + index_offset}"] = chunk
             end
           end
         end

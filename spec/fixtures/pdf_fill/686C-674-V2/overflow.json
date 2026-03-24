@@ -24,7 +24,8 @@
           "city": "louisvillelongcityname", "state": "CO"
         }
       },
-      "reason_marriage_ended": "Divorce",
+      "reason_marriage_ended": "Other",
+      "explanation_of_other": "some really long explanation of why marriage ended",
       "full_name": {
         "first": "longspousefirstnamethatmustbelong",
         "middle": "datam",

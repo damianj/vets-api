@@ -385,6 +385,108 @@ RSpec.describe PdfFill::Forms::Formatters::Va686c674v2 do
     end
   end
 
+  describe '.expand_marriage_end_reason' do
+    let(:form_data) do
+      {
+        'dependents_application' => {
+          'spouse_information' => {},
+          'children_to_add' => []
+        }
+      }
+    end
+
+    context 'when report_divorce is blank' do
+      it 'does not add remarks' do
+        described_class.expand_marriage_end_reason(form_data)
+
+        expect(form_data['remarks']).to be_nil
+      end
+    end
+
+    context 'when explanation_of_other is blank' do
+      before do
+        form_data['dependents_application']['report_divorce'] = {
+          'explanation_of_other' => ''
+        }
+      end
+
+      it 'does not add remarks' do
+        described_class.expand_marriage_end_reason(form_data)
+
+        expect(form_data['remarks']).to be_nil
+      end
+    end
+
+    context 'when explanation_of_other is short' do
+      let(:short_explanation) { 'Mutual separation' }
+
+      before do
+        form_data['dependents_application']['report_divorce'] = {
+          'explanation_of_other' => short_explanation
+        }
+      end
+
+      it 'adds the explanation to remarks' do
+        described_class.expand_marriage_end_reason(form_data)
+
+        combined_remarks = form_data['remarks'].values.compact.join
+        expect(combined_remarks).to include("20 Report Divorce Explanation: #{short_explanation}")
+      end
+    end
+
+    context 'when explanation_of_other is long and spans multiple lines' do
+      let(:long_explanation) do
+        'Marriage ended due to prolonged separation and inability to reconcile despite repeated attempts over years'
+      end
+
+      before do
+        form_data['dependents_application']['report_divorce'] = {
+          'explanation_of_other' => long_explanation
+        }
+      end
+
+      it 'splits the explanation into 35-character remark lines' do
+        described_class.expand_marriage_end_reason(form_data)
+
+        expect(form_data['remarks']['remarks_line1']).to be_present
+        expect(form_data['remarks']['remarks_line2']).to be_present
+        expect(form_data['remarks']['remarks_line1'].length).to be <= 35
+        expect(form_data['remarks']['remarks_line2'].length).to be <= 35
+
+        combined_remarks = form_data['remarks'].values.compact.join
+        expect(combined_remarks).to include("20 Report Divorce Explanation: #{long_explanation}")
+      end
+    end
+
+    context 'when both explanation_of_other and no_ssn reasons exist' do
+      before do
+        form_data['dependents_application']['report_divorce'] = {
+          'explanation_of_other' => 'Other legal reason'
+        }
+        form_data['dependents_application']['spouse_information'] = {
+          'no_ssn' => true,
+          'no_ssn_reason' => 'Nonresident Alien'
+        }
+      end
+
+      it 'includes both entries in remarks when no-SSN expansion runs after divorce expansion' do
+        described_class.expand_marriage_end_reason(form_data)
+        described_class.expand_no_ssn_cases(form_data)
+
+        divorce_text = '20 Report Divorce Explanation: Other legal reason'
+        spouse_no_ssn_text = '11C. Spouse no SSN reason: Nonresident Alien'
+
+        expected_divorce_lines = divorce_text.scan(/.{1,35}/)
+        expected_spouse_lines = spouse_no_ssn_text.scan(/.{1,35}/)
+
+        expect(form_data['remarks']['remarks_line1']).to eq(expected_divorce_lines[0])
+        expect(form_data['remarks']['remarks_line2']).to eq(expected_divorce_lines[1])
+        expect(form_data['remarks']['remarks_line3']).to eq(expected_spouse_lines[0])
+        expect(form_data['remarks']['remarks_line4']).to eq(expected_spouse_lines[1])
+      end
+    end
+  end
+
   describe '.calculate_child_question_number' do
     it 'calculates correct question numbers for first 4 children' do
       expect(described_class.calculate_child_question_number(0)).to eq(16)

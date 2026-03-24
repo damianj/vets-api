@@ -2004,6 +2004,7 @@ module PdfFill
         # 12.times do |i|
         #   @form_data['remarks']['remarks_line' + (i + 1).to_s] = ""
         # end
+        FORMATTER.expand_marriage_end_reason(@form_data)
       end
 
       def expand_veteran_ssn
