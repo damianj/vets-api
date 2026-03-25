@@ -399,6 +399,82 @@ RSpec.describe 'ImmunizationAdapter' do
     end
   end
 
+  describe 'status filtering' do
+    let(:base_record) do
+      {
+        'resource' => {
+          'resourceType' => 'Immunization',
+          'id' => 'test-immunization-123',
+          'status' => 'completed',
+          'vaccineCode' => {
+            'coding' => [{ 'code' => '140', 'display' => 'Influenza' }],
+            'text' => 'Influenza vaccine'
+          },
+          'occurrenceDateTime' => '2024-01-15T10:00:00Z'
+        }
+      }
+    end
+
+    describe '#parse' do
+      context 'with allowed statuses' do
+        it 'includes records with status "completed"' do
+          record = base_record.deep_dup
+          record['resource']['status'] = 'completed'
+
+          result = adapter.parse([record])
+
+          expect(result.length).to eq(1)
+          expect(result.first.status).to eq('completed')
+        end
+
+        it 'includes records with status "not-done"' do
+          record = base_record.deep_dup
+          record['resource']['status'] = 'not-done'
+
+          result = adapter.parse([record])
+
+          expect(result.length).to eq(1)
+          expect(result.first.status).to eq('not-done')
+        end
+
+        it 'includes records with nil status' do
+          record = base_record.deep_dup
+          record['resource']['status'] = nil
+
+          result = adapter.parse([record])
+
+          expect(result.length).to eq(1)
+        end
+      end
+
+      context 'with filtered statuses' do
+        it 'filters out records with status "entered-in-error"' do
+          record = base_record.deep_dup
+          record['resource']['status'] = 'entered-in-error'
+
+          result = adapter.parse([record])
+
+          expect(result).to be_empty
+        end
+
+        it 'filters entered-in-error but keeps completed records in mixed list' do
+          completed_record = base_record.deep_dup
+          completed_record['resource']['status'] = 'completed'
+          completed_record['resource']['id'] = 'keep-this'
+
+          error_record = base_record.deep_dup
+          error_record['resource']['status'] = 'entered-in-error'
+          error_record['resource']['id'] = 'filter-this'
+
+          result = adapter.parse([completed_record, error_record])
+
+          expect(result.length).to eq(1)
+          expect(result.first.id).to eq('keep-this')
+        end
+      end
+    end
+  end
+
   describe '#extract_site' do
     it 'returns the site text if present' do
       resource = {

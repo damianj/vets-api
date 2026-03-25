@@ -7,6 +7,8 @@ module Lighthouse
   module VeteransHealth
     module Serializers
       class ImmunizationSerializer
+        FILTERED_STATUSES = %w[entered-in-error].freeze
+
         # Transforms a FHIR Immunization resource into an Immunization model
         #
         # @param resource [Hash] the FHIR Immunization resource
@@ -83,11 +85,13 @@ module Lighthouse
         def self.from_fhir_bundle(response_body)
           return [] if response_body.nil? || response_body['entry'].nil?
 
-          response_body['entry'].map do |entry|
-            next if entry['resource'].nil?
+          response_body['entry'].filter_map do |entry|
+            resource = entry['resource']
+            next if resource.nil?
+            next if FILTERED_STATUSES.include?(resource['status'])
 
-            from_fhir(entry['resource'])
-          end.compact
+            from_fhir(resource)
+          end
         end
 
         def self.parse_datetime(date_string)

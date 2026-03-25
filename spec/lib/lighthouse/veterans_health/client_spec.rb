@@ -234,6 +234,25 @@ RSpec.describe Lighthouse::VeteransHealth::Client do
           expect(@client.list_conditions).to eq generic_response
         end
       end
+
+      describe '#get_immunizations' do
+        let(:immunizations_api_path) { 'services/fhir/v0/r4/Immunization' }
+        let(:params_hash) do
+          { patient: @client.instance_variable_get(:@icn),
+            _count: 100 }
+        end
+
+        it 'invokes the Lighthouse Veterans Health API Immunization endpoint' do
+          expect_any_instance_of(
+            Lighthouse::VeteransHealth::Client
+          ).to receive(:perform_get).with(immunizations_api_path, **params_hash).and_call_original
+          @client.get_immunizations
+        end
+
+        it 'returns the api response' do
+          expect(@client.get_immunizations).to eq generic_response
+        end
+      end
     end
 
     context 'unsuccessful requests' do

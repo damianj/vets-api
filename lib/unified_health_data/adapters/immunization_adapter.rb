@@ -8,6 +8,8 @@ module UnifiedHealthData
     class ImmunizationAdapter
       include DateNormalizer
 
+      FILTERED_STATUSES = %w[entered-in-error].freeze
+
       def initialize(user)
         super()
         @user = user
@@ -17,7 +19,10 @@ module UnifiedHealthData
         return [] if records.blank?
 
         filtered = records.select do |record|
-          record['resource'] && record['resource']['resourceType'] == 'Immunization'
+          resource = record['resource']
+          resource &&
+            resource['resourceType'] == 'Immunization' &&
+            FILTERED_STATUSES.exclude?(resource['status'])
         end
         parsed = filtered.map { |record| parse_single_immunization(record) }
         parsed.compact

@@ -398,4 +398,100 @@ RSpec.describe Lighthouse::VeteransHealth::Serializers::ImmunizationSerializer d
       end
     end
   end
+
+  describe '.from_fhir_bundle' do
+    let(:completed_entry) do
+      {
+        'resource' => {
+          'id' => 'imm-1',
+          'resourceType' => 'Immunization',
+          'status' => 'completed',
+          'vaccineCode' => { 'text' => 'COVID-19 vaccine', 'coding' => [] },
+          'occurrenceDateTime' => '2024-01-15T10:00:00Z'
+        }
+      }
+    end
+
+    let(:another_completed_entry) do
+      {
+        'resource' => {
+          'id' => 'imm-2',
+          'resourceType' => 'Immunization',
+          'status' => 'completed',
+          'vaccineCode' => { 'text' => 'Flu vaccine', 'coding' => [] },
+          'occurrenceDateTime' => '2024-02-20T10:00:00Z'
+        }
+      }
+    end
+
+    let(:entered_in_error_entry) do
+      {
+        'resource' => {
+          'id' => 'imm-3',
+          'resourceType' => 'Immunization',
+          'status' => 'entered-in-error',
+          'vaccineCode' => { 'text' => 'Phantom vaccine', 'coding' => [] },
+          'occurrenceDateTime' => '2024-03-01T10:00:00Z'
+        }
+      }
+    end
+
+    context 'when bundle contains entered-in-error entries' do
+      let(:response_body) do
+        { 'entry' => [completed_entry, entered_in_error_entry, another_completed_entry] }
+      end
+
+      it 'filters out entered-in-error immunizations' do
+        result = described_class.from_fhir_bundle(response_body)
+        expect(result.length).to eq(2)
+        expect(result.map(&:id)).to contain_exactly('imm-1', 'imm-2')
+      end
+    end
+
+    context 'when all entries are entered-in-error' do
+      let(:response_body) do
+        { 'entry' => [entered_in_error_entry] }
+      end
+
+      it 'returns an empty array' do
+        result = described_class.from_fhir_bundle(response_body)
+        expect(result).to eq([])
+      end
+    end
+
+    context 'when no entries are entered-in-error' do
+      let(:response_body) do
+        { 'entry' => [completed_entry, another_completed_entry] }
+      end
+
+      it 'returns all immunizations' do
+        result = described_class.from_fhir_bundle(response_body)
+        expect(result.length).to eq(2)
+        expect(result.map(&:id)).to contain_exactly('imm-1', 'imm-2')
+      end
+    end
+
+    context 'when entry has nil resource' do
+      let(:response_body) do
+        { 'entry' => [completed_entry, { 'resource' => nil }, another_completed_entry] }
+      end
+
+      it 'skips nil resources' do
+        result = described_class.from_fhir_bundle(response_body)
+        expect(result.length).to eq(2)
+      end
+    end
+
+    context 'when response body is nil' do
+      it 'returns an empty array' do
+        expect(described_class.from_fhir_bundle(nil)).to eq([])
+      end
+    end
+
+    context 'when response body has no entry key' do
+      it 'returns an empty array' do
+        expect(described_class.from_fhir_bundle({ 'resourceType' => 'Bundle' })).to eq([])
+      end
+    end
+  end
 end
