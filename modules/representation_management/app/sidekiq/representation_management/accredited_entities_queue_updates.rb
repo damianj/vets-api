@@ -153,12 +153,19 @@ module RepresentationManagement
       if @count_mismatch_types.any?
         threshold_display = (DECREASE_THRESHOLD.abs * 100).round(0)
         @report << "Due to count mismatches (>#{threshold_display}% decrease):\n"
-        @count_mismatch_types.each do |type|
-          expected = @expected_counts[type]
-          actual = get_processed_count_for_type(type)
-          change = ((actual - expected).to_f / expected * 100).round(2)
-          @report << "  - #{type.to_s.humanize}: Expected #{expected}, Processed #{actual} (#{change}% change)\n"
-        end
+        @count_mismatch_types.each { |type| @report << mismatch_summary_line(type) }
+      end
+    end
+
+    def mismatch_summary_line(type)
+      expected = @expected_counts[type].to_i
+      actual = get_processed_count_for_type(type)
+      label = type.to_s.humanize
+      if expected.positive?
+        change = ((actual - expected).to_f / expected * 100).round(2)
+        "  - #{label}: Expected #{expected}, Processed #{actual} (#{change}% change)\n"
+      else
+        "  - #{label}: Expected #{expected}, Processed #{actual}\n"
       end
     end
 
@@ -259,6 +266,9 @@ module RepresentationManagement
     # @param entity_type [String] The entity type
     # @return [void]
     def handle_invalid_entity_count(entity_type)
+      entity_type_sym = entity_type.to_sym
+      @count_mismatch_types << entity_type_sym unless @count_mismatch_types.include?(entity_type_sym)
+      @expected_counts[entity_type_sym] ||= @entity_counts.current_api_counts[entity_type_sym]
       entity_display = entity_type.capitalize
       log_error("#{entity_display} count decreased by more than #{DECREASE_THRESHOLD * 100}% - skipping update")
       @ingestion_log&.mark_entity_failed!(
@@ -327,6 +337,11 @@ module RepresentationManagement
     #
     # @return [void]
     def handle_invalid_orgs_and_reps_counts
+      api_counts = @entity_counts.current_api_counts
+      %i[veteran_service_organizations representatives].each do |type|
+        @count_mismatch_types << type unless @count_mismatch_types.include?(type)
+        @expected_counts[type] ||= api_counts[type]
+      end
       log_error('Both Orgs and Reps must have valid counts to process together - skipping update for both')
       mark_orgs_and_reps_failed('Both Orgs and Reps must have valid counts')
     end

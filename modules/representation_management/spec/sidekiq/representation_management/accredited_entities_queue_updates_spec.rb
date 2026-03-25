@@ -162,6 +162,11 @@ RSpec.describe RepresentationManagement::AccreditedEntitiesQueueUpdates, type: :
           .with(hash_including(individual_type: 'claims_agent'))
       end
 
+      it 'tracks agents in @count_mismatch_types for xlsx fallback' do
+        job.perform
+        expect(job.instance_variable_get(:@count_mismatch_types)).to include(:agents)
+      end
+
       it 'still updates attorneys' do
         job.perform
         expect(AccreditedIndividual).to have_received(:find_or_create_by)
@@ -195,6 +200,11 @@ RSpec.describe RepresentationManagement::AccreditedEntitiesQueueUpdates, type: :
         # Verify no attorneys were processed
         expect(AccreditedIndividual).not_to have_received(:find_or_create_by)
           .with(hash_including(individual_type: 'attorney'))
+      end
+
+      it 'tracks attorneys in @count_mismatch_types for xlsx fallback' do
+        job.perform
+        expect(job.instance_variable_get(:@count_mismatch_types)).to include(:attorneys)
       end
 
       it 'still updates agents' do
@@ -233,6 +243,36 @@ RSpec.describe RepresentationManagement::AccreditedEntitiesQueueUpdates, type: :
           .with(individual_type: 'claims_agent', ogc_id: '123')
         expect(AccreditedIndividual).not_to have_received(:find_or_create_by)
           .with(individual_type: 'attorney', ogc_id: '789')
+      end
+
+      it 'tracks both types in @count_mismatch_types for xlsx fallback' do
+        job.perform
+        mismatch_types = job.instance_variable_get(:@count_mismatch_types)
+        expect(mismatch_types).to include(:agents)
+        expect(mismatch_types).to include(:attorneys)
+      end
+    end
+
+    context 'when all entity counts are invalid (e.g., API connection failure returns 0)' do
+      before do
+        allow(entity_counts).to receive_messages(
+          valid_count?: false,
+          current_api_counts: {
+            agents: 0,
+            attorneys: 0,
+            representatives: 0,
+            veteran_service_organizations: 0
+          }
+        )
+        allow(RepresentationManagement::AccreditationXlsxProcessor).to receive(:perform_async)
+      end
+
+      it 'enqueues AccreditationXlsxProcessor as xlsx fallback for all entity types' do
+        job.perform
+
+        expect(RepresentationManagement::AccreditationXlsxProcessor)
+          .to have_received(:perform_async)
+          .with(array_including('agents', 'attorneys', 'representatives', 'veteran_service_organizations'))
       end
     end
   end
@@ -1010,6 +1050,14 @@ RSpec.describe RepresentationManagement::AccreditedEntitiesQueueUpdates, type: :
         expect(AccreditedOrganization).not_to have_received(:find_or_create_by)
         expect(AccreditedIndividual).not_to have_received(:find_or_create_by)
       end
+
+      it 'tracks both vsos and representatives in @count_mismatch_types for xlsx fallback' do
+        job.send(:process_orgs_and_reps)
+
+        mismatch_types = job.instance_variable_get(:@count_mismatch_types)
+        expect(mismatch_types).to include(:veteran_service_organizations)
+        expect(mismatch_types).to include(:representatives)
+      end
     end
 
     context 'when VSO count is invalid' do
@@ -1025,6 +1073,14 @@ RSpec.describe RepresentationManagement::AccreditedEntitiesQueueUpdates, type: :
 
         expect(AccreditedOrganization).not_to have_received(:find_or_create_by)
         expect(AccreditedIndividual).not_to have_received(:find_or_create_by)
+      end
+
+      it 'tracks both vsos and representatives in @count_mismatch_types for xlsx fallback' do
+        job.send(:process_orgs_and_reps)
+
+        mismatch_types = job.instance_variable_get(:@count_mismatch_types)
+        expect(mismatch_types).to include(:veteran_service_organizations)
+        expect(mismatch_types).to include(:representatives)
       end
     end
 
@@ -2568,6 +2624,86 @@ RSpec.describe RepresentationManagement::AccreditedEntitiesQueueUpdates, type: :
         processing_errors = job.instance_variable_get(:@processing_error_types)
         expect(processing_errors).to include(RepresentationManagement::VSOS)
         expect(processing_errors).to include(RepresentationManagement::REPRESENTATIVES)
+      end
+    end
+  end
+
+  describe '#trigger_xlsx_fallback with pre-processing count validation failures' do
+    let(:job) { described_class.new }
+    let(:entity_counts) { instance_double(RepresentationManagement::AccreditationApiEntityCount) }
+
+    before do
+      allow(RepresentationManagement::AccreditationXlsxProcessor).to receive(:perform_async)
+      allow(Settings).to receive(:vsp_environment).and_return('development')
+      allow(entity_counts).to receive(:current_api_counts).and_return({
+                                                                        agents: 601,
+                                                                        attorneys: 5568,
+                                                                        representatives: 18_732,
+                                                                        veteran_service_organizations: 104
+                                                                      })
+      job.instance_variable_set(:@report, String.new)
+      job.instance_variable_set(:@processing_error_types, [])
+      job.instance_variable_set(:@count_mismatch_types, [])
+      job.instance_variable_set(:@expected_counts, {})
+      job.instance_variable_set(:@entity_counts, entity_counts)
+    end
+
+    context 'when handle_invalid_entity_count is called for agents and attorneys' do
+      before do
+        job.instance_variable_set(:@ingestion_log, nil)
+        allow(job).to receive(:log_to_slack_channel)
+        job.send(:handle_invalid_entity_count, RepresentationManagement::AGENTS)
+        job.send(:handle_invalid_entity_count, RepresentationManagement::ATTORNEYS)
+      end
+
+      it 'enqueues AccreditationXlsxProcessor with both types' do
+        job.send(:trigger_xlsx_fallback)
+
+        expect(RepresentationManagement::AccreditationXlsxProcessor)
+          .to have_received(:perform_async).with(array_including('agents', 'attorneys'))
+      end
+
+      it 'appends fallback info to the report' do
+        job.send(:trigger_xlsx_fallback)
+
+        report = job.instance_variable_get(:@report)
+        expect(report).to include('XLSX Fallback')
+        expect(report).to include('agents')
+        expect(report).to include('attorneys')
+      end
+    end
+
+    context 'when handle_invalid_orgs_and_reps_counts is called' do
+      before do
+        allow(job).to receive(:log_to_slack_channel)
+        allow(job).to receive(:mark_orgs_and_reps_failed)
+        job.send(:handle_invalid_orgs_and_reps_counts)
+      end
+
+      it 'enqueues AccreditationXlsxProcessor with vsos and representatives' do
+        job.send(:trigger_xlsx_fallback)
+
+        expect(RepresentationManagement::AccreditationXlsxProcessor)
+          .to have_received(:perform_async).with(array_including('veteran_service_organizations', 'representatives'))
+      end
+    end
+
+    context 'when all four entity types fail pre-processing validation' do
+      before do
+        job.instance_variable_set(:@ingestion_log, nil)
+        allow(job).to receive(:log_to_slack_channel)
+        allow(job).to receive(:mark_orgs_and_reps_failed)
+        job.send(:handle_invalid_entity_count, RepresentationManagement::AGENTS)
+        job.send(:handle_invalid_entity_count, RepresentationManagement::ATTORNEYS)
+        job.send(:handle_invalid_orgs_and_reps_counts)
+      end
+
+      it 'enqueues AccreditationXlsxProcessor with all four entity types' do
+        job.send(:trigger_xlsx_fallback)
+
+        expect(RepresentationManagement::AccreditationXlsxProcessor)
+          .to have_received(:perform_async)
+          .with(array_including('agents', 'attorneys', 'veteran_service_organizations', 'representatives'))
       end
     end
   end
