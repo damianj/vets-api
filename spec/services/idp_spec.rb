@@ -4,6 +4,28 @@ require 'rails_helper'
 require Rails.root.join('lib', 'idp', 'mock_client')
 
 RSpec.describe Idp do
+  describe Idp::Error do
+    it 'raises when unexpected context keys are provided' do
+      expect { described_class.new('boom', upsteam_status: 500) }
+        .to raise_error(ArgumentError)
+    end
+
+    it 'accepts the supported upstream context keys' do
+      error = described_class.new(
+        'boom',
+        upstream_status: 404,
+        upstream_body: { 'error' => 'Item not found.' },
+        upstream_headers: { 'x-request-id' => 'abc123' },
+        failure_category: 'upstream_response'
+      )
+
+      expect(error.upstream_status).to eq(404)
+      expect(error.upstream_body).to eq('error' => 'Item not found.')
+      expect(error.upstream_headers).to eq('x-request-id' => 'abc123')
+      expect(error.failure_category).to eq('upstream_response')
+    end
+  end
+
   describe '.client' do
     context 'in production' do
       before do

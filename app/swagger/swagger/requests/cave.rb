@@ -92,8 +92,7 @@ module Swagger
         property :errors do
           key :type, :array
           items do
-            key :required, [:detail]
-            property :detail, type: :string, example: 'Document processing service is temporarily unavailable'
+            key :$ref, :Error
           end
         end
       end

@@ -9,6 +9,7 @@ require 'uri'
 module Idp
   class Client
     DEFAULT_TIMEOUT = 15
+    ERROR_DETAIL_LOG_LIMIT = 500
     HMAC_HEADER_USER_ID = 'X-IDP-User-Id'
     HMAC_HEADER_TIMESTAMP = 'X-IDP-Timestamp'
     HMAC_HEADER_KEY_ID = 'X-IDP-Key-Id'
@@ -207,7 +208,15 @@ module Idp
 
     def resolve_connect_ipaddr
       Resolv.getaddresses(connect_destination_host).find(&:present?)
-    rescue URI::InvalidURIError, Resolv::ResolvError, SocketError
+    rescue SocketError => e
+      Rails.logger.warn('[Idp::Client] connect_url resolution failed', {
+                          connect_url:,
+                          connect_destination_host:,
+                          error_class: e.class.name,
+                          error_message: e.message
+                        })
+      nil
+    rescue URI::InvalidURIError, Resolv::ResolvError
       nil
     end
 
@@ -222,34 +231,113 @@ module Idp
     def perform_request(operation:)
       start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       response = yield
-      Rails.logger.info('[Idp::Client] request success', {
-                          operation:,
-                          duration: (Process.clock_gettime(Process::CLOCK_MONOTONIC) - start).round(4),
-                          status: response.status
-                        })
+      log_request_success(operation:, start:, response:)
       response.body
     rescue Faraday::Error => e
-      error_type = extract_error_type(e.response)
-      Rails.logger.error('[Idp::Client] request error', {
-                           operation:,
-                           duration: (Process.clock_gettime(Process::CLOCK_MONOTONIC) - start).round(4),
-                           error_class: e.class.name,
-                           error_type:
-                         })
-      raise Idp::Error.new(e.message, error_type:, operation:)
+      error_context = build_error_context(e.response)
+      raise_idp_error(error: e, operation:, start:, error_context:)
     end
 
-    def extract_error_type(response)
-      body = response&.[](:body)
-
+    def extract_error_type(body)
       case body
       when Hash
-        body['error_type']
-      when String
-        JSON.parse(body)['error_type']
+        body['error_type'] || body.dig('error', 'error_type') || body.dig('errors', 0, 'code')
       end
-    rescue JSON::ParserError, TypeError
+    rescue TypeError
       nil
+    end
+
+    def build_error_context(response)
+      body = parse_response_body(response&.[](:body))
+      headers = normalize_headers(response&.[](:headers))
+      {
+        status: response&.[](:status),
+        headers:,
+        body:,
+        request_id: extract_request_id(headers),
+        detail: extract_error_detail(body),
+        failure_category: response.present? ? 'upstream_response' : 'transport'
+      }
+    end
+
+    def parse_response_body(body)
+      return body if body.is_a?(Hash) || body.is_a?(Array)
+      return body unless body.is_a?(String)
+
+      stripped = body.strip
+      return nil if stripped.blank?
+
+      JSON.parse(stripped)
+    rescue JSON::ParserError
+      body
+    end
+
+    def normalize_headers(headers)
+      return {} unless headers.respond_to?(:to_h)
+
+      headers.to_h.transform_keys do |key|
+        key.to_s.downcase
+      end
+    end
+
+    def extract_request_id(headers)
+      headers['x-request-id'] || headers['x-amzn-requestid'] || headers['apigw-requestid']
+    end
+
+    def extract_error_detail(body)
+      detail = case body
+               when Hash
+                 body.dig('errors', 0, 'detail') ||
+                 body.dig('errors', 0, 'title') ||
+                 body['error_message'] ||
+                 body['error']
+               when String
+                 body
+               end
+
+      return if detail.blank?
+
+      detail.to_s.first(ERROR_DETAIL_LOG_LIMIT)
+    end
+
+    def log_request_success(operation:, start:, response:)
+      Rails.logger.info('[Idp::Client] request success', {
+                          operation:,
+                          duration: request_duration(start),
+                          status: response.status
+                        })
+    end
+
+    def raise_idp_error(error:, operation:, start:, error_context:)
+      error_type = extract_error_type(error_context[:body])
+      log_request_error(operation:, start:, error:, error_type:, error_context:)
+
+      raise Idp::Error.new(
+        error.message,
+        error_type:,
+        operation:,
+        upstream_status: error_context[:status],
+        upstream_body: error_context[:body],
+        upstream_headers: error_context[:headers],
+        failure_category: error_context[:failure_category]
+      )
+    end
+
+    def log_request_error(operation:, start:, error:, error_type:, error_context:)
+      Rails.logger.error('[Idp::Client] request error', {
+                           operation:,
+                           duration: request_duration(start),
+                           error_class: error.class.name,
+                           error_type:,
+                           failure_category: error_context[:failure_category],
+                           upstream_status: error_context[:status],
+                           upstream_request_id: error_context[:request_id],
+                           upstream_error_detail: error_context[:detail]
+                         })
+    end
+
+    def request_duration(start)
+      (Process.clock_gettime(Process::CLOCK_MONOTONIC) - start).round(4)
     end
   end
 end

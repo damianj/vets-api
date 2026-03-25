@@ -2,12 +2,34 @@
 
 module Idp
   class Error < StandardError
-    attr_reader :error_type, :operation
+    attr_reader :error_type, :operation, :upstream_status, :upstream_body, :upstream_headers, :failure_category
 
-    def initialize(message = nil, error_type: nil, operation: nil)
+    def initialize(message = nil, error_type: nil, operation: nil, **context)
       super(message)
+      context.assert_valid_keys(
+        :upstream_status,
+        :upstream_body,
+        :upstream_headers,
+        :failure_category
+      )
       @error_type = error_type
       @operation = operation
+      @upstream_status = context[:upstream_status]
+      @upstream_body = context[:upstream_body]
+      @upstream_headers = context[:upstream_headers]
+      @failure_category = context[:failure_category]
+    end
+
+    def upstream_status_code
+      Integer(upstream_status, exception: false)
+    end
+
+    def upstream_response?
+      upstream_status_code.present?
+    end
+
+    def transport_failure?
+      failure_category.to_s == 'transport' || !upstream_response?
     end
   end
 

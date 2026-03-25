@@ -102,6 +102,7 @@ module V0
       @cave_request_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       Rails.logger.info('[CaveController] incoming request', {
+                          request_id: request.request_id,
                           action: action_name,
                           document_id: params[:id],
                           endpoint: request.env['action_dispatch.route_uri_pattern'],
@@ -115,6 +116,7 @@ module V0
                     end
 
       Rails.logger.info('[CaveController] request complete', {
+        request_id: request.request_id,
         action: action_name,
         document_id: params[:id],
         status: response.status,
@@ -124,25 +126,154 @@ module V0
     end
 
     def render_service_error(error)
+      mapped_status = map_error_status(error)
+      status_code = mapped_status_code(mapped_status)
+      error_code = map_error_code(error, mapped_status)
+      detail = public_error_detail(error, mapped_status)
       active_span = Datadog::Tracing.active_span
       rack_span = request.env[Datadog::Tracing::Contrib::Rack::Ext::RACK_ENV_REQUEST_SPAN]
 
-      active_span&.set_error(error)
-      rack_span&.set_error(error) unless rack_span == active_span
-
-      log_exception_to_sentry(
-        error,
-        { cave_document_id: params[:id], cave_endpoint: request.path },
-        { error_type: error.error_type, operation: error.operation }
-      )
+      mark_error_spans(active_span:, rack_span:, error:, status_code:, error_code:)
+      log_upstream_request_failure(error:, status_code:, error_code:)
+      report_service_error_to_sentry(error:, status_code:, error_code:)
 
       render json: {
         errors: [
           {
-            detail: 'Document processing service is temporarily unavailable'
+            title: error_title(status_code),
+            code: error_code,
+            status: status_code.to_s,
+            detail:
           }
         ]
-      }, status: :bad_gateway
+      }, status: mapped_status
+    end
+
+    def map_error_status(error)
+      case error.upstream_status_code
+      when 400
+        error.operation == 'intake' ? :bad_request : :bad_gateway
+      when 403
+        :forbidden
+      when 404
+        :not_found
+      when 415
+        :unsupported_media_type
+      when 422
+        :unprocessable_entity
+      else
+        :bad_gateway
+      end
+    end
+
+    def map_error_code(error, mapped_status)
+      return 'idp_transport_error' if error.transport_failure?
+
+      case mapped_status.to_sym
+      when :bad_request
+        'idp_bad_request'
+      when :forbidden
+        'idp_forbidden'
+      when :not_found
+        'idp_not_found'
+      when :unsupported_media_type
+        'idp_unsupported_media_type'
+      when :unprocessable_entity
+        'idp_unprocessable_entity'
+      else
+        error.upstream_status_code == 401 ? 'idp_upstream_auth_error' : 'idp_upstream_unavailable'
+      end
+    end
+
+    def public_error_detail(error, mapped_status)
+      upstream_detail = extract_upstream_detail(error.upstream_body)
+
+      case mapped_status.to_sym
+      when :forbidden, :not_found, :unsupported_media_type, :unprocessable_entity
+        upstream_detail.presence || default_error_detail(mapped_status)
+      when :bad_request
+        if error.operation == 'intake'
+          upstream_detail.presence || default_error_detail(mapped_status)
+        else
+          'Document processing request could not be completed'
+        end
+      else
+        default_error_detail(mapped_status)
+      end
+    end
+
+    def default_error_detail(mapped_status)
+      return 'Document processing request could not be completed' if mapped_status.to_sym == :bad_request
+
+      'Document processing service is temporarily unavailable'
+    end
+
+    def extract_upstream_detail(body)
+      case body
+      when Hash
+        body.dig('errors', 0, 'detail') ||
+          body.dig('errors', 0, 'title') ||
+          body['error_message'] ||
+          body['error']
+      when String
+        body
+      end&.to_s&.strip&.presence
+    end
+
+    def tag_error_span(span, error, status_code:, error_code:)
+      return unless span
+
+      span.set_tag('cave.operation', error.operation) if error.operation.present?
+      span.set_tag('cave.error_type', error.error_type) if error.error_type.present?
+      span.set_tag('cave.error_code', error_code)
+      span.set_tag('cave.upstream_status', error.upstream_status_code) if error.upstream_status_code.present?
+      span.set_tag('cave.mapped_status', status_code)
+    end
+
+    def mark_error_spans(active_span:, rack_span:, error:, status_code:, error_code:)
+      active_span&.set_error(error)
+      rack_span&.set_error(error) unless rack_span == active_span
+      tag_error_span(active_span, error, status_code:, error_code:)
+      tag_error_span(rack_span, error, status_code:, error_code:) unless rack_span == active_span
+    end
+
+    def log_upstream_request_failure(error:, status_code:, error_code:)
+      Rails.logger.warn('[CaveController] upstream request failed', {
+        request_id: request.request_id,
+        action: action_name,
+        document_id: params[:id],
+        operation: error.operation,
+        error_type: error.error_type,
+        upstream_status: error.upstream_status_code,
+        mapped_status: status_code,
+        error_code:
+      }.compact)
+    end
+
+    def report_service_error_to_sentry(error:, status_code:, error_code:)
+      log_exception_to_sentry(
+        error,
+        {
+          cave_document_id: params[:id],
+          cave_endpoint: request.path,
+          cave_request_id: request.request_id,
+          cave_upstream_status: error.upstream_status_code,
+          cave_mapped_status: status_code
+        }.compact,
+        {
+          error_type: error.error_type,
+          operation: error.operation,
+          error_code:
+        }.compact
+      )
+    end
+
+    def error_title(status_code)
+      Rack::Utils::HTTP_STATUS_CODES.fetch(status_code, 'Error')
+    end
+
+    def mapped_status_code(mapped_status)
+      Rack::Utils.status_code(mapped_status)
     end
   end
 end

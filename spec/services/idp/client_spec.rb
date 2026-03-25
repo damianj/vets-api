@@ -83,6 +83,28 @@ RSpec.describe Idp::Client do
         .to raise_error(Idp::Error, /IDP connect URL could not be resolved/)
     end
 
+    it 'logs a warning when connect_url resolution raises SocketError' do
+      allow(Resolv).to receive(:getaddresses).with('vpce-idp.example.com').and_raise(SocketError, 'lookup failed')
+      allow(Rails.logger).to receive(:warn)
+
+      client = described_class.new(
+        base_url: 'https://logical-idp.example.com/stg/api/v1/doc',
+        connect_url: 'https://vpce-idp.example.com/stg/api/v1/doc'
+      )
+
+      expect { client.send(:connect_ipaddr) }
+        .to raise_error(Idp::Error, /IDP connect URL could not be resolved/)
+      expect(Rails.logger).to have_received(:warn).with(
+        '[Idp::Client] connect_url resolution failed',
+        hash_including(
+          connect_url: 'https://vpce-idp.example.com/stg/api/v1/doc',
+          connect_destination_host: 'vpce-idp.example.com',
+          error_class: 'SocketError',
+          error_message: 'lookup failed'
+        )
+      )
+    end
+
     it 'applies the resolved TCP destination to the Net::HTTP connection' do
       allow(Resolv).to receive(:getaddresses).with('vpce-idp.example.com').and_return(['10.0.0.10'])
 
@@ -218,7 +240,11 @@ RSpec.describe Idp::Client do
     it 'raises Idp::Error for timeouts' do
       stub_request(:get, "#{request_url}/status").with(query: { id: 'abc123' }).to_timeout
 
-      expect { client.status('abc123', user_id:) }.to raise_error(Idp::Error)
+      expect { client.status('abc123', user_id:) }.to raise_error(Idp::Error) { |error|
+        expect(error.transport_failure?).to be(true)
+        expect(error.upstream_status).to be_nil
+        expect(error.upstream_body).to be_nil
+      }
     end
 
     it 'raises Idp::Error for 5xx responses' do
@@ -227,7 +253,63 @@ RSpec.describe Idp::Client do
         .to_return(status: 500, body: { error: 'upstream error' }.to_json,
                    headers: { 'Content-Type' => 'application/json' })
 
-      expect { client.download('abc123', kvpid: 'kvp1', user_id:) }.to raise_error(Idp::Error, /500/)
+      expect { client.download('abc123', kvpid: 'kvp1', user_id:) }.to raise_error(Idp::Error, /500/) { |error|
+        expect(error.transport_failure?).to be(false)
+        expect(error.upstream_status).to eq(500)
+        expect(error.upstream_body).to eq('error' => 'upstream error')
+        expect(error.failure_category).to eq('upstream_response')
+      }
+    end
+
+    it 'captures actionable upstream 4xx details for callers' do
+      stub_request(:get, "#{request_url}/status")
+        .with(query: { id: 'abc123' })
+        .to_return(
+          status: 404,
+          body: {
+            errors: [
+              {
+                code: 'idp_not_found',
+                detail: 'Item not found.'
+              }
+            ]
+          }.to_json,
+          headers: {
+            'Content-Type' => 'application/json',
+            'X-Request-Id' => 'upstream-request-id'
+          }
+        )
+
+      expect { client.status('abc123', user_id:) }.to raise_error(Idp::Error) { |error|
+        expect(error.error_type).to eq('idp_not_found')
+        expect(error.upstream_status).to eq(404)
+        expect(error.upstream_body).to eq(
+          'errors' => [
+            {
+              'code' => 'idp_not_found',
+              'detail' => 'Item not found.'
+            }
+          ]
+        )
+        expect(error.upstream_headers).to include('x-request-id' => 'upstream-request-id')
+        expect(error.failure_category).to eq('upstream_response')
+      }
+    end
+
+    it 'keeps non-json upstream error bodies without raising parser errors' do
+      stub_request(:get, "#{request_url}/status")
+        .with(query: { id: 'abc123' })
+        .to_return(
+          status: 500,
+          body: '<html>bad gateway</html>',
+          headers: { 'Content-Type' => 'text/html' }
+        )
+
+      expect { client.status('abc123', user_id:) }.to raise_error(Idp::Error) { |error|
+        expect(error.upstream_status).to eq(500)
+        expect(error.upstream_body).to eq('<html>bad gateway</html>')
+        expect(error.error_type).to be_nil
+      }
     end
 
     context 'when connect_url is configured' do

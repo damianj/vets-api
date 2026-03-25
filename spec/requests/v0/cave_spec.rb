@@ -9,6 +9,10 @@ RSpec.describe 'CAVE API', type: :request do
   let(:user) { create(:user, :loa3) }
   let(:idp_user_id) { user.user_account_uuid || user.uuid }
 
+  def idp_error(message: 'boom', **kwargs)
+    Idp::Error.new(message, **kwargs)
+  end
+
   before do
     Flipper.enable(:cave_idp)
     allow(Flipper).to receive(:enabled?).and_call_original
@@ -49,15 +53,25 @@ RSpec.describe 'CAVE API', type: :request do
       expect(parsed_response['id']).to eq('abc123')
     end
 
-    it 'returns bad gateway when upstream fails' do
+    it 'preserves actionable upstream intake validation failures' do
       sign_in_as(user)
-      allow(client).to receive(:intake).and_raise(Idp::Error, 'boom')
+      allow(client).to receive(:intake).and_raise(
+        idp_error(
+          upstream_status: 400,
+          upstream_body: { 'error' => 'Invalid PDF payload' },
+          operation: 'intake',
+          failure_category: 'upstream_response'
+        )
+      )
 
       post('/v0/cave', params:)
 
-      expect(response).to have_http_status(:bad_gateway)
-      expect(parsed_response['errors'].first['detail'])
-        .to eq('Document processing service is temporarily unavailable')
+      expect(response).to have_http_status(:bad_request)
+      expect(parsed_response['errors'].first).to include(
+        'code' => 'idp_bad_request',
+        'status' => '400',
+        'detail' => 'Invalid PDF payload'
+      )
     end
 
     it 'validates required params' do
@@ -86,15 +100,46 @@ RSpec.describe 'CAVE API', type: :request do
       expect(parsed_response['scan_status']).to eq('completed')
     end
 
-    it 'returns bad gateway when upstream fails' do
+    it 'preserves actionable upstream not found errors' do
       sign_in_as(user)
-      allow(client).to receive(:status).with('abc123', user_id: idp_user_id).and_raise(Idp::Error, 'boom')
+      allow(client).to receive(:status).with('abc123', user_id: idp_user_id).and_raise(
+        idp_error(
+          upstream_status: 404,
+          upstream_body: { 'error' => 'Item not found.' },
+          operation: 'status',
+          failure_category: 'upstream_response'
+        )
+      )
+
+      get '/v0/cave/abc123/status'
+
+      expect(response).to have_http_status(:not_found)
+      expect(parsed_response['errors'].first).to include(
+        'code' => 'idp_not_found',
+        'status' => '404',
+        'detail' => 'Item not found.'
+      )
+    end
+
+    it 'keeps upstream auth failures generic for website session handling' do
+      sign_in_as(user)
+      allow(client).to receive(:status).with('abc123', user_id: idp_user_id).and_raise(
+        idp_error(
+          upstream_status: 401,
+          upstream_body: { 'error' => 'Missing IDP auth headers' },
+          operation: 'status',
+          failure_category: 'upstream_response'
+        )
+      )
 
       get '/v0/cave/abc123/status'
 
       expect(response).to have_http_status(:bad_gateway)
-      expect(parsed_response['errors'].first['detail'])
-        .to eq('Document processing service is temporarily unavailable')
+      expect(parsed_response['errors'].first).to include(
+        'code' => 'idp_upstream_auth_error',
+        'status' => '502',
+        'detail' => 'Document processing service is temporarily unavailable'
+      )
     end
   end
 
@@ -123,16 +168,20 @@ RSpec.describe 'CAVE API', type: :request do
       expect(response).to have_http_status(:ok)
     end
 
-    it 'returns bad gateway when upstream fails' do
+    it 'keeps transport failures generic' do
       sign_in_as(user)
-      allow(client).to receive(:output).with('abc123', type: 'artifact', user_id: idp_user_id).and_raise(Idp::Error,
-                                                                                                         'boom')
+      allow(client).to receive(:output).with('abc123', type: 'artifact', user_id: idp_user_id).and_raise(
+        idp_error(operation: 'output', failure_category: 'transport')
+      )
 
       get '/v0/cave/abc123/output'
 
       expect(response).to have_http_status(:bad_gateway)
-      expect(parsed_response['errors'].first['detail'])
-        .to eq('Document processing service is temporarily unavailable')
+      expect(parsed_response['errors'].first).to include(
+        'code' => 'idp_transport_error',
+        'status' => '502',
+        'detail' => 'Document processing service is temporarily unavailable'
+      )
     end
   end
 
@@ -160,16 +209,25 @@ RSpec.describe 'CAVE API', type: :request do
       expect(response).to have_http_status(:ok)
     end
 
-    it 'returns bad gateway when upstream fails' do
+    it 'preserves actionable upstream ownership failures' do
       sign_in_as(user)
-      allow(client).to receive(:download).with('abc123', kvpid: 'kvp1', user_id: idp_user_id).and_raise(Idp::Error,
-                                                                                                        'boom')
+      allow(client).to receive(:download).with('abc123', kvpid: 'kvp1', user_id: idp_user_id).and_raise(
+        idp_error(
+          upstream_status: 403,
+          upstream_body: { 'error' => 'Forbidden' },
+          operation: 'download',
+          failure_category: 'upstream_response'
+        )
+      )
 
       get '/v0/cave/abc123/download', params: { kvpid: 'kvp1' }
 
-      expect(response).to have_http_status(:bad_gateway)
-      expect(parsed_response['errors'].first['detail'])
-        .to eq('Document processing service is temporarily unavailable')
+      expect(response).to have_http_status(:forbidden)
+      expect(parsed_response['errors'].first).to include(
+        'code' => 'idp_forbidden',
+        'status' => '403',
+        'detail' => 'Forbidden'
+      )
     end
   end
 
@@ -211,17 +269,27 @@ RSpec.describe 'CAVE API', type: :request do
       expect(parsed_response).to eq(payload)
     end
 
-    it 'returns bad gateway when upstream fails' do
+    it 'keeps non-intake upstream 400 errors generic' do
       sign_in_as(user)
       allow(client).to receive(:update)
         .with('abc123', kvpid: 'kvp1', payload:, user_id: idp_user_id)
-        .and_raise(Idp::Error, 'boom')
+        .and_raise(
+          idp_error(
+            upstream_status: 400,
+            upstream_body: { 'error' => 'DynamoDB exploded' },
+            operation: 'update',
+            failure_category: 'upstream_response'
+          )
+        )
 
       post '/v0/cave/abc123/update?kvpid=kvp1', params: payload.to_json, headers: json_headers
 
       expect(response).to have_http_status(:bad_gateway)
-      expect(parsed_response['errors'].first['detail'])
-        .to eq('Document processing service is temporarily unavailable')
+      expect(parsed_response['errors'].first).to include(
+        'code' => 'idp_upstream_unavailable',
+        'status' => '502',
+        'detail' => 'Document processing service is temporarily unavailable'
+      )
     end
   end
 
