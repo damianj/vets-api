@@ -5,7 +5,9 @@ require 'rails_helper'
 RSpec.describe Lighthouse::HCC::CopayDetail do
   describe 'initialization' do
     context 'with valid invoice data' do
-      subject { described_class.new(invoice_data:, account_data:, facility_address:, patient_data:) }
+      subject do
+        described_class.new(invoice_data:, account_data:, facility_address:, patient_data:, associated_statements:)
+      end
 
       let(:invoice_data) do
         {
@@ -14,7 +16,7 @@ RSpec.describe Lighthouse::HCC::CopayDetail do
           'identifier' => [{ 'value' => 'BILL-001' }],
           'status' => 'issued',
           '_status' => { 'valueCodeableConcept' => { 'text' => 'Active' } },
-          'date' => '2025-01-15'
+          'date' => '2025-06-01T20:29:47Z'
         }
       end
 
@@ -31,6 +33,29 @@ RSpec.describe Lighthouse::HCC::CopayDetail do
           state: 'FL',
           postalCode: '12345'
         }
+      end
+
+      let(:associated_statements) do
+        [
+          {
+            'resource' => {
+              'id' => '123', 'date' => '2026-01-01T14:32:00-05:00',
+              'issuer' => {
+                'reference' => 'https://api.gov/services/health-care-costs-coverage/v0/r4/Organization/4-5pFm5Av0PHt',
+                'display' => 'TEST VAMC'
+              }
+            }
+          },
+          {
+            'resource' => {
+              'id' => '123', 'date' => '2026-02-01T14:32:00-05:00',
+              'issuer' => {
+                'reference' => 'https://api.gov/services/health-care-costs-coverage/v0/r4/Organization/4-5pFm5Av0PHt',
+                'display' => 'TEST VAMC'
+              }
+            }
+          }
+        ]
       end
 
       let(:patient_data) do
@@ -69,15 +94,49 @@ RSpec.describe Lighthouse::HCC::CopayDetail do
         expect(subject.bill_number).to eq('BILL-001')
         expect(subject.status).to eq('issued')
         expect(subject.status_description).to eq('Active')
-        expect(subject.invoice_date).to eq('2025-01-15')
+        expect(subject.invoice_date).to eq('2025-06-01T20:29:47Z')
       end
 
       it 'extracts account number from account data' do
         expect(subject.account_number).to eq('ACCT-999')
       end
 
+      it 'creates associated_statements' do
+        expect(subject.associated_statements).to eq(
+          [
+            {
+              'id' => '123',
+              'composite_id' => '4-5pFm5Av0PHt-2-2026',
+              'date' => 'February 1, 2026'
+            },
+            {
+              'id' => '123',
+              'composite_id' => '4-5pFm5Av0PHt-1-2026',
+              'date' => 'January 1, 2026'
+            }
+          ]
+        )
+      end
+
+      it 'creates associated_invoices' do
+        expect(subject.associated_invoices).to eq(
+          [
+            {
+              'id' => '123',
+              'composite_id' => '4-5pFm5Av0PHt-2-2026',
+              'date' => 'February 1, 2026'
+            },
+            {
+              'id' => '123',
+              'composite_id' => '4-5pFm5Av0PHt-1-2026',
+              'date' => 'January 1, 2026'
+            }
+          ]
+        )
+      end
+
       it 'calculates payment due date as invoice date plus 30 days' do
-        expect(subject.payment_due_date).to eq('2025-02-14')
+        expect(subject.payment_due_date).to eq('2025-07-01')
       end
 
       it 'extracts patient data from patient FHIR bundle' do

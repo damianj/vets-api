@@ -11,7 +11,7 @@ module V1
     rescue_from MedicalCopays::VBS::Service::ServiceError, with: :service_error
 
     def index
-      if current_user.cerner_facility_ids.any?
+      if cerner_copay_user?
         copays = vbs_service.get_copays
         copays[:isCerner] = true
 

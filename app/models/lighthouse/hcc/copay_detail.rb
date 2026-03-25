@@ -24,6 +24,8 @@ module Lighthouse
       attribute :principal_paid, Float
       attribute :interest_paid, Float
       attribute :administrative_cost_paid, Float
+      attribute :associated_statements, Array
+      attribute :associated_invoices, Array
 
       attribute :line_items, Hash, array: true
       attribute :payments, Hash, array: true
@@ -38,6 +40,7 @@ module Lighthouse
         @payments_data = attrs[:payments] || []
         @facility_address = attrs[:facility_address]
         @patient_data = attrs[:patient_data]
+        @associated_statements_data = attrs[:associated_statements] || []
         assign_attributes
       end
 
@@ -57,6 +60,65 @@ module Lighthouse
         assign_payments
         assign_facility
         assign_patient
+        assign_associated_statements
+        assign_associated_invoices
+      end
+
+      def assign_associated_statements
+        grouped = sorted_invoices.group_by do |statement|
+          date = statement.dig('resource', 'date')
+          time = Time.iso8601(date)
+          [time.year, time.month]
+        end
+
+        @associated_statements = grouped.values.map(&:first).map do |statement|
+          resource = statement['resource']
+          time = Time.iso8601(resource['date'])
+          facility_num = extract_id_from_reference(resource['issuer']['reference'])
+          month = time.month
+          year = time.year
+
+          {
+            'id' => resource['id'],
+            'composite_id' => "#{facility_num}-#{month}-#{year}",
+            'date' => format_date(resource['date'])
+          }
+        end
+      end
+
+      def assign_associated_invoices
+        @associated_invoices = sorted_invoices.map do |statement|
+          resource = statement['resource']
+          facility_num = extract_id_from_reference(resource['issuer']['reference'])
+          time = Time.iso8601(resource['date'])
+
+          {
+            'id' => resource['id'],
+            'composite_id' => "#{facility_num}-#{time.month}-#{time.year}",
+            'date' => format_date(resource['date'])
+          }
+        end
+      end
+
+      def sorted_invoices
+        data = @associated_statements_data.presence || []
+
+        return data if data.blank?
+
+        invoice_time = Time.iso8601(@invoice_data['date'])
+
+        filtered = data.filter_map do |statement|
+          date_str = statement.dig('resource', 'date')
+          next if date_str.blank?
+
+          time = Time.iso8601(date_str)
+          [statement, time] if time > invoice_time
+        end
+
+        filtered
+          .sort_by { |_, time| time }
+          .reverse
+          .map(&:first)
       end
 
       def assign_balances
@@ -248,6 +310,10 @@ module Lighthouse
         return nil unless reference
 
         reference.split('/').last
+      end
+
+      def format_date(time_stamp_string)
+        Date.parse(time_stamp_string).strftime('%B %-d, %Y')
       end
     end
   end
