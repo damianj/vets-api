@@ -2,7 +2,7 @@
 
 require 'survivors_benefits/pdf_fill/section'
 
-require_relative '../../constants'
+require_relative '../../../constants'
 
 module SurvivorsBenefits
   module PdfFill

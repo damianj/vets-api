@@ -7,18 +7,14 @@ require 'pdf_fill/hash_converter'
 require 'pdf_utilities/datestamp_pdf'
 require 'survivors_benefits/constants'
 require 'survivors_benefits/helpers'
-require 'survivors_benefits/pdf_fill/sections/section_01'
-require 'survivors_benefits/pdf_fill/sections/section_02'
-require 'survivors_benefits/pdf_fill/sections/section_03'
-require 'survivors_benefits/pdf_fill/sections/section_04'
-require 'survivors_benefits/pdf_fill/sections/section_05'
-require 'survivors_benefits/pdf_fill/sections/section_06'
-require 'survivors_benefits/pdf_fill/sections/section_07'
-require 'survivors_benefits/pdf_fill/sections/section_08'
-require 'survivors_benefits/pdf_fill/sections/section_09'
-require 'survivors_benefits/pdf_fill/sections/section_10'
-require 'survivors_benefits/pdf_fill/sections/section_11'
-require 'survivors_benefits/pdf_fill/sections/section_12'
+
+Dir[File.expand_path('sections/V2022/section_*.rb', __dir__)].each do |file|
+  require file
+end
+
+Dir[File.expand_path('sections/V2025/section_*.rb', __dir__)].each do |file|
+  require file
+end
 
 module SurvivorsBenefits
   module PdfFill
@@ -32,9 +28,6 @@ module SurvivorsBenefits
 
       # Hash iterator
       ITERATOR = ::PdfFill::HashConverter::ITERATOR
-
-      # The path to the PDF template for the form
-      TEMPLATE = "#{SurvivorsBenefits::MODULE_PATH}/lib/survivors_benefits/pdf_fill/pdfs/#{FORM_ID}.pdf".freeze
 
       # Starting page number for overflow pages
       START_PAGE = 11
@@ -73,21 +66,6 @@ module SurvivorsBenefits
         { label: 'Section XIII: Witness to Signature', question_nums: ['13'] }
       ].freeze
 
-      # The list of section classes for form expansion and key building
-      SECTION_CLASSES = [Section1, Section2, Section3,
-                         Section4, Section5, Section6,
-                         Section7, Section8, Section9,
-                         Section10, Section11, Section12].freeze
-
-      key = {}
-
-      SECTION_CLASSES.each { |section| key.merge!(section::KEY) }
-
-      # Form configuration hash
-      KEY = key.freeze
-
-      # Name of the AcroForm field that contains the claimant signature widget (12B)
-      SIGNATURE_FIELD_NAME = 'form1[0].#subform[218].SignatureField1[1]'
       # Font size (points) used when stamping the signature
       SIGNATURE_FONT_SIZE = 10
       # Horizontal padding (points) applied to the derived signature x coordinate
@@ -100,6 +78,58 @@ module SurvivorsBenefits
       # Default label column width (points) for redesigned extras in this form
       DEFAULT_LABEL_WIDTH = 130
 
+      SECTION_CLASS_NAMES = (1..12).map { |n| "Section#{n}" }.freeze
+
+      class << self
+        def pdf_version
+          Flipper.enabled?(:survivors_benefits_form_2025_version_enabled) ? :v2025 : :v2022
+        end
+
+        def template_path
+          version = pdf_version == :v2025 ? 'V2025' : 'V2022'
+          "#{SurvivorsBenefits::MODULE_PATH}/lib/survivors_benefits/pdf_fill/pdfs/#{version}/#{FORM_ID}.pdf"
+        end
+
+        def signature_field_name
+          if pdf_version == :v2025
+            'form1[0].#subform[163].SignatureField1[1]'
+          else
+            'form1[0].#subform[218].SignatureField1[1]'
+          end
+        end
+
+        def section_classes
+          if pdf_version == :v2025
+            SECTION_CLASS_NAMES.map { |class_name| SurvivorsBenefits::PdfFill::V2025.const_get(class_name) }.freeze
+          else
+            SECTION_CLASS_NAMES.map { |class_name| SurvivorsBenefits::PdfFill.const_get(class_name) }.freeze
+          end
+        end
+
+        def key
+          section_classes.each_with_object({}) do |section, merged_key|
+            merged_key.merge!(section::KEY)
+          end.freeze
+        end
+
+        # Backward compatibility for callers that still reference class constants.
+        def const_missing(name)
+          return template_path if name == :TEMPLATE
+          return signature_field_name if name == :SIGNATURE_FIELD_NAME
+          return key if name == :KEY
+
+          super
+        end
+      end
+
+      # Filler checks instance methods first for dynamic form configuration.
+      def template
+        self.class.template_path
+      end
+
+      # Keep key resolution aligned with dynamic form behavior.
+      delegate :key, to: :class
+
       # Post-process form data to match the expected format.
       # Each section of the form is processed in its own expand function.
       #
@@ -108,7 +138,7 @@ module SurvivorsBenefits
       # @return [Hash] the processed form data
       #
       def merge_fields(_options = {})
-        SECTION_CLASSES.each { |section| section.new.expand(form_data) }
+        self.class.section_classes.each { |section| section.new.expand(form_data) }
         form_data
       end
 
@@ -124,7 +154,7 @@ module SurvivorsBenefits
         return pdf_path if signature_text.blank?
 
         coordinates = signature_overlay_coordinates(pdf_path) ||
-                      signature_overlay_coordinates(TEMPLATE)
+                      signature_overlay_coordinates(template_path)
         unless coordinates
           Rails.logger.warn(
             'SurvivorsBenefits 21P-534EZ: Unable to derive signature coordinates; returning original PDF',
@@ -146,7 +176,8 @@ module SurvivorsBenefits
       # @param pdf_path [String] Path to the PDF template
       # @return [Hash, nil] Coordinates hash of the form
       #   `{ x: Float, y: Float, page_number: Integer }` or nil on failure
-      def self.signature_overlay_coordinates(pdf_path = TEMPLATE)
+      def self.signature_overlay_coordinates(pdf_path = nil)
+        pdf_path ||= template_path
         signature_overlay_coordinates_for(pdf_path)
       rescue => e
         Rails.logger.error('SurvivorsBenefits 21P-534EZ: Error deriving signature coordinates',
@@ -160,7 +191,7 @@ module SurvivorsBenefits
         end
 
         HexaPDF::Document.open(pdf_path) do |doc|
-          field = doc.acro_form&.field_by_name(SIGNATURE_FIELD_NAME)
+          field = doc.acro_form&.field_by_name(signature_field_name)
           widget = field&.each_widget&.first
           next unless widget
 

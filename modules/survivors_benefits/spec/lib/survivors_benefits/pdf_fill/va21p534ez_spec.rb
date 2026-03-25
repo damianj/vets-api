@@ -11,6 +11,77 @@ require 'timecop'
 describe SurvivorsBenefits::PdfFill::Va21p534ez do
   include SchemaMatchers
 
+  before do
+    allow(Flipper).to receive(:enabled?).with(:survivors_benefits_form_2025_version_enabled).and_return(false)
+  end
+
+  describe '.section_classes' do
+    it 'uses top-level V2022 section classes when the 2025 feature flag is disabled' do
+      allow(Flipper).to receive(:enabled?).with(:survivors_benefits_form_2025_version_enabled).and_return(false)
+
+      expect(described_class.section_classes.first).to eq(SurvivorsBenefits::PdfFill::Section1)
+      expect(described_class.section_classes.last).to eq(SurvivorsBenefits::PdfFill::Section12)
+    end
+
+    it 'uses namespaced V2025 section classes when the 2025 feature flag is enabled' do
+      allow(Flipper).to receive(:enabled?).with(:survivors_benefits_form_2025_version_enabled).and_return(true)
+
+      expect(described_class.section_classes.first).to eq(SurvivorsBenefits::PdfFill::V2025::Section1)
+      expect(described_class.section_classes.last).to eq(SurvivorsBenefits::PdfFill::V2025::Section12)
+    end
+  end
+
+  describe 'feature-flagged class configuration' do
+    context 'when the 2025 feature flag is disabled' do
+      before do
+        allow(Flipper).to receive(:enabled?).with(:survivors_benefits_form_2025_version_enabled).and_return(false)
+      end
+
+      it 'uses the V2022 template path and TEMPLATE alias' do
+        expect(described_class.template_path).to end_with('/pdfs/V2022/21P-534EZ.pdf')
+        expect(described_class::TEMPLATE).to eq(described_class.template_path)
+      end
+
+      it 'uses the V2022 signature field and SIGNATURE_FIELD_NAME alias' do
+        expect(described_class.signature_field_name).to eq('form1[0].#subform[218].SignatureField1[1]')
+        expect(described_class::SIGNATURE_FIELD_NAME).to eq(described_class.signature_field_name)
+      end
+
+      it 'uses V2022 merged KEY mapping and KEY alias' do
+        expect(described_class.key['veteranFullName']['first'][:key])
+          .to eq('form1[0].#subform[207].VeteransFirstName[0]')
+        expect(described_class::KEY).to eq(described_class.key)
+      end
+    end
+
+    context 'when the 2025 feature flag is enabled' do
+      before do
+        allow(Flipper).to receive(:enabled?).with(:survivors_benefits_form_2025_version_enabled).and_return(true)
+      end
+
+      it 'uses the V2025 template path and TEMPLATE alias' do
+        expect(described_class.template_path).to end_with('/pdfs/V2025/21P-534EZ.pdf')
+        expect(described_class::TEMPLATE).to eq(described_class.template_path)
+      end
+
+      it 'uses the V2025 signature field and SIGNATURE_FIELD_NAME alias' do
+        expect(described_class.signature_field_name).to eq('form1[0].#subform[163].SignatureField1[1]')
+        expect(described_class::SIGNATURE_FIELD_NAME).to eq(described_class.signature_field_name)
+      end
+
+      it 'uses V2025 merged KEY mapping and KEY alias' do
+        merged_key = described_class.section_classes.each_with_object({}) do |section, acc|
+          acc.merge!(section::KEY)
+        end
+
+        expect(described_class.section_classes.map(&:name))
+          .to all(start_with('SurvivorsBenefits::PdfFill::V2025::'))
+        expect(described_class.key).to eq(merged_key)
+        expect(described_class::KEY).to eq(described_class.key)
+      end
+    end
+  end
+
   describe '#to_pdf' do
     it 'merges the right keys' do
       Timecop.freeze(Time.zone.parse('2025-10-27')) do
