@@ -88,7 +88,7 @@ module Kafka
   # @return [void]
   # rubocop:disable Metrics/ParameterLists
   def self.submit_event(current_id:, submission_name:, state:, icn: nil, prior_id: nil, next_id: nil,
-                        additional_ids: nil)
+                        additional_ids: nil, system_name: SYSTEM_NAME)
     payload = {
       'icn' => icn,
       'prior_id' => prior_id.to_s,
@@ -97,7 +97,7 @@ module Kafka
       'submission_name' => submission_name,
       'state' => state,
       'vasi_id' => VASI_ID,
-      'system_name' => SYSTEM_NAME,
+      'system_name' => system_name,
       'timestamp' => Time.current.iso8601,
       'additional_ids' => additional_ids,
       'context' => {

@@ -226,5 +226,29 @@ RSpec.describe Kafka do
         end.to raise_error(Common::Exceptions::ValidationErrors)
       end
     end
+
+    context 'when a custom system_name is provided' do
+      let(:expected_lighthouse_output) do
+        { 'currentId' => current_id,
+          'icn' => icn,
+          'nextId' => next_id,
+          'priorId' => prior_id,
+          'state' => 'sent',
+          'submissionName' => 'F527EZ',
+          'systemName' => 'Lighthouse',
+          'timestamp' => Time.zone.now.iso8601,
+          'vasiId' => '2103',
+          'additionalIds' => %w[123 456],
+          'context' => { 'note' => "Environment: #{Settings.vsp_environment}" } }
+      end
+
+      it 'uses the provided system_name instead of the default' do
+        VCR.use_cassette('kafka/topics') do
+          expect(Kafka::EventBusSubmissionJob).to receive(:perform_async).with(expected_lighthouse_output, false)
+          Kafka.submit_event(icn:, prior_id:, current_id:, next_id:, submission_name:, state:, additional_ids:,
+                             system_name: 'Lighthouse')
+        end
+      end
+    end
   end
 end

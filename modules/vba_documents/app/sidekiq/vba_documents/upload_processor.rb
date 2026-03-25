@@ -29,7 +29,8 @@ module VBADocuments
             icn: upload.metadata['icn'],
             current_id: upload.guid,
             submission_name: 'F527EZ',
-            state: Kafka::State::ERROR
+            state: Kafka::State::ERROR,
+            system_name: 'Lighthouse'
           )
         rescue => e
           Rails.logger.error(
@@ -90,7 +91,8 @@ module VBADocuments
               icn: @upload.metadata['icn'],
               current_id: @upload.guid,
               submission_name: 'F527EZ',
-              state: Kafka::State::RECEIVED
+              state: Kafka::State::RECEIVED,
+              system_name: 'Lighthouse'
             )
           rescue => e
             Rails.logger.error(
@@ -240,7 +242,8 @@ module VBADocuments
             icn: @upload.metadata['icn'],
             current_id: @upload.guid,
             submission_name: 'F527EZ',
-            state: Kafka::State::SENT
+            state: Kafka::State::SENT,
+            system_name: 'Lighthouse'
           )
         rescue => e
           Rails.logger.error(

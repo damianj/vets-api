@@ -220,7 +220,8 @@ RSpec.describe VBADocuments::UploadProcessor, type: :job do
           icn: '2112',
           current_id: upload.guid,
           submission_name: 'F527EZ',
-          state: Kafka::State::RECEIVED
+          state: Kafka::State::RECEIVED,
+          system_name: 'Lighthouse'
         )
 
         described_class.new.perform(upload.guid, test_caller)
@@ -261,7 +262,8 @@ RSpec.describe VBADocuments::UploadProcessor, type: :job do
           icn: '2112',
           current_id: upload.guid,
           submission_name: 'F527EZ',
-          state: Kafka::State::SENT
+          state: Kafka::State::SENT,
+          system_name: 'Lighthouse'
         )
 
         described_class.new.perform(upload.guid, test_caller)
@@ -306,7 +308,8 @@ RSpec.describe VBADocuments::UploadProcessor, type: :job do
           icn: tracked_upload.metadata['icn'],
           current_id: tracked_upload.guid,
           submission_name: 'F527EZ',
-          state: Kafka::State::ERROR
+          state: Kafka::State::ERROR,
+          system_name: 'Lighthouse'
         )
 
         described_class.sidekiq_retries_exhausted_block.call(msg, StandardError.new('boom'))
