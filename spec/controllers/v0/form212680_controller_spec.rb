@@ -204,7 +204,9 @@ RSpec.describe V0::Form212680Controller, type: :controller do
         allow(File).to receive(:delete).and_call_original
         allow(File).to receive(:delete).with(temp_pdf)
 
-        expect(monitor).to receive(:track_pdf_generation_success).with(kind_of(Time))
+        expect(monitor).to receive(:track_pdf_generation_success).with(kind_of(Time),
+                                                                       hash_including(user_uuid: kind_of(String),
+                                                                                      claim_guid: kind_of(String)))
 
         get(:download_pdf, params: { guid: claim.guid })
       end
@@ -213,7 +215,9 @@ RSpec.describe V0::Form212680Controller, type: :controller do
         allow_any_instance_of(SavedClaim::Form212680).to receive(:generate_prefilled_pdf).and_raise(StandardError,
                                                                                                     'PDF error')
 
-        expect(monitor).to receive(:track_pdf_generation_failure).with(kind_of(StandardError))
+        expect(monitor).to receive(:track_pdf_generation_failure).with(kind_of(StandardError),
+                                                                       hash_including(user_uuid: kind_of(String),
+                                                                                      claim_guid: kind_of(String)))
 
         get(:download_pdf, params: { guid: claim.guid })
       end

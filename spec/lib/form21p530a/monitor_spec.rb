@@ -48,8 +48,7 @@ RSpec.describe Form21p530a::Monitor do
     it 'increments StatsD metrics with tags' do
       expect(StatsD).to receive(:increment).with(
         "#{claim_stats_key}.submission.failure",
-        hash_including(tags: array_including('service:form21p530a', 'action:create', 'status:failure',
-                                             'error_class:StandardError'))
+        hash_including(tags: array_including('service:form21p530a', 'action:create', 'status:failure'))
       )
       expect(StatsD).to receive(:increment).with(
         "#{claim_stats_key}.request",
@@ -370,8 +369,7 @@ RSpec.describe Form21p530a::Monitor do
     it 'increments StatsD metrics' do
       expect(StatsD).to receive(:increment).with(
         "#{claim_stats_key}.submission.failure",
-        hash_including(tags: array_including('service:form21p530a', 'action:create', 'status:failure',
-                                             'error_class:StandardError'))
+        hash_including(tags: array_including('service:form21p530a', 'action:create', 'status:failure'))
       )
       expect(StatsD).to receive(:increment).with(
         "#{claim_stats_key}.request",

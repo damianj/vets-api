@@ -28,6 +28,7 @@ module Logging
       pdf_generation_duration_ms
       source_app
       user_uuid
+      validation_message
     ].freeze
 
     def initialize(service, allowlist: [])
@@ -54,6 +55,7 @@ module Logging
         source_app: extract_source_app(request),
         error_type: validation_details[:error_type],
         data_pointer: validation_details[:data_pointer],
+        validation_message: validation_details[:validation_message],
         **validation_error_context(validation_details),
         tags: validation_error_tags(validation_details)
       )
@@ -238,13 +240,14 @@ module Logging
     # Extracts error type and data pointer from a Committee validation error
     #
     # @param error [Committee::InvalidRequest] The validation error
-    # @return [Hash] Hash with :error_type and :data_pointer keys
+    # @return [Hash] Hash with :error_type, :data_pointer, and :validation_message keys
     def extract_validation_details(error)
       message = error.message.to_s
 
       {
         error_type: extract_error_type(message),
-        data_pointer: extract_data_pointer(message)
+        data_pointer: extract_data_pointer(message),
+        validation_message: message
       }
     end
 

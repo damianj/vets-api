@@ -38,16 +38,18 @@ module V0
       source_file_path = generate_pdf_with_retry(claim)
       validate_pdf_generated!(source_file_path)
 
-      monitor.track_pdf_generation_success(pdf_start_time)
+      monitor.track_pdf_generation_success(pdf_start_time, user_uuid: current_user&.uuid,
+                                                           claim_guid: claim.guid)
       send_data File.read(source_file_path),
                 filename: download_file_name(claim),
                 type: 'application/pdf',
                 disposition: 'attachment'
     rescue ActiveRecord::RecordNotFound => e
-      monitor.track_pdf_generation_failure(e)
+      monitor.track_pdf_generation_failure(e, user_uuid: current_user&.uuid,
+                                              claim_guid: params[:guid])
       raise Common::Exceptions::RecordNotFound, params[:guid]
     rescue => e
-      handle_pdf_generation_error(e)
+      handle_pdf_generation_error(e, claim)
     ensure
       cleanup_pdf_file(source_file_path)
     end
@@ -78,8 +80,9 @@ module V0
       routing_error unless Flipper.enabled?(:form_2680_enabled, current_user)
     end
 
-    def handle_pdf_generation_error(error)
-      monitor.track_pdf_generation_failure(error)
+    def handle_pdf_generation_error(error, claim = nil)
+      monitor.track_pdf_generation_failure(error, user_uuid: current_user&.uuid,
+                                                  claim_guid: claim&.guid)
       render json: {
         errors: [{
           title: 'PDF Generation Failed',

@@ -9,6 +9,10 @@ RSpec.describe Form210779::Monitor do
   let(:claim_stats_key) { described_class::CLAIM_STATS_KEY }
   let(:form_id) { described_class::FORM_ID }
 
+  it 'extends Logging::CommitteeValidationMonitor' do
+    expect(described_class.ancestors).to include(Logging::CommitteeValidationMonitor)
+  end
+
   describe 'BaseMonitor abstract methods' do
     it 'implements required methods' do
       expect(monitor.claim_stats_key).to eq('api.form210779')
@@ -40,6 +44,26 @@ RSpec.describe Form210779::Monitor do
         request_method: 'POST',
         env: { 'SOURCE_APP' => '21-0779-nursing-home-information' }
       )
+    end
+
+    it 'overrides base class method' do
+      expect(described_class.instance_methods(false)).to include(:track_request_validation_error)
+    end
+
+    it 'uses ActiveRecord validation (not Committee validation)' do
+      claim = SavedClaim::Form210779.new
+      claim.errors.add(:veteran_full_name, 'is required')
+      error = Common::Exceptions::ValidationErrors.new(claim)
+
+      allow(StatsD).to receive(:increment)
+      expect(Rails.logger).to receive(:warn) do |_, payload|
+        # Should extract ActiveRecord error type, not Committee error types
+        expect(payload[:context][:error_type]).to eq('activerecord_validation')
+        # Should extract field name from ActiveRecord errors
+        expect(payload[:context][:data_pointer]).to eq('veteran_full_name')
+      end
+
+      monitor.track_request_validation_error(error:, request:, claim:)
     end
 
     context 'with ActiveRecord validation error' do

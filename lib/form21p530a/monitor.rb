@@ -37,14 +37,6 @@ module Form21p530a
       ['action:create', 'status:begun']
     end
 
-    def submission_failure_tags(error)
-      ['action:create', 'status:failure', "error_class:#{error.class.name}"]
-    end
-
-    def pdf_failure_tags(error)
-      ['action:download_pdf', 'status:failure', "error_class:#{error.class.name}"]
-    end
-
     def pdf_success_context(duration_ms, user_uuid: nil, claim_guid: nil)
       { pdf_generation_duration_ms: duration_ms.round(2), user_uuid:, claim_guid: }
     end
