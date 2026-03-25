@@ -19,6 +19,9 @@ module MyHealth
       STATSD_KEY_PREFIX = 'api.my_health.immunizations'
 
       def index
+        data_source = uhd_enabled? ? 'uhd' : 'lighthouse'
+        tag_datadog_span(data_source)
+
         if uhd_enabled?
           immunizations = sort_records(uhd_service.get_immunizations, params[:sort])
           log_vaccines(immunizations.length)
@@ -37,6 +40,7 @@ module MyHealth
         handle_error(e, resource_name: 'immunization records', api_type: uhd_enabled? ? 'SCDF' : 'FHIR')
       end
 
+      # Until SCDF offers a get by ID endpoint this only returns LH records
       def show
         id = params[:id]
         begin
@@ -63,8 +67,17 @@ module MyHealth
 
       private
 
+      # Grab the active Datadog APM span and
+      # set a custom tag medical_records.data_source to either "uhd" or "lighthouse".
+      def tag_datadog_span(data_source)
+        span = Datadog::Tracing.active_span
+        span&.set_tag('medical_records.data_source', data_source)
+      end
+
       def uhd_enabled?
-        Flipper.enabled?(:mhv_accelerated_delivery_vaccines_enabled, current_user)
+        return @uhd_enabled if defined?(@uhd_enabled)
+
+        @uhd_enabled = Flipper.enabled?(:mhv_accelerated_delivery_vaccines_enabled, current_user)
       end
 
       def log_vaccines(vaccines_count)

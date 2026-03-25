@@ -18,11 +18,15 @@ RSpec.describe 'MyHealth::V2::ImmunizationsController', :skip_json_api_validatio
 
   describe 'GET /my_health/v2/medical_records/immunizations' do
     context 'with Lighthouse data' do
+      let(:datadog_span) { spy('datadog_span') }
+
       before do
         allow(Flipper).to receive(:enabled?).with(:mhv_accelerated_delivery_vaccines_enabled,
                                                   instance_of(User)).and_return(false)
 
         allow(UniqueUserEvents).to receive(:log_events)
+        allow(Datadog::Tracing).to receive(:active_span).and_return(datadog_span)
+
         VCR.use_cassette(lh_immunizations_cassette) do
           get path, headers: { 'X-Key-Inflection' => 'camel' }
         end
@@ -31,6 +35,10 @@ RSpec.describe 'MyHealth::V2::ImmunizationsController', :skip_json_api_validatio
       context 'happy path' do
         it 'returns a successful response' do
           expect(response).to be_successful
+        end
+
+        it 'tags the Datadog span with lighthouse data source' do
+          expect(datadog_span).to have_received(:set_tag).with('medical_records.data_source', 'lighthouse')
         end
 
         it 'logs unique user events for immunizations/vaccines accessed' do
@@ -170,6 +178,17 @@ RSpec.describe 'MyHealth::V2::ImmunizationsController', :skip_json_api_validatio
 
       after do
         Timecop.return
+      end
+
+      it 'tags the Datadog span with uhd data source' do
+        span = spy('datadog_span')
+        allow(Datadog::Tracing).to receive(:active_span).and_return(span)
+
+        VCR.use_cassette(uhd_immunizations_cassette) do
+          get path, headers: { 'X-Key-Inflection' => 'camel' }
+        end
+
+        expect(span).to have_received(:set_tag).with('medical_records.data_source', 'uhd')
       end
 
       context 'happy path' do

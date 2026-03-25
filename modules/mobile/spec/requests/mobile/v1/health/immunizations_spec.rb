@@ -26,6 +26,17 @@ RSpec.describe 'Mobile::V1::Health::Immunizations', :skip_json_api_validation, t
 
       after { Timecop.return }
 
+      it 'tags the Datadog span with lighthouse data source' do
+        span = spy('datadog_span')
+        allow(Datadog::Tracing).to receive(:active_span).and_return(span)
+
+        VCR.use_cassette('mobile/lighthouse_health/get_immunizations', match_requests_on: %i[method uri]) do
+          get '/mobile/v1/health/immunizations', headers: sis_headers, params: default_params
+        end
+
+        expect(span).to have_received(:set_tag).with('medical_records.data_source', 'lighthouse')
+      end
+
       context 'when the expected fields have data' do
         before do
           allow(UniqueUserEvents).to receive(:log_events)
@@ -475,6 +486,17 @@ RSpec.describe 'Mobile::V1::Health::Immunizations', :skip_json_api_validation, t
       end
 
       after { Timecop.return }
+
+      it 'tags the Datadog span with uhd data source' do
+        span = spy('datadog_span')
+        allow(Datadog::Tracing).to receive(:active_span).and_return(span)
+
+        VCR.use_cassette('unified_health_data/get_immunizations_200', match_requests_on: %i[method uri]) do
+          get '/mobile/v1/health/immunizations', headers: sis_headers, params: default_params
+        end
+
+        expect(span).to have_received(:set_tag).with('medical_records.data_source', 'uhd')
+      end
 
       context 'when the expected fields have data' do
         before do

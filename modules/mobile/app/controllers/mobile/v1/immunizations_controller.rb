@@ -12,6 +12,9 @@ module Mobile
       FUTURE_DATE = '3000-01-01'
 
       def index
+        data_source = uhd_enabled? ? 'uhd' : 'lighthouse'
+        tag_datadog_span(data_source)
+
         immunizations = uhd_enabled? ? uhd_service.get_immunizations : lh_immunizations
         log_immunization_access
 
@@ -25,7 +28,16 @@ module Mobile
       private
 
       def uhd_enabled?
-        Flipper.enabled?(:mhv_accelerated_delivery_vaccines_enabled, current_user)
+        return @uhd_enabled if defined?(@uhd_enabled)
+
+        @uhd_enabled = Flipper.enabled?(:mhv_accelerated_delivery_vaccines_enabled, current_user)
+      end
+
+      # Grab the active Datadog APM span and
+      # set a custom tag medical_records.data_source to either "uhd" or "lighthouse".
+      def tag_datadog_span(data_source)
+        span = Datadog::Tracing.active_span
+        span&.set_tag('medical_records.data_source', data_source)
       end
 
       def log_immunization_access
