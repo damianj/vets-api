@@ -187,6 +187,21 @@ RSpec.describe 'Mobile::V0::DisabilityRating', type: :request do
       end
     end
 
+    context 'when lighthouse is unavailable and returns a non-HTTP error object' do
+      before do
+        allow_any_instance_of(VeteranVerification::Service)
+          .to receive(:get_rated_disabilities)
+          .and_return(Faraday::ConnectionFailed.new('connection failed'))
+      end
+
+      it 'returns a 503 response instead of a 500' do
+        get '/mobile/v0/disability-rating', params: nil, headers: sis_headers
+
+        assert_schema_conform(503)
+        expect(response).to have_http_status(:service_unavailable)
+      end
+    end
+
     context 'with a 400 response from upstream service' do
       it 'returns a not found response' do
         VCR.use_cassette('mobile/lighthouse_disability_rating/introspect_active') do

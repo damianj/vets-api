@@ -10,21 +10,31 @@ module Mobile
           @icn = icn
         end
 
+        # Fetches rated disabilities from the Lighthouse Veteran Verification API.
         def get_rated_disabilities
           settings = Settings.lighthouse.veteran_verification['form526']
 
-          data = veteran_vertification_service.get_rated_disabilities(
+          response = veteran_verification_service.get_rated_disabilities(
             @icn,
             settings.access_token.client_id,
             settings.access_token.rsa_key
           )
 
-          data['data']['attributes']
+          unless response.is_a?(Hash)
+            detail = response.try(:message) || 'Lighthouse veteran verification service unavailable'
+            raise Common::Exceptions::ServiceUnavailable.new(detail:)
+          end
+
+          response['data']['attributes']
+        rescue Common::Exceptions::BaseError
+          raise
+        rescue Faraday::ConnectionFailed, Faraday::TimeoutError
+          raise Common::Exceptions::ServiceUnavailable
         end
 
         private
 
-        def veteran_vertification_service
+        def veteran_verification_service
           VeteranVerification::Service.new
         end
       end
