@@ -79,6 +79,28 @@ RSpec.describe AsyncTransaction::VAProfile::Base, type: :model do
         expect(AsyncTransaction::VAProfile::Base).to receive(:fetch_transaction).at_most(0)
       end
     end
+
+    it 'marks stale requested transactions as completed and does not poll VA Profile' do
+      stale_transaction = create(
+        :address_transaction,
+        transaction_id: 'stale-single-refresh-transaction-id',
+        user_uuid: user.uuid,
+        transaction_status: 'RECEIVED',
+        status: AsyncTransaction::VAProfile::Base::REQUESTED,
+        created_at: Time.zone.now - AsyncTransaction::VAProfile::Base::POLLING_EXPIRATION_WINDOW - 1.hour
+      )
+
+      expect(AsyncTransaction::VAProfile::Base).not_to receive(:fetch_transaction)
+
+      transaction = AsyncTransaction::VAProfile::Base.refresh_transaction_status(
+        user,
+        service,
+        stale_transaction.transaction_id
+      )
+
+      expect(transaction.status).to eq(AsyncTransaction::VAProfile::Base::COMPLETED)
+      expect(stale_transaction.reload.status).to eq(AsyncTransaction::VAProfile::Base::COMPLETED)
+    end
   end
 
   describe '.start' do
@@ -171,6 +193,38 @@ RSpec.describe AsyncTransaction::VAProfile::Base, type: :model do
         expect(transactions.first.transaction_id).to eq(transaction.transaction_id)
       end
     end
+
+    it 'marks expired requested transactions as completed and skips polling them' do
+      fresh_transaction = create(
+        :email_transaction,
+        transaction_id: 'fresh-transaction-id',
+        user_uuid: user.uuid,
+        transaction_status: 'RECEIVED',
+        status: AsyncTransaction::VAProfile::Base::REQUESTED,
+        created_at: Time.zone.now
+      )
+      expired_transaction = create(
+        :address_transaction,
+        transaction_id: 'expired-transaction-id',
+        user_uuid: user.uuid,
+        transaction_status: 'RECEIVED',
+        status: AsyncTransaction::VAProfile::Base::REQUESTED,
+        created_at: Time.zone.now - AsyncTransaction::VAProfile::Base::POLLING_EXPIRATION_WINDOW - 1.hour
+      )
+
+      allow(AsyncTransaction::VAProfile::Base)
+        .to receive(:refresh_transaction_status)
+        .with(user, service, fresh_transaction.transaction_id)
+        .and_return(fresh_transaction)
+
+      transactions = AsyncTransaction::VAProfile::Base.refresh_transaction_statuses(user, service)
+
+      expect(transactions).to eq([fresh_transaction])
+      expect(AsyncTransaction::VAProfile::Base)
+        .not_to have_received(:refresh_transaction_status)
+        .with(user, service, expired_transaction.transaction_id)
+      expect(expired_transaction.reload.status).to eq(AsyncTransaction::VAProfile::Base::COMPLETED)
+    end
   end
 
   describe 'logging' do
@@ -252,6 +306,41 @@ RSpec.describe AsyncTransaction::VAProfile::Base, type: :model do
       expect do
         AsyncTransaction::VAProfile::Base.refresh_transaction_statuses(user, service)
       end.to raise_error(StandardError, 'boom')
+    end
+
+    it 'logs when stale requested transactions are marked completed' do
+      stale_transaction = create(
+        :email_transaction,
+        transaction_id: 'stale-transaction-id',
+        user_uuid: user.uuid,
+        transaction_status: 'RECEIVED',
+        status: AsyncTransaction::VAProfile::Base::REQUESTED,
+        created_at: Time.zone.now - AsyncTransaction::VAProfile::Base::POLLING_EXPIRATION_WINDOW - 1.hour
+      )
+
+      allow(AsyncTransaction::VAProfile::Base)
+        .to receive(:last_ongoing_transactions_for_user)
+        .and_return([stale_transaction])
+
+      expect(Rails.logger).to receive(:info).with(
+        hash_including(
+          message: 'VAProfile stale requested transaction marked completed',
+          transaction_id: stale_transaction.transaction_id,
+          transaction_type: stale_transaction.type
+        )
+      )
+      expect(Rails.logger).to receive(:info).with(
+        hash_including(
+          message: 'VAProfile batch transaction status refresh candidates',
+          user_uuid: user.uuid,
+          candidate_count: 0
+        )
+      )
+
+      transactions = AsyncTransaction::VAProfile::Base.refresh_transaction_statuses(user, service)
+
+      expect(transactions).to eq([])
+      expect(stale_transaction.reload.status).to eq(AsyncTransaction::VAProfile::Base::COMPLETED)
     end
 
     context 'when transaction status logging is disabled' do

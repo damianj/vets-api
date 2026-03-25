@@ -11,6 +11,7 @@ module AsyncTransaction
       ].freeze
       REQUESTED = 'requested'
       COMPLETED = 'completed'
+      POLLING_EXPIRATION_WINDOW = 30.days # in alignment with VAProfile's retention policy
 
       validates :source_id, presence: true, unless: :initialize_person?
 
@@ -60,13 +61,17 @@ module AsyncTransaction
       # @return [AsyncTransaction::VAProfile::Base]
       def self.refresh_transaction_status(user, service, tx_id = nil)
         transaction_record = find_transaction!(user.uuid, tx_id)
+
+        mark_transaction_expired!(transaction_record) if transaction_expired_for_polling?(transaction_record)
         return transaction_record if transaction_record.finished?
 
-        elapsed_seconds = (Time.zone.now - transaction_record.created_at).round(3)
-        first_check = transaction_record.updated_at == transaction_record.created_at
+        if transaction_status_logging_enabled?
+          elapsed_seconds = (Time.zone.now - transaction_record.created_at).round(3)
+          first_check = transaction_record.updated_at == transaction_record.created_at
 
-        log_transaction_status_refresh(transaction_record, elapsed_seconds, first_check)
-        log_first_transaction_status_check(transaction_record, elapsed_seconds, first_check)
+          log_transaction_status_refresh(transaction_record, elapsed_seconds, first_check)
+          log_first_transaction_status_check(transaction_record, elapsed_seconds, first_check)
+        end
 
         api_response = Base.fetch_transaction(transaction_record, service)
         update_transaction_from_api(transaction_record, api_response)
@@ -126,6 +131,8 @@ module AsyncTransaction
       # @return [Array] An array with any outstanding transactions refreshed. Empty if none.
       def self.refresh_transaction_statuses(user, service)
         transactions = last_ongoing_transactions_for_user(user)
+        expire_requested_transactions_for_user!(transactions)
+        transactions = transactions.reject(&:finished?)
 
         log_batch_candidates(user, transactions)
 
@@ -143,7 +150,7 @@ module AsyncTransaction
       end
 
       def self.log_transaction_status_refresh(transaction_record, elapsed_seconds, first_check)
-        return unless Flipper.enabled?(:va_profile_transaction_status_logging)
+        return unless transaction_status_logging_enabled?
 
         Rails.logger.info(
           message: 'VAProfile transaction status refresh attempt',
@@ -157,7 +164,7 @@ module AsyncTransaction
       end
 
       def self.log_first_transaction_status_check(transaction_record, elapsed_seconds, first_check)
-        return unless Flipper.enabled?(:va_profile_transaction_status_logging) && first_check
+        return unless transaction_status_logging_enabled? && first_check
 
         Rails.logger.info(
           message: 'VAProfile first transaction status check',
@@ -170,7 +177,7 @@ module AsyncTransaction
       end
 
       def self.log_batch_candidates(user, transactions)
-        return unless Flipper.enabled?(:va_profile_transaction_status_logging)
+        return unless transaction_status_logging_enabled?
 
         Rails.logger.info(
           message: 'VAProfile batch transaction status refresh candidates',
@@ -193,7 +200,7 @@ module AsyncTransaction
       end
 
       def self.log_batch_failure(user, transaction, error)
-        return unless Flipper.enabled?(:va_profile_transaction_status_logging)
+        return unless transaction_status_logging_enabled?
 
         elapsed_seconds = (Time.zone.now - transaction.created_at).round(3)
         error_status = error.respond_to?(:status) ? error.status : nil
@@ -213,6 +220,47 @@ module AsyncTransaction
           error_code:,
           error_key:
         )
+      end
+
+      def self.expire_requested_transactions_for_user!(transactions)
+        transactions.each do |transaction|
+          next unless transaction_expired_for_polling?(transaction)
+
+          mark_transaction_expired!(transaction)
+        end
+      end
+
+      def self.transaction_expired_for_polling?(transaction)
+        transaction.created_at < polling_expiration_cutoff
+      end
+
+      def self.polling_expiration_cutoff
+        Time.zone.now - POLLING_EXPIRATION_WINDOW
+      end
+
+      def self.mark_transaction_expired!(transaction)
+        return if transaction.finished?
+
+        elapsed_seconds = (Time.zone.now - transaction.created_at).round(3)
+
+        transaction.update!(status: COMPLETED)
+
+        log_transaction_marked_expired(transaction, elapsed_seconds)
+      end
+
+      def self.log_transaction_marked_expired(transaction, elapsed_seconds)
+        Rails.logger.info(
+          message: 'VAProfile stale requested transaction marked completed',
+          transaction_id: transaction.transaction_id,
+          transaction_type: transaction.type,
+          record_status: transaction.status,
+          record_transaction_status: transaction.transaction_status,
+          elapsed_seconds:
+        )
+      end
+
+      def self.transaction_status_logging_enabled?
+        Flipper.enabled?(:va_profile_transaction_status_logging)
       end
 
       # Find the most recent address, email, or telelphone transactions for a user
@@ -240,7 +288,13 @@ module AsyncTransaction
                            :log_first_transaction_status_check,
                            :log_batch_candidates,
                            :batch_candidate_payload,
-                           :log_batch_failure
+                           :log_batch_failure,
+                           :expire_requested_transactions_for_user!,
+                           :transaction_expired_for_polling?,
+                           :polling_expiration_cutoff,
+                           :mark_transaction_expired!,
+                           :log_transaction_marked_expired,
+                           :transaction_status_logging_enabled?
 
       private
 
