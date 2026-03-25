@@ -2,6 +2,7 @@
 # For more details and guidance, please take a look at .github/CODEOWNERS_README.md
 
 .devcontainer/ @department-of-veterans-affairs/backend-review-group @department-of-veterans-affairs/cto-engineers
+.dockerignore @department-of-veterans-affairs/backend-review-group
 .github/ @department-of-veterans-affairs/backend-review-group
 .github/instructions/my-health-medical-records.instructions.md @department-of-veterans-affairs/vfs-mhv-integration @department-of-veterans-affairs/backend-review-group
 .github/instructions/my-health-messaging.instructions.md @department-of-veterans-affairs/vfs-mhv-integration @department-of-veterans-affairs/backend-review-group

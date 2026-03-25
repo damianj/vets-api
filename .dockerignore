@@ -9,7 +9,6 @@ docs
 log
 tmp
 script/vcr_inspector
-spec
 postman
 datadog-service-catalog
 docker-compose*
