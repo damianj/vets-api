@@ -653,6 +653,11 @@ features:
   cst_filter_ep_960:
     actor_type: user
     description: When enabled, benefits_claims/get_claims service filters 960 EP code claims from the response
+  cst_claim_letters_log_failure:
+    actor_type: user
+    description: >-
+      When enabled, logs user details when the claim letters endpoint
+      encounters a failure.
   cst_claim_letters_log_stale_or_empty:
     actor_type: user
     description: >-

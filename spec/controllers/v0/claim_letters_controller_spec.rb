@@ -228,6 +228,51 @@ RSpec.describe V0::ClaimLettersController, type: :controller do
       end
     end
 
+    context 'failure logging' do
+      before do
+        allow_any_instance_of(ClaimStatusTool::ClaimLetterDownloader)
+          .to receive(:get_letters).and_raise(Common::Exceptions::BackendServiceException)
+        allow(Rails.logger).to receive(:info)
+      end
+
+      context 'when cst_claim_letters_log_failure is disabled' do
+        before do
+          allow(Flipper).to receive(:enabled?)
+            .with(:cst_claim_letters_log_failure, anything)
+            .and_return(false)
+        end
+
+        it 'does not log failure user details' do
+          expect(Rails.logger).not_to receive(:info)
+            .with('Claim letters failure for user', hash_including(message_type: 'cst.claim_letters.failure'))
+          get(:index)
+        end
+      end
+
+      context 'when cst_claim_letters_log_failure is enabled' do
+        before do
+          allow(Flipper).to receive(:enabled?)
+            .with(:cst_claim_letters_log_failure, anything)
+            .and_return(true)
+        end
+
+        it 'logs user details and status code on failure' do
+          expect(Rails.logger).to receive(:info)
+            .with('Claim letters failure for user',
+                  hash_including(message_type: 'cst.claim_letters.failure',
+                                 error_type: 'Common::Exceptions::BackendServiceException',
+                                 status_code: 400))
+          get(:index)
+        end
+
+        it 'does not include icn in the log payload' do
+          expect(Rails.logger).to receive(:info)
+            .with('Claim letters failure for user', hash_not_including(:icn))
+          get(:index)
+        end
+      end
+    end
+
     context 'stale or empty letters logging' do
       before do
         allow(Rails.logger).to receive(:info)

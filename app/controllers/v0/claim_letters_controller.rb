@@ -20,6 +20,7 @@ module V0
       render json: docs
     rescue => e
       log_api_provider_error(e)
+      log_claim_letters_failure(e)
       raise e
     end
 
@@ -62,6 +63,20 @@ module V0
       ::Rails.logger.info('DDL Document Types Metadata',
                           { message_type: 'ddl.doctypes_metadata',
                             document_type_metadata: docs_metadata })
+    end
+
+    def log_claim_letters_failure(error)
+      return unless Flipper.enabled?(:cst_claim_letters_log_failure, @current_user)
+
+      ::Rails.logger.info('Claim letters failure for user', {
+                            message_type: 'cst.claim_letters.failure',
+                            user_uuid: @current_user.uuid,
+                            user_account_uuid: @current_user.user_account_uuid,
+                            api_provider: @api_provider,
+                            error_type: error.class.to_s,
+                            error_message: error.message,
+                            status_code: error.try(:status_code) || error.try(:code)
+                          })
     end
 
     def log_stale_or_empty_letters(docs)
