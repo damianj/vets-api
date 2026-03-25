@@ -56,8 +56,8 @@ http_interactions:
       - dtSInfo;desc="0", dtRpid;desc="640242957"
     body:
       encoding: UTF-8
-      string: '{"id":4771462,"createDate":1642619386000,"status":"SUBMITTED","veteran":{"firstName":"PAULINE","middleName":"E","lastName":"FOSTER","suffixName":"III","vetAddress1":"123
-        MAIN ST","vetAddress2":null,"vetCity":"MANTUA","vetState":"NJ","vetZip":"08051","vetZipSuffix":null,"mailingAddress1":"123
-        MAIN ST","mailingAddress2":null,"mailingCity":"MANTUA","mailingState":"NJ","mailingZip":"08051","mailingZipSuffix":null,"contactPhone":"8007271000","contactEmail":"vets.gov.user38@gmail.com","vaLoanIndicator":false,"vaHomeOwnIndicator":false,"activeDutyIndicator":false,"disabilityIndicator":false},"relevantPriorLoans":[],"periodsOfService":[{"enteredOnDuty":1546322400000,"releasedActiveDuty":1577685600000,"serviceType":"ACTIVE_DUTY","characterOfService":null,"militaryBranch":null,"activeDutyPoints":null,"inactiveDutyPoints":null,"qualifies":null,"rankCode":"ENLISTED","disabilityIndicator":false},{"enteredOnDuty":1514786400000,"releasedActiveDuty":1522386000000,"serviceType":"RESERVE_NATIONAL_GUARD","characterOfService":null,"militaryBranch":null,"activeDutyPoints":null,"inactiveDutyPoints":null,"qualifies":null,"rankCode":"ENLISTED","disabilityIndicator":false}]}'
-  recorded_at: Thu, 20 Jan 2022 23:45:00 GMT
+      string: '{"id":5138593,"referenceNumber":"18959346","createDate":1722543158000,"status":"SUBMITTED","veteran":{"firstName":"HECTOR","middleName":"A","lastName":"ALLEN","suffixName":null,"vetAddress1":"123
+        MAIN ST","vetAddress2":"UNIT 1","vetCity":"PORTLAND","vetState":"IL","vetZip":"60601","vetZipSuffix":null,"mailingAddress1":"123
+        MAIN ST","mailingAddress2":"UNIT 1","mailingCity":"PORTLAND","mailingState":"IL","mailingZip":"60601","mailingZipSuffix":null,"contactPhone":"3132222223","contactEmail":"vets.gov.user+test@example.com","vaLoanIndicator":false,"vaHomeOwnIndicator":false,"activeDutyIndicator":false,"disabilityIndicator":false},"relevantPriorLoans":[],"periodsOfService":[{"enteredOnDuty":-73353600000,"releasedActiveDuty":-10281600000,"serviceType":"ACTIVE_DUTY","characterOfService":null,"militaryBranch":"AIR_FORCE","activeDutyPoints":"0","inactiveDutyPoints":"0","qualifies":null,"rankCode":"ENLISTED","disabilityIndicator":false}]}'
+  recorded_at: Sun, 22 Mar 2026 14:00:00 GMT
 recorded_with: VCR 6.0.0
