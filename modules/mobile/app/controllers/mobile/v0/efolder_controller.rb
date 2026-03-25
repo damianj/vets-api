@@ -18,7 +18,11 @@ module Mobile
 
         render json: Mobile::V0::EfolderSerializer.new(documents)
       rescue VBMS::FilenumberDoesNotExist
-        raise_vbms_bad_gateway
+        raise_vbms_bad_gateway('VBMS failed to resolve file number')
+      rescue VBMS::DocumentTooBig
+        raise_vbms_bad_gateway('VBMS document request exceeded size limit')
+      rescue VBMS::HTTPError
+        raise_vbms_bad_gateway('VBMS service error')
       end
 
       def download
@@ -38,7 +42,11 @@ module Mobile
           filename: file_name
         )
       rescue VBMS::FilenumberDoesNotExist
-        raise_vbms_bad_gateway
+        raise_vbms_bad_gateway('VBMS failed to resolve file number')
+      rescue VBMS::DocumentTooBig
+        raise_vbms_bad_gateway('VBMS document request exceeded size limit')
+      rescue VBMS::HTTPError
+        raise_vbms_bad_gateway('VBMS service error')
       end
 
       private
@@ -89,11 +97,14 @@ module Mobile
         Mobile::V0::Adapters::ParticipantDocuments
       end
 
-      def raise_vbms_bad_gateway
+      # Maps VBMS upstream errors to 502 Bad Gateway so they don't surface as 500s.
+      # VBMS::HTTPError subclasses (FilenumberDoesNotExist, DocumentTooBig, DownForMaintenance, etc.)
+      # all indicate an upstream VBMS failure, not an application bug.
+      def raise_vbms_bad_gateway(detail)
         error = Common::Exceptions::SerializableError.new(
           status: '502',
           title: 'Bad Gateway',
-          detail: 'VBMS failed to resolve file number',
+          detail:,
           code: '502'
         )
         raise Common::Exceptions::BadGateway.new(errors: [error])

@@ -82,6 +82,52 @@ RSpec.describe 'Mobile::V0::Efolder', type: :request do
       end
     end
 
+    context 'when VBMS::DocumentTooBig is raised' do
+      before do
+        efolder_service = double
+        allow(Efolder::Service).to receive(:new).and_return(efolder_service)
+        allow(efolder_service).to receive(:list_documents)
+          .and_raise(VBMS::DocumentTooBig.new(500, 'EFSERR1045'))
+
+        allow(Flipper).to receive(:enabled?).with(:efolder_use_lighthouse_benefits_documents_service,
+                                                  instance_of(User)).and_return(false)
+      end
+
+      it 'returns a 502 bad gateway instead of a 500 internal server error' do
+        get '/mobile/v0/efolder/documents', headers: sis_headers
+
+        assert_schema_conform(502)
+        expect(response).to have_http_status(:bad_gateway)
+        expect(response.parsed_body).to eq(
+          { 'errors' => [{ 'title' => 'Bad Gateway', 'detail' => 'VBMS document request exceeded size limit',
+                           'code' => '502', 'status' => '502' }] }
+        )
+      end
+    end
+
+    context 'when an unhandled VBMS::HTTPError is raised' do
+      before do
+        efolder_service = double
+        allow(Efolder::Service).to receive(:new).and_return(efolder_service)
+        allow(efolder_service).to receive(:list_documents)
+          .and_raise(VBMS::HTTPError.new(503, 'VBMS service unavailable'))
+
+        allow(Flipper).to receive(:enabled?).with(:efolder_use_lighthouse_benefits_documents_service,
+                                                  instance_of(User)).and_return(false)
+      end
+
+      it 'returns a 502 bad gateway instead of a 500 internal server error' do
+        get '/mobile/v0/efolder/documents', headers: sis_headers
+
+        assert_schema_conform(502)
+        expect(response).to have_http_status(:bad_gateway)
+        expect(response.parsed_body).to eq(
+          { 'errors' => [{ 'title' => 'Bad Gateway', 'detail' => 'VBMS service error',
+                           'code' => '502', 'status' => '502' }] }
+        )
+      end
+    end
+
     context 'when :efolder_use_lighthouse_benefits_documents_service is enabled' do
       before do
         allow(Flipper).to receive(:enabled?).and_call_original
@@ -298,6 +344,50 @@ RSpec.describe 'Mobile::V0::Efolder', type: :request do
         expect(response).to have_http_status(:bad_gateway)
         expect(response.parsed_body).to eq(
           { 'errors' => [{ 'title' => 'Bad Gateway', 'detail' => 'VBMS failed to resolve file number',
+                           'code' => '502', 'status' => '502' }] }
+        )
+      end
+    end
+
+    context 'when VBMS::DocumentTooBig is raised' do
+      before do
+        efolder_service = double
+        allow(Efolder::Service).to receive(:new).and_return(efolder_service)
+        allow(efolder_service).to receive(:get_document)
+          .and_raise(VBMS::DocumentTooBig.new(500, 'EFSERR1045'))
+
+        allow(Flipper).to receive(:enabled?).with(:efolder_use_lighthouse_benefits_documents_service,
+                                                  instance_of(User)).and_return(false)
+      end
+
+      it 'returns a 502 bad gateway instead of a 500 internal server error' do
+        post '/mobile/v0/efolder/documents/123/download', params: { file_name: 'test' }, headers: sis_headers
+
+        expect(response).to have_http_status(:bad_gateway)
+        expect(response.parsed_body).to eq(
+          { 'errors' => [{ 'title' => 'Bad Gateway', 'detail' => 'VBMS document request exceeded size limit',
+                           'code' => '502', 'status' => '502' }] }
+        )
+      end
+    end
+
+    context 'when an unhandled VBMS::HTTPError is raised' do
+      before do
+        efolder_service = double
+        allow(Efolder::Service).to receive(:new).and_return(efolder_service)
+        allow(efolder_service).to receive(:get_document)
+          .and_raise(VBMS::HTTPError.new(503, 'VBMS service unavailable'))
+
+        allow(Flipper).to receive(:enabled?).with(:efolder_use_lighthouse_benefits_documents_service,
+                                                  instance_of(User)).and_return(false)
+      end
+
+      it 'returns a 502 bad gateway instead of a 500 internal server error' do
+        post '/mobile/v0/efolder/documents/123/download', params: { file_name: 'test' }, headers: sis_headers
+
+        expect(response).to have_http_status(:bad_gateway)
+        expect(response.parsed_body).to eq(
+          { 'errors' => [{ 'title' => 'Bad Gateway', 'detail' => 'VBMS service error',
                            'code' => '502', 'status' => '502' }] }
         )
       end
