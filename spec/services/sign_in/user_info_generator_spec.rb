@@ -20,6 +20,7 @@ RSpec.describe SignIn::UserInfoGenerator do
       icn:,
       idme_uuid: credential_uuid,
       first_name:,
+      middle_name:,
       last_name:
     )
   end
@@ -28,6 +29,7 @@ RSpec.describe SignIn::UserInfoGenerator do
   let(:sec_id) { 'some-sec-id' }
   let(:sec_id_history) { %w[hist-sec-id-1 hist-sec-id-2] }
   let(:first_name) { 'some-first-name' }
+  let(:middle_name) { 'some-middle-name' }
   let(:last_name) { 'some-last-name' }
   let(:email) { 'some-email' }
   let(:client_id) { 'some-client-id' }
@@ -64,6 +66,7 @@ RSpec.describe SignIn::UserInfoGenerator do
         expect(user_info.csp_uuid).to eq(credential_uuid)
         expect(user_info.email).to eq(credential_email)
         expect(user_info.first_name).to eq(user.first_name)
+        expect(user_info.middle_name).to eq(user.middle_name)
         expect(user_info.last_name).to eq(user.last_name)
         expect(user_info.full_name).to eq(user.full_name_normalized.values.compact.join(' '))
         expect(user_info.birth_date).to eq(user.birth_date)

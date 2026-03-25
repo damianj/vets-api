@@ -9,10 +9,11 @@ module SignIn
     end
 
     def perform
-      SignIn::UserInfo.new(sub:, ial:, aal:, csp_type:, csp_uuid:, email:, first_name:, last_name:, full_name:,
-                           address_street1:, address_street2:, address_city:, address_state:, address_country:,
-                           address_postal_code:, phone_number:, person_types:, icn:, sec_id:, sec_id_history:, edipi:,
-                           mhv_ien:, npi_id:, cerner_id:, corp_id:, birls:, gcids:, birth_date:, ssn:, gender:)
+      SignIn::UserInfo.new(sub:, ial:, aal:, csp_type:, csp_uuid:, email:, first_name:, middle_name:, last_name:,
+                           full_name:, address_street1:, address_street2:, address_city:, address_state:,
+                           address_country:, address_postal_code:, phone_number:, person_types:, icn:, sec_id:,
+                           sec_id_history:, edipi:, mhv_ien:, npi_id:, cerner_id:, corp_id:, birls:, gcids:,
+                           birth_date:, ssn:, gender:)
     end
 
     private
@@ -22,8 +23,9 @@ module SignIn
     def aal                 = AAL::LOGIN_GOV_AAL2
     def csp_uuid            = user_verification.credential_identifier
     def email               = user.user_verification&.user_credential_email&.credential_email
+    def first_name          = user.first_name
+    def middle_name         = user.middle_name
     def last_name           = user.last_name
-    def first_name            = user.first_name
     def full_name           = user.full_name_normalized.values.compact.join(' ')
     def birth_date          = user.birth_date
     def ssn                 = user.ssn
