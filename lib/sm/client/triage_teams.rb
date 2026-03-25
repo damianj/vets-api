@@ -32,10 +32,16 @@ module SM
       def get_all_triage_teams(user_uuid)
         path = append_requires_oh_messages_query('alltriageteams', 'requiresOHTriageGroup')
         json = perform(:get, path, nil, token_headers).body
-        collection = Vets::Collection.new(json[:data], AllTriageTeams, metadata: json[:metadata],
-                                                                       errors: json[:errors])
 
-        update_teams_migration_status(collection.data)
+        # Instantiate teams and update their migration status
+        teams = json[:data].map { |data| AllTriageTeams.new(data) }
+        update_teams_migration_status(teams)
+
+        # Compute metadata with blocked teams count
+        metadata = json[:metadata].merge(associated_blocked_triage_groups: teams.count(&:blocked_status))
+
+        # Create collection once with all data ready
+        collection = Vets::Collection.new(teams, AllTriageTeams, metadata:, errors: json[:errors])
         cache_triage_team_station_numbers(user_uuid, collection.data)
 
         collection

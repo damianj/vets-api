@@ -79,6 +79,21 @@ describe 'sm client' do
       end
     end
 
+    it 'includes associated_blocked_triage_groups count in metadata' do
+      VCR.use_cassette 'sm_client/triage_teams/gets_a_collection_of_all_triage_team_recipients' do
+        VCR.use_cassette('sm_client/get_unique_care_systems') do
+          collection = client.get_all_triage_teams('1234')
+
+          expect(collection.metadata).to have_key(:associated_blocked_triage_groups)
+          expect(collection.metadata[:associated_blocked_triage_groups]).to be_an(Integer)
+
+          # Verify the count matches the actual number of blocked teams
+          blocked_count = collection.data.count(&:blocked_status)
+          expect(collection.metadata[:associated_blocked_triage_groups]).to eq(blocked_count)
+        end
+      end
+    end
+
     describe '#get_triage_teams_station_numbers' do
       it 'returns cached triage team station numbers when cache exists' do
         # Pre-populate the cache
@@ -143,6 +158,9 @@ describe 'sm client' do
               expect(team.blocked_status).to be true
               expect(team.migrating_to_oh).to be true
             end
+
+            # Verify metadata count reflects the blocked teams
+            expect(collection.metadata[:associated_blocked_triage_groups]).to eq(collection.data.count)
           end
         end
       end
@@ -188,6 +206,9 @@ describe 'sm client' do
               expect(team.blocked_status).to be false
               expect(team.migrating_to_oh).to be false
             end
+
+            # Verify metadata count is 0 when no teams are blocked
+            expect(collection.metadata[:associated_blocked_triage_groups]).to eq(0)
           end
         end
       end
