@@ -16,6 +16,7 @@ module IvcChampva
       return unless Flipper.enabled?(:champva_enable_notify_pega_missing_form_status_job)
 
       batches = missing_status_cleanup.get_missing_statuses(silent: true, ignore_last_minute: true)
+      Rails.logger.info "IVC Forms NotifyPegaMissingFormStatusJob - Found #{batches.size} batches"
 
       return unless batches.any?
 
@@ -32,8 +33,13 @@ module IvcChampva
         form = batch[0] # get a representative form from this submission batch
         next if form.nil?
 
+        Rails.logger.info "IVC Forms NotifyPegaMissingFormStatusJob - Processing for form_uuid: #{form.form_uuid}"
+
         # Check reporting API to see if this missing status is a false positive
-        next if missing_form_status_job.num_docs_match_reports?(batch)
+        if missing_form_status_job.num_docs_match_reports?(batch)
+          Rails.logger.info 'IVC Forms NotifyPegaMissingFormStatusJob - False positive detected, skipping notification'
+          next
+        end
 
         elapsed_minutes = (current_time - form.created_at).to_i / 1.minute
         pega_email_threshold_hours =
@@ -51,6 +57,9 @@ module IvcChampva
     # @param form_data [hash] hash of form details (see `send_failure_email`)
     # @param form [IvcChampvaForm] form object in question
     def send_zsf_notification_to_pega(form, template_id)
+      Rails.logger.info(
+        "IVC Forms NotifyPegaMissingFormStatusJob - send_zsf_notification_to_pega for form_uuid: #{form.form_uuid}"
+      )
       form_data = construct_email_payload(form, template_id)
       form_data = form_data.merge({
                                     email: Settings.vanotify.services.ivc_champva.pega_inbox_address
@@ -60,9 +69,12 @@ module IvcChampva
         form_data = form_data.merge(callback_hash(form))
       end
 
+      Rails.logger.info 'IVC Forms NotifyPegaMissingFormStatusJob - Sending email'
       if IvcChampva::Email.new(form_data).send_email
+        Rails.logger.info 'IVC Forms NotifyPegaMissingFormStatusJob - Email sent'
         monitor.track_send_zsf_notification_to_pega(form_data[:form_uuid], template_id) unless callback
       else
+        Rails.logger.warn 'IVC Forms NotifyPegaMissingFormStatusJob - Email failed to send'
         monitor.track_failed_send_zsf_notification_to_pega(form_data[:form_uuid], template_id)
       end
     end
