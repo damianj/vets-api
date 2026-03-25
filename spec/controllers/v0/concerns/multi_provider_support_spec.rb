@@ -27,6 +27,9 @@ RSpec.describe V0::Concerns::MultiProviderSupport do
     allow(BenefitsClaims::Providers::ProviderRegistry).to receive(:enabled_provider_classes)
       .with(user)
       .and_return([provider_class])
+    allow(BenefitsClaims::Providers::ProviderRegistry).to receive(:enabled_providers)
+      .with(user)
+      .and_return([{ name: :testprovider, class: provider_class }])
   end
 
   describe '#format_error_entry' do
@@ -90,6 +93,22 @@ RSpec.describe V0::Concerns::MultiProviderSupport do
     end
   end
 
+  describe '#provider_type_from_class' do
+    it 'returns the provider type name for a registered provider class' do
+      result = controller.send(:provider_type_from_class, provider_class)
+
+      expect(result).to eq('testprovider')
+    end
+
+    it 'raises InvalidFieldValue when provider class is not in the registry' do
+      unregistered_class = double('UnregisteredProvider', to_s: 'UnregisteredProvider')
+
+      expect do
+        controller.send(:provider_type_from_class, unregistered_class)
+      end.to raise_error(Common::Exceptions::InvalidFieldValue)
+    end
+  end
+
   describe 'integration with base module' do
     describe '#get_claims_from_providers' do
       it 'returns web-formatted response' do
@@ -119,6 +138,13 @@ RSpec.describe V0::Concerns::MultiProviderSupport do
 
     describe '#get_claim_from_providers' do
       let(:claim_id) { '123' }
+      let(:lighthouse_provider_class) { BenefitsClaims::Providers::Lighthouse::LighthouseBenefitsClaimsProvider }
+
+      before do
+        allow(BenefitsClaims::Providers::ProviderRegistry).to receive(:enabled_providers)
+          .with(user)
+          .and_return([{ name: :lighthouse, class: lighthouse_provider_class }])
+      end
 
       it 'returns claim when response has data' do
         proxy = double('LighthouseProxy')
@@ -166,6 +192,11 @@ RSpec.describe V0::Concerns::MultiProviderSupport do
       end
 
       it 'routes lighthouse to proxy when type parameter specified' do
+        lighthouse_class = BenefitsClaims::Providers::Lighthouse::LighthouseBenefitsClaimsProvider
+        allow(BenefitsClaims::Providers::ProviderRegistry).to receive(:enabled_providers)
+          .with(user)
+          .and_return([{ name: :lighthouse, class: lighthouse_class }])
+
         proxy = double('LighthouseProxy')
         allow(V0::LighthouseClaims::Proxy).to receive(:new).with(user).and_return(proxy)
         allow(proxy).to receive(:get_claim).with(claim_id).and_return({ 'data' => { 'id' => claim_id } })

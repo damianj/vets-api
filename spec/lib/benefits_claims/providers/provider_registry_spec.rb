@@ -135,6 +135,50 @@ RSpec.describe BenefitsClaims::Providers::ProviderRegistry do
     end
   end
 
+  describe '.enabled_providers' do
+    let(:provider_class_two) do
+      Class.new { include BenefitsClaims::Providers::BenefitsClaimsProvider }
+    end
+
+    before do
+      described_class.register(:provider1, mock_provider_class, enabled_by_default: true)
+      described_class.register(:provider2, provider_class_two, enabled_by_default: false)
+    end
+
+    it 'returns name and class for each enabled provider' do
+      expect(described_class.enabled_providers).to eq([{ name: :provider1, class: mock_provider_class }])
+    end
+
+    it 'returns empty array when no providers are enabled' do
+      described_class.clear!
+      described_class.register(:provider1, mock_provider_class, enabled_by_default: false)
+
+      expect(described_class.enabled_providers).to eq([])
+    end
+
+    context 'with feature flags' do
+      before do
+        described_class.clear!
+        described_class.register(
+          :lighthouse,
+          mock_provider_class,
+          feature_flag: 'test_feature',
+          enabled_by_default: false
+        )
+      end
+
+      it 'includes provider with name and class when feature flag is enabled' do
+        allow(Flipper).to receive(:enabled?).with('test_feature', user).and_return(true)
+        expect(described_class.enabled_providers(user)).to eq([{ name: :lighthouse, class: mock_provider_class }])
+      end
+
+      it 'excludes provider when feature flag is disabled' do
+        allow(Flipper).to receive(:enabled?).with('test_feature', user).and_return(false)
+        expect(described_class.enabled_providers(user)).to be_empty
+      end
+    end
+  end
+
   describe '.enabled_provider_classes' do
     let(:provider_class_two) do
       Class.new { include BenefitsClaims::Providers::BenefitsClaimsProvider }

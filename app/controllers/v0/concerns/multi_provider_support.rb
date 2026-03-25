@@ -14,24 +14,6 @@ module V0
       extend ActiveSupport::Concern
       include BenefitsClaims::Concerns::MultiProviderBase
 
-      # Maps provider type strings to their provider classes
-      # Single source of truth for supported providers
-      #
-      # TODO: ARCHITECTURAL IMPROVEMENT - Replace with ProviderRegistry
-      # This static mapping duplicates provider registration logic and doesn't honor
-      # per-user feature flag enablement. Future improvement should:
-      # 1. Add ProviderRegistry.enabled_providers(user) method that returns both type and class
-      # 2. Replace PROVIDER_TYPE_MAPPINGS with memoized call to enabled_providers
-      # 3. Update provider_class_for_type, supported_provider_types, and provider_type_from_class
-      #    to use the registry instead of this static mapping
-      # 4. Add corresponding tests that mock ProviderRegistry.enabled_providers
-      # Benefits: Single source of truth, per-user enablement, better performance with memoization
-      PROVIDER_TYPE_MAPPINGS = {
-        'lighthouse' => BenefitsClaims::Providers::Lighthouse::LighthouseBenefitsClaimsProvider
-        # TODO: Add CHAMPVA mapping when provider is onboarded
-        # 'champva' => BenefitsClaims::Providers::Champva::ChampvaBenefitsClaimsProvider
-      }.freeze
-
       private
 
       def format_error_entry(provider_name, message)
@@ -106,17 +88,21 @@ module V0
         @lighthouse_proxy ||= V0::LighthouseClaims::Proxy.new(@current_user)
       end
 
+      def provider_registry
+        @provider_registry ||= BenefitsClaims::Providers::ProviderRegistry.enabled_providers(@current_user)
+      end
+
       def provider_class_for_type(type)
         normalized_type = type.to_s.downcase
-        provider_class = PROVIDER_TYPE_MAPPINGS[normalized_type]
+        provider = provider_registry.find { |p| p[:name].to_s == normalized_type }
 
-        raise Common::Exceptions::InvalidFieldValue.new('type', type) if provider_class.nil?
+        raise Common::Exceptions::InvalidFieldValue.new('type', type) if provider.nil?
 
-        provider_class
+        provider[:class]
       end
 
       def supported_provider_types
-        PROVIDER_TYPE_MAPPINGS.keys
+        provider_registry.map { |p| p[:name].to_s }
       end
 
       # Override base implementation to add provider field to each claim
@@ -136,18 +122,12 @@ module V0
         claims_data
       end
 
-      # Maps provider class to provider type string
+      # Maps provider class to provider type string via registry
       def provider_type_from_class(provider_class)
-        # Reverse lookup from PROVIDER_TYPE_MAPPINGS
-        PROVIDER_TYPE_MAPPINGS.each do |type, klass|
-          return type if klass == provider_class
-        end
+        provider = provider_registry.find { |p| p[:class] == provider_class }
+        raise Common::Exceptions::InvalidFieldValue.new('provider_class', provider_class.to_s) if provider.nil?
 
-        # Fallback: derive from class name for testing/unknown providers
-        class_name = provider_class.name.to_s.downcase
-        return 'lighthouse' if class_name.include?('lighthouse')
-
-        class_name.split('::').last.downcase
+        provider[:name].to_s
       end
     end
   end

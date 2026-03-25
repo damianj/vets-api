@@ -65,6 +65,12 @@ module BenefitsClaims
           }.freeze
         end
 
+        def enabled_providers(user = nil)
+          registry.each.with_object([]) do |(name, config), result|
+            result << { name:, class: config[:class] } if enabled?(name, user)
+          end
+        end
+
         def enabled_provider_classes(user = nil)
           registry.each.with_object([]) do |(name, config), result|
             result << config[:class] if enabled?(name, user)
