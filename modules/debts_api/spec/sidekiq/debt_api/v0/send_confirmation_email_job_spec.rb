@@ -67,6 +67,14 @@ RSpec.describe DebtsApi::V0::Form5655::SendConfirmationEmailJob, type: :worker d
         end
         described_class.new.perform(job_params)
       end
+
+      it 'still passes ciphertext as identifier after a Sidekiq-like JSON round-trip (string keys in user_pii)' do
+        round_tripped = JSON.parse(job_params.to_json)
+        expect(DebtManagementCenter::VANotifyEmailJob).to receive(:perform_async) do |identifier, *_|
+          expect(identifier).to eq(round_tripped['user_pii']['email'])
+        end
+        described_class.new.perform(round_tripped)
+      end
     end
 
     # --- Path 2: job has cache_key only (no user_pii) ---
@@ -92,7 +100,7 @@ RSpec.describe DebtsApi::V0::Form5655::SendConfirmationEmailJob, type: :worker d
             nil,
             job_params['template_id'],
             hash_including('first_name' => user.first_name),
-            { id_type: 'email', cache_key: nil }
+            { id_type: 'email', cache_key: input_cache_key }
           )
           described_class.new.perform(job_params)
         end

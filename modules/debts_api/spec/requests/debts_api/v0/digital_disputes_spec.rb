@@ -110,11 +110,21 @@ RSpec.describe 'DebtsApi::V0::DigitalDisputes', type: :request do
         allow(Flipper).to receive(:enabled?).with(:digital_dispute_email_notifications, anything).and_return(true)
       end
 
-      it 'enqueues confirmation email when enabled and user has email' do
-        expect(DebtsApi::V0::Form5655::SendConfirmationEmailJob).to receive(:perform_in).with(
-          5.minutes,
-          hash_including('submission_type' => 'digital_dispute', 'user_uuid' => user.uuid)
-        )
+      it 'enqueues confirmation email with LOCKBOX-encrypted user_pii when enabled and user has email' do
+        lockbox = DebtsApi::V0::DigitalDisputeSubmission::LOCKBOX
+        expect(DebtsApi::V0::Form5655::SendConfirmationEmailJob).to receive(:perform_in) do |delay, args|
+          expect(delay).to eq(5.minutes)
+          expect(args['submission_type']).to eq('digital_dispute')
+          expect(args['user_uuid']).to eq(user.uuid)
+          expect(args['template_id']).to eq(DebtsApi::V0::DigitalDisputeSubmission::SUBMISSION_TEMPLATE)
+          expect(args['cache_key']).to be_nil
+
+          pii = args['user_pii']
+          expect(pii).to be_a(Hash)
+          expect(pii.keys).to include(:email, :first_name)
+          expect(lockbox.decrypt(pii[:email])).to eq(user.email)
+          expect(lockbox.decrypt(pii[:first_name])).to eq(user.first_name)
+        end
         post '/debts_api/v0/digital_disputes', params: { metadata: metadata_json, files: [pdf_file_one] }
       end
 

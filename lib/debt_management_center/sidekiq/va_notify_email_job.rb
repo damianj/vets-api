@@ -41,6 +41,7 @@ module DebtManagementCenter
     end
 
     def perform(identifier, template_id, personalisation = nil, options = {})
+      Rails.logger.info("#va_notify_email_job identifier_present=#{identifier.present?}")
       options = (options || {}).transform_keys(&:to_s)
       cache_key = options['cache_key']
 

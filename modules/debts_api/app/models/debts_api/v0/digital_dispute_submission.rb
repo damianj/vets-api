@@ -119,11 +119,11 @@ module DebtsApi
         user = User.find(user_uuid)
         return if user&.email.blank?
 
-        user_pii = {
-          first_name: DigitalDisputeSubmission::LOCKBOX.encrypt(user.first_name),
-          email: DigitalDisputeSubmission::LOCKBOX.encrypt(user.email)
-        }
-
+        user_pii = lockbox_user_pii(user)
+        Rails.logger.info(
+          '#send_success_email submission_type=digital_dispute ' \
+          "email_ciphertext_present=#{user_pii[:email].present?} user_uuid=#{user.uuid}"
+        )
         DebtsApi::V0::Form5655::SendConfirmationEmailJob.perform_async(
           {
             'submission_type' => 'digital_dispute',
@@ -143,10 +143,7 @@ module DebtsApi
         user = User.find(user_uuid)
         return if user&.email.blank?
 
-        user_pii = {
-          first_name: DigitalDisputeSubmission::LOCKBOX.encrypt(user.first_name),
-          email: DigitalDisputeSubmission::LOCKBOX.encrypt(user.email)
-        }
+        user_pii = lockbox_user_pii(user)
         personalisation = failure_email_personalization_info(user_pii)
 
         DebtManagementCenter::VANotifyEmailJob.perform_in(
@@ -168,6 +165,13 @@ module DebtsApi
           'date_submitted' => Time.zone.now.strftime('%m/%d/%Y'),
           'updated_at' => updated_at,
           'confirmation_number' => guid
+        }
+      end
+
+      def lockbox_user_pii(user)
+        {
+          first_name: LOCKBOX.encrypt(user.first_name),
+          email: LOCKBOX.encrypt(user.email)
         }
       end
     end

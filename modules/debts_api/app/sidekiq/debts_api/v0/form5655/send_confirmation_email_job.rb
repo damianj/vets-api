@@ -38,21 +38,18 @@ module DebtsApi
     def perform(args)
       submission_type = args['submission_type'] || 'fsr' # TODO: make this file not fsr specific
       submissions_data = find_submissions(args['user_uuid'], submission_type)
-
-      if submissions_data.blank?
-        Rails.logger.warn(
-          "DebtsApi::SendConfirmationEmailJob (#{submission_type}) - " \
-          "No submissions found for user_uuid: #{args['user_uuid']}"
-        )
-        Sidekiq::AttrPackage.delete(args['cache_key']) if args['cache_key']
-        return
-      end
+      return if no_submissions_abort?(submission_type, args['user_uuid'], args, submissions_data)
 
       should_use_cache = args['user_pii'].blank?
       is_retry = args['cache_key'].present?
       pii = resolve_pii(args, should_use_cache, is_retry)
+      personalisation = email_personalization_info(pii, submissions_data, submission_type)
 
-      send_vanotify_email(args['template_id'], pii, should_use_cache, submissions_data, submission_type)
+      vanotify_cache_key = resolve_vanotify_cache_key(args['cache_key'], pii, personalisation, should_use_cache)
+      identifier = pii&.dig(:email) unless should_use_cache
+      options = should_use_cache ? { id_type: 'email', cache_key: vanotify_cache_key } : {}
+
+      send_vanotify_email(identifier, args['template_id'], personalisation, options, args['user_uuid'])
     rescue Sidekiq::AttrPackageError => e
       # Log AttrPackage errors as application logic errors (no retries)
       Rails.logger.error('V0::Form5655::SendConfirmationEmailJob', { error: e.message })
@@ -64,17 +61,31 @@ module DebtsApi
 
     private
 
-    def send_vanotify_email(template_id, pii, should_use_cache, submissions_data, submission_type)
-      personalisation = email_personalization_info(pii, submissions_data, submission_type)
-      cache_key = if pii.blank?
-                    Sidekiq::AttrPackage.create(
-                      email: pii&.dig(:email),
-                      personalisation:
-                    )
-                  end
-      identifier = should_use_cache ? nil : pii&.dig(:email)
-      options = should_use_cache ? { id_type: 'email', cache_key: } : {}
+    def resolve_vanotify_cache_key(job_cache_key, pii, personalisation, should_use_cache)
+      return unless should_use_cache
 
+      job_cache_key.presence || Sidekiq::AttrPackage.create(
+        email: pii&.dig(:email),
+        personalisation:
+      )
+    end
+
+    def no_submissions_abort?(submission_type, user_uuid, args, submissions_data)
+      return false if submissions_data.present?
+
+      Rails.logger.warn(
+        "DebtsApi::SendConfirmationEmailJob (#{submission_type}) - " \
+        "No submissions found for user_uuid: #{user_uuid}"
+      )
+      Sidekiq::AttrPackage.delete(args['cache_key']) if args['cache_key']
+      true
+    end
+
+    def send_vanotify_email(identifier, template_id, personalisation, options, user_uuid)
+      Rails.logger.info(
+        '#send_confirmation_email_job ' \
+        "template_id=#{template_id} identifier_present=#{identifier.present?} user_uuid=#{user_uuid}"
+      )
       DebtManagementCenter::VANotifyEmailJob.perform_async(
         identifier, template_id, personalisation, options
       )
@@ -86,7 +97,14 @@ module DebtsApi
     end
 
     def resolve_pii(args, should_use_cache, is_retry)
-      is_retry && should_use_cache ? fetch_pii_from_cache(args['cache_key']) : args['user_pii']
+      raw = if is_retry && should_use_cache
+              fetch_pii_from_cache(args['cache_key'])
+            else
+              args['user_pii']
+            end
+      return raw unless raw.is_a?(Hash)
+
+      raw.symbolize_keys
     end
 
     def email_personalization_info(pii, submissions_data, submission_type)

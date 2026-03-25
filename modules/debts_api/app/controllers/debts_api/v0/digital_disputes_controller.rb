@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'debt_management_center/debts_service'
-require 'sidekiq/attr_package'
 
 module DebtsApi
   module V0
@@ -83,13 +82,26 @@ module DebtsApi
       end
 
       def send_submission_email
-        cache_key = Sidekiq::AttrPackage.create(email: current_user.email, first_name: current_user.first_name)
+        user_pii = {
+          first_name: DebtsApi::V0::DigitalDisputeSubmission::LOCKBOX.encrypt(current_user.first_name),
+          email: DebtsApi::V0::DigitalDisputeSubmission::LOCKBOX.encrypt(current_user.email)
+        }
+
+        Rails.logger.info(
+          '#send_submission_email submission_type=digital_dispute ' \
+          "email_ciphertext_present=#{user_pii[:email].present?} " \
+          "user_uuid=#{current_user.uuid}"
+        )
+
+        # Development: short delay for local testing; staging/prod keep 5 minutes.
+        submission_email_delay = Rails.env.development? ? 10.seconds : 5.minutes
+
         DebtsApi::V0::Form5655::SendConfirmationEmailJob.perform_in(
-          5.minutes,
+          submission_email_delay,
           {
             'submission_type' => 'digital_dispute',
-            'cache_key' => cache_key,
             'user_uuid' => current_user.uuid,
+            'user_pii' => user_pii,
             'template_id' => DebtsApi::V0::DigitalDisputeSubmission::SUBMISSION_TEMPLATE
           }
         )
