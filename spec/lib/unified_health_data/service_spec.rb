@@ -43,8 +43,9 @@ describe UnifiedHealthData::Service, type: :service do
         it 'returns all labs/tests with encodedData and/or observations' do
           result = service.get_labs(start_date: '2025-01-01', end_date: '2025-12-31')
           labs = result[:records]
-          # 12 total records: 1 VistA filtered (nil status), 1 OH filtered (nil status) = 11 parsed
-          expect(labs.size).to eq(11)
+          # 21 total DiagnosticReport entries (12 VistA + 9 OH); 3 filtered out
+          # (1 VistA with nil status, 1 OH with nil status, 1 OH with status "partial") = 18 parsed
+          expect(labs.size).to eq(18)
 
           labs_with_encoded_data = labs.select { |lab| lab.encoded_data.present? }
           expect(labs_with_encoded_data).not_to be_empty
@@ -70,7 +71,7 @@ describe UnifiedHealthData::Service, type: :service do
           chem_lab = labs.find { |lab| lab.id == 'df64e7c7-d354-43a1-ab57-445844b59b52' }
           expect(chem_lab).to have_attributes(
             'id' => 'df64e7c7-d354-43a1-ab57-445844b59b52',
-            'display' => 'Laboratory procedure',
+            'display' => 'CHEM 7',
             'test_code' => 'CH',
             'date_completed' => '2025-01-23T22:01:52+00:00',
             'location' => 'CHYSHR TEST LAB',
@@ -101,7 +102,7 @@ describe UnifiedHealthData::Service, type: :service do
 
           expect(oh_lab_with_note).to have_attributes(
             'id' => 'a21b3621-4f42-4504-b41c-6598c8537212',
-            'display' => 'CRP',
+            'display' => 'CH',
             'test_code' => 'CH',
             'date_completed' => '2025-12-10T01:25:00+00:00',
             'source' => 'oracle-health',
@@ -145,8 +146,8 @@ describe UnifiedHealthData::Service, type: :service do
             .and_return(Faraday::Response.new(body: modified_response))
 
           labs = service.get_labs(start_date: '2025-01-01', end_date: '2025-12-31')[:records]
-          # 8 VistA records, 1 filtered (nil status) = 7 parsed
-          expect(labs.size).to eq(7)
+          # 12 VistA records, 1 filtered (nil status) = 11 parsed
+          expect(labs.size).to eq(11)
           expect(labs.map(&:source)).to all(eq('vista'))
         end
 
@@ -158,8 +159,8 @@ describe UnifiedHealthData::Service, type: :service do
             .and_return(Faraday::Response.new(body: modified_response))
 
           labs = service.get_labs(start_date: '2025-01-01', end_date: '2025-12-31')[:records]
-          # 5 OH records, 1 filtered (nil status) = 4 parsed
-          expect(labs.size).to eq(4)
+          # 9 OH records, 2 filtered (nil status and status "partial") = 7 parsed
+          expect(labs.size).to eq(7)
           expect(labs.map(&:source)).to all(eq('oracle-health'))
         end
       end

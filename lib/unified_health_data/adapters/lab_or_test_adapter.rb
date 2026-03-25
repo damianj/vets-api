@@ -533,11 +533,15 @@ module UnifiedHealthData
                 &.dig('title')
         return title if title.present?
 
+        # Top-level code.text, then first found code.coding.display
+        code_display = extract_codeable_concept_display(resource['code'])
+        return code_display if code_display.present?
+
+        # Fallback to contained ServiceRequest
         service_request = resource['contained']&.find { |r| r['resourceType'] == 'ServiceRequest' }
 
         service_request&.dig('code', 'text').presence ||
           service_request&.dig('category', 0, 'coding', 0, 'display').presence ||
-          resource.dig('code', 'text') ||
           ''
       end
 
