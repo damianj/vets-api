@@ -1409,6 +1409,15 @@ RSpec.describe 'the v0 API documentation', order: :defined, type: %i[apivore req
     end
 
     describe 'supporting evidence upload' do
+      # Reset class-level storage to :file in case a prior test leaked :aws via SetAWSConfig
+      around do |example|
+        previous_storage = SupportingEvidenceAttachmentUploader._storage
+        SupportingEvidenceAttachmentUploader.storage :file
+        example.run
+      ensure
+        SupportingEvidenceAttachmentUploader.storage previous_storage
+      end
+
       it 'supports uploading a file' do
         expect(subject).to validate(
           :post,
