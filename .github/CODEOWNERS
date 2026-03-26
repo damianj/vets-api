@@ -1024,7 +1024,6 @@ lib/kafka @department-of-veterans-affairs/ves-submission-traceability @departmen
 lib/lgy @department-of-veterans-affairs/benefits-non-disability @department-of-veterans-affairs/backend-review-group
 lib/lgy/configuration.rb @department-of-veterans-affairs/benefits-non-disability @department-of-veterans-affairs/backend-review-group
 lib/lgy/service.rb @department-of-veterans-affairs/benefits-non-disability @department-of-veterans-affairs/backend-review-group
-lib/lgy/tag_sentry.rb @department-of-veterans-affairs/benefits-non-disability @department-of-veterans-affairs/backend-review-group
 lib/lighthouse/auth/client_credentials/jwt_generator.rb @department-of-veterans-affairs/backend-review-group
 lib/lighthouse/auth/client_credentials/service.rb @department-of-veterans-affairs/backend-review-group
 lib/lighthouse/healthcare_cost_and_coverage @department-of-veterans-affairs/vsa-debt-resolution @department-of-veterans-affairs/backend-review-group
