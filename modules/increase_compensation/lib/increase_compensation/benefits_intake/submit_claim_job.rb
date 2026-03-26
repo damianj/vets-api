@@ -138,7 +138,7 @@ module IncreaseCompensation
           form['vaFileNumber'] || form['veteranSocialSecurityNumber'],
           address['postalCode'],
           'va_gov_benefits_intake_pingwind',
-          IncreaseCompensation::FORM_REAL_ID,
+          "StructuredData:#{IncreaseCompensation::FORM_REAL_ID}",
           @claim.business_line
         )
       end
@@ -162,7 +162,8 @@ module IncreaseCompensation
         monitor.track_submission_attempted(@claim, @intake_service, @user_account_uuid, tracked_payload)
         response = @intake_service.perform_upload(**payload)
         update_form_submission_attempt # these are created in the s3 upload so update if different or on retry
-        govcio_upload if response.success?
+        mms_send = govcio_upload if response.success?
+        log_mms_response(mms_send)
         raise IncreaseCompensationBenefitIntakeError, response.to_s unless response.success?
       end
 
@@ -218,6 +219,39 @@ module IncreaseCompensation
         end
 
         Datadog::Tracing.active_trace&.set_tag('benefits_intake_uuid', @intake_service.uuid)
+      end
+
+      def log_mms_response(mms_response)
+        return unless Flipper.enabled?(:increase_compensation_govcio_mms)
+
+        if mms_response.success?
+          log_mms_success
+        else
+          log_mms_failure(mms_response)
+        end
+      end
+
+      def log_mms_success
+        Rails.logger.info(
+          'IncreaseCompensation::Monitor 21-8940V1 submission to MMS succeeded',
+          {
+            benefits_intake_uuid: @intake_service.uuid,
+            claim_id: @claim.id,
+            user_account_uuid: @user_account_uuid
+          }
+        )
+      end
+
+      def log_mms_failure(mms_response)
+        Rails.logger.warn(
+          "IncreaseCompensation::Monitor 21-8940V1 submission to MMS failed - #{mms_response.status}",
+          {
+            benefits_intake_uuid: @intake_service.uuid,
+            claim_id: @claim.id,
+            user_account_uuid: @user_account_uuid,
+            status: mms_response.status
+          }
+        )
       end
 
       # VANotify job to send Submission in Progress email to veteran

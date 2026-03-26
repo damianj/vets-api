@@ -125,6 +125,76 @@ RSpec.describe IncreaseCompensation::BenefitsIntake::SubmitClaimJob, :uploader_h
     # perform
   end
 
+  describe '#log_mms_success' do
+    it 'log a success message' do
+      job.instance_variable_set(:@intake_service, service)
+      job.instance_variable_set(:@claim, claim)
+
+      allow(service).to receive(:uuid).and_return('111')
+      allow(Rails.logger).to receive(:info)
+      expect(Rails.logger).to receive(:info).with(
+        'IncreaseCompensation::Monitor 21-8940V1 submission to MMS succeeded',
+        { benefits_intake_uuid: '111', claim_id: claim.id, user_account_uuid: nil }
+      )
+      job.send(:log_mms_success)
+    end
+  end
+
+  describe '#log_mms_failure' do
+    let(:response) { double('response') }
+
+    it 'logs a failure message' do
+      allow(response).to receive(:status).and_return 301
+      job.instance_variable_set(:@intake_service, service)
+      job.instance_variable_set(:@claim, claim)
+
+      allow(service).to receive(:uuid).and_return('111')
+      allow(Rails.logger).to receive(:warn)
+      expect(Rails.logger).to receive(:warn).with(
+        'IncreaseCompensation::Monitor 21-8940V1 submission to MMS failed - 301',
+        { benefits_intake_uuid: '111',
+          claim_id: claim.id,
+          status: 301,
+          user_account_uuid: nil }
+      )
+      job.send(:log_mms_failure, response)
+    end
+  end
+
+  describe '#log_mms_response' do
+    let(:response) { double('response') }
+
+    it 'if flipper on, check status of response and log success' do
+      allow(Flipper).to receive(:enabled?).with(:increase_compensation_govcio_mms).and_return(true)
+      job.instance_variable_set(:@intake_service, service)
+      job.instance_variable_set(:@claim, claim)
+
+      allow(service).to receive(:uuid).and_return('111')
+      allow(response).to receive(:success?).and_return(true)
+      allow(Rails.logger).to receive(:info)
+      expect(Rails.logger).to receive(:info)
+      job.send(:log_mms_response, response)
+    end
+
+    it 'if flipper on, check status and log failure' do
+      allow(Flipper).to receive(:enabled?).with(:increase_compensation_govcio_mms).and_return(true)
+      allow(response).to receive(:status).and_return 301
+      job.instance_variable_set(:@intake_service, service)
+      job.instance_variable_set(:@claim, claim)
+
+      allow(service).to receive(:uuid).and_return('111')
+      allow(response).to receive_messages(status: 301, success?: false)
+      allow(Rails.logger).to receive(:warn)
+      expect(Rails.logger).to receive(:warn)
+      job.send(:log_mms_response, response)
+    end
+
+    it 'if flipper off do nothing' do
+      allow(Flipper).to receive(:enabled?).with(:increase_compensation_govcio_mms).and_return(false)
+      expect(job.send(:log_mms_response, response)).to be_nil
+    end
+  end
+
   describe '#govcio_upload' do
     let(:ibm_service) { double('ibm_service') }
     let(:response) { double('response') }
