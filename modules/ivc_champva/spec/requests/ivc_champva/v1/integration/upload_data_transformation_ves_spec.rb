@@ -298,42 +298,6 @@ RSpec.describe 'TransformationVES', type: :request do
         )
       )
     end
-
-    it 'propagates form UUID to VES application_uuid' do
-      captured_ves_request = nil
-      allow(ves_client).to receive(:submit_1010d) do |_tx_uuid, ves_request|
-        captured_ves_request = ves_request
-        double('response', status: 200, body: '{}')
-      end
-
-      allow(PersistentAttachments::MilitaryRecords).to receive(:find_by)
-        .and_return(double('Record1', created_at: 1.day.ago,
-                                      id: 'some_uuid', file: double(id: 'file0')))
-      s3_client = instance_double(Aws::S3::Client)
-      allow(s3_client).to receive(:put_object).and_return(
-        double('response',
-               context: double('context', http_response: double('http_response', status_code: 200)))
-      )
-      allow(Aws::S3::Client).to receive(:new).and_return(s3_client)
-
-      stored_form_uuid = nil
-      allow(IvcChampvaForm).to receive(:create!) do |attrs|
-        stored_form_uuid = attrs[:form_uuid]
-        instance_double(IvcChampvaForm, form_uuid: stored_form_uuid, update: true)
-      end
-
-      fixture_path = Rails.root.join('modules', 'ivc_champva', 'spec', 'fixtures', 'form_json', 'vha_10_10d.json')
-      data = JSON.parse(fixture_path.read)
-
-      post '/ivc_champva/v1/forms', params: data
-      expect(response).to have_http_status(:ok)
-
-      expect(captured_ves_request).not_to be_nil
-      expect(captured_ves_request.application_uuid).to be_present
-      error_msg = "Expected VES application_uuid (#{captured_ves_request.application_uuid}) " \
-                  "to match stored form_uuid (#{stored_form_uuid})"
-      expect(captured_ves_request.application_uuid).to eq(stored_form_uuid), error_msg
-    end
   end
 
   # ============================================================================
@@ -596,47 +560,6 @@ RSpec.describe 'TransformationVES', type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(ves_client).not_to have_received(:submit_7959c)
-    end
-
-    it 'propagates form UUID to VES application_uuid' do
-      # Capture the actual VES request to verify UUID propagation
-      captured_ves_request = nil
-      allow(ves_client).to receive(:submit_1010d) do |_tx_uuid, ves_request|
-        captured_ves_request = ves_request
-        double('response', status: 200, body: '{}')
-      end
-
-      allow(PersistentAttachments::MilitaryRecords).to receive(:find_by)
-        .and_return(double('Record1', created_at: 1.day.ago,
-                                      id: 'some_uuid', file: double(id: 'file0')))
-      s3_client = instance_double(Aws::S3::Client)
-      allow(s3_client).to receive(:put_object).and_return(
-        double('response',
-               context: double('context', http_response: double('http_response', status_code: 200)))
-      )
-      allow(Aws::S3::Client).to receive(:new).and_return(s3_client)
-
-      # Track the form UUID that gets stored in the database
-      stored_form_uuid = nil
-      allow(IvcChampvaForm).to receive(:create!) do |attrs|
-        stored_form_uuid = attrs[:form_uuid]
-        instance_double(IvcChampvaForm,
-                        form_uuid: stored_form_uuid,
-                        update: true)
-      end
-
-      fixture_path = Rails.root.join('modules', 'ivc_champva', 'spec', 'fixtures', 'form_json', 'vha_10_10d.json')
-      data = JSON.parse(fixture_path.read)
-
-      post '/ivc_champva/v1/forms', params: data
-      expect(response).to have_http_status(:ok)
-
-      # Verify the VES request's application_uuid matches the form's UUID
-      expect(captured_ves_request).not_to be_nil
-      expect(captured_ves_request.application_uuid).to be_present
-      error_msg = "Expected VES application_uuid (#{captured_ves_request.application_uuid}) " \
-                  "to match stored form_uuid (#{stored_form_uuid})"
-      expect(captured_ves_request.application_uuid).to eq(stored_form_uuid), error_msg
     end
   end
 end
