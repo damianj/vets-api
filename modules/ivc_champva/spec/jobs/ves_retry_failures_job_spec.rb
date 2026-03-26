@@ -8,7 +8,7 @@ RSpec.describe IvcChampva::VesRetryFailuresJob, type: :job do
   let(:ves_client) { instance_double(IvcChampva::VesApi::Client) }
   let(:success_response) { double('response', status: 200, body: 'success') }
   let(:error_response) { double('response', status: 500, body: 'server error') }
-  let(:legacy_request_data) { { data: 'test_data', transaction_uuid: 'tx-old' }.to_json }
+  let(:legacy_request_data) { { data: 'test_data', transactionUUID: 'tx-old' }.to_json }
   let(:request_json_data) { { 'form_number' => '10-10D', 'applicants' => [] }.to_json }
 
   # Use instance_double instead of real database objects
@@ -65,7 +65,7 @@ RSpec.describe IvcChampva::VesRetryFailuresJob, type: :job do
 
     # Mock submit_1010d to verify the request data is properly modified
     allow(ves_client).to receive(:submit_1010d) do |uuid, request_data|
-      expect(request_data['transaction_uuid']).to eq(uuid)
+      expect(request_data['transactionUUID']).to eq(uuid)
       success_response
     end
   end
@@ -177,9 +177,12 @@ RSpec.describe IvcChampva::VesRetryFailuresJob, type: :job do
         expect(recent_record).to have_received(:update).with(ves_status: 'ok')
       end
 
-      it 'propagates application_uuid from record.form_uuid' do
+      it 'passes form_uuid to VesDataFormatter as application_uuid' do
+        # Verify that format_for_request is called with form_uuid matching record.form_uuid
+        expect(IvcChampva::VesDataFormatter).to receive(:format_for_request)
+          .with(anything, form_uuid: recent_record.form_uuid)
+          .and_return(mock_ves_request)
         allow(ves_client).to receive(:submit_1010d).and_return(success_response)
-        expect(mock_ves_request).to receive(:application_uuid=).with('form-123')
 
         job.resubmit_ves_request(recent_record)
       end
@@ -239,7 +242,7 @@ RSpec.describe IvcChampva::VesRetryFailuresJob, type: :job do
 
       it 'parses ves_request_data and submits directly' do
         expect(ves_client).to receive(:submit_1010d) do |uuid, request_data|
-          expect(request_data['transaction_uuid']).to eq(uuid)
+          expect(request_data['transactionUUID']).to eq(uuid)
           success_response
         end
 
@@ -302,30 +305,22 @@ RSpec.describe IvcChampva::VesRetryFailuresJob, type: :job do
     context 'with request_json for standalone 10-7959C (OHI)' do
       let(:ohi_request_json) { { 'form_number' => '10-7959C', 'applicants' => [] }.to_json }
       let(:mock_ohi_request1) do
-        double('VesOhiRequest',
-               transaction_uuid: nil,
-               application_uuid: nil,
-               form_type: 'vha_10_7959c',
-               form_1010d?: false,
-               form_1010dx?: false,
-               form_7959c?: true).tap do |req|
-          allow(req).to receive(:transaction_uuid=)
-          allow(req).to receive(:application_uuid=)
-          allow(req).to receive(:respond_to?).with(:subforms?).and_return(false)
-        end
+        instance_double(IvcChampva::VesOhiRequest,
+                        transaction_uuid: 'tx-uuid-1',
+                        'transaction_uuid=' => nil,
+                        'application_uuid=' => nil,
+                        form_1010d?: false,
+                        form_1010dx?: false,
+                        form_7959c?: true)
       end
       let(:mock_ohi_request2) do
-        double('VesOhiRequest',
-               transaction_uuid: nil,
-               application_uuid: nil,
-               form_type: 'vha_10_7959c',
-               form_1010d?: false,
-               form_1010dx?: false,
-               form_7959c?: true).tap do |req|
-          allow(req).to receive(:transaction_uuid=)
-          allow(req).to receive(:application_uuid=)
-          allow(req).to receive(:respond_to?).with(:subforms?).and_return(false)
-        end
+        instance_double(IvcChampva::VesOhiRequest,
+                        transaction_uuid: 'tx-uuid-2',
+                        'transaction_uuid=' => nil,
+                        'application_uuid=' => nil,
+                        form_1010d?: false,
+                        form_1010dx?: false,
+                        form_7959c?: true)
       end
 
       before do
@@ -362,6 +357,20 @@ RSpec.describe IvcChampva::VesRetryFailuresJob, type: :job do
         expect(ves_client).to receive(:submit_7959c).once.and_return(success_response)
 
         job.resubmit_ves_request(recent_record)
+
+        expect(recent_record).to have_received(:update).with(ves_status: 'ok')
+      end
+
+      it 'passes form_uuid to formatter for OHI requests' do
+        allow(IvcChampva::VesDataFormatter).to receive(:format_for_ohi_request)
+          .and_return([mock_ohi_request1])
+        allow(ves_client).to receive(:submit_7959c).and_return(success_response)
+
+        job.resubmit_ves_request(recent_record)
+
+        # Verify form_uuid is passed to the formatter so it can set application_uuid during construction
+        expect(IvcChampva::VesDataFormatter).to have_received(:format_for_ohi_request)
+          .with(hash_including('form_number' => '10-7959C'), form_uuid: recent_record.form_uuid)
 
         expect(recent_record).to have_received(:update).with(ves_status: 'ok')
       end

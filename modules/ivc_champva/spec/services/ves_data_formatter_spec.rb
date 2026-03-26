@@ -3,6 +3,8 @@
 require 'rails_helper'
 
 describe IvcChampva::VesDataFormatter do
+  let(:form_uuid) { '12345678-1234-5678-1234-567812345678' }
+
   let(:valid_data) do
     {
       applicationType: 'CHAMPVA_APPLICATION',
@@ -138,7 +140,7 @@ describe IvcChampva::VesDataFormatter do
 
   describe 'data is valid' do
     it 'maintains all the original keys/values after validating' do
-      validated_data = IvcChampva::VesDataFormatter.format_for_request(parsed_form_data)
+      validated_data = IvcChampva::VesDataFormatter.format_for_request(parsed_form_data, form_uuid:)
 
       # Check that all the original keys/values present in @request_body
       # are still present in the formatted object.
@@ -152,7 +154,7 @@ describe IvcChampva::VesDataFormatter do
 
   describe 'ves_request to_json' do
     it 'returns json' do
-      ves_request = IvcChampva::VesDataFormatter.format_for_request(parsed_form_data)
+      ves_request = IvcChampva::VesDataFormatter.format_for_request(parsed_form_data, form_uuid:)
 
       expect(ves_request.to_json).to be_a(String)
     end
@@ -180,7 +182,7 @@ describe IvcChampva::VesDataFormatter do
         @parsed_form_data_copy['veteran']['full_name']['first'] = '2Jöhn~! - Jo/hn?\\'
         expected_sponsor_name = 'John - Jo/hn'
 
-        ves_request = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        ves_request = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
 
         expect(ves_request.sponsor.first_name).to eq expected_sponsor_name
       end
@@ -193,7 +195,7 @@ describe IvcChampva::VesDataFormatter do
         @parsed_form_data_copy['veteran']['full_name']['last'] = '2Jöhnşon~!\\'
         expected_sponsor_name = 'Johnson'
 
-        ves_request = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        ves_request = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
 
         expect(ves_request.sponsor.last_name).to eq expected_sponsor_name
       end
@@ -205,7 +207,7 @@ describe IvcChampva::VesDataFormatter do
       @parsed_form_data_copy['veteran']['address'] = nil
 
       expect do
-        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
       end.to raise_error(ArgumentError, 'sponsor address is missing')
     end
 
@@ -219,7 +221,7 @@ describe IvcChampva::VesDataFormatter do
       }
 
       expect do
-        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
       end.to raise_error(ArgumentError, 'sponsor city is an empty string')
     end
 
@@ -232,7 +234,7 @@ describe IvcChampva::VesDataFormatter do
       }
 
       expect do
-        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
       end.to raise_error(ArgumentError, 'sponsor state is missing')
     end
 
@@ -241,7 +243,7 @@ describe IvcChampva::VesDataFormatter do
       @parsed_form_data_copy['veteran']['date_of_death'] = nil
 
       expect do
-        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
       end.to raise_error(ArgumentError, 'date of death is missing')
     end
 
@@ -250,7 +252,7 @@ describe IvcChampva::VesDataFormatter do
       @parsed_form_data_copy['veteran']['is_deceased'] = true
       @parsed_form_data_copy['veteran']['date_of_death'] = '2020-01-01'
 
-      res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+      res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
       expect(res.sponsor.address.street_address).to eq('NA')
       expect(res.sponsor.address.state).to eq('NA')
       expect(res.sponsor.address.city).to eq('NA')
@@ -267,7 +269,7 @@ describe IvcChampva::VesDataFormatter do
           'postal_code' => '62701'
         }
 
-        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
         address_hash = res.sponsor.address.to_hash
 
         expect(address_hash[:streetAddress]).to eq('123 Main St')
@@ -290,7 +292,7 @@ describe IvcChampva::VesDataFormatter do
           'postal_code' => 'M5V 3A4'
         }
 
-        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
         address_hash = res.sponsor.address.to_hash
 
         expect(address_hash[:streetAddress]).to eq('456 1st Ave')
@@ -314,7 +316,7 @@ describe IvcChampva::VesDataFormatter do
         @parsed_form_data_copy['veteran']['address']['country'] = ''
 
         expect do
-          IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+          IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
         end.to raise_error(ArgumentError, 'sponsor country is an empty string')
       end
 
@@ -327,7 +329,7 @@ describe IvcChampva::VesDataFormatter do
           'postal_code' => nil
         }
 
-        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
         address_hash = res.sponsor.address.to_hash
 
         expect(address_hash[:country]).to eq('FRANCE')
@@ -341,7 +343,7 @@ describe IvcChampva::VesDataFormatter do
     it 'when formatted as MM-DD-YYYY, it reformats to YYYY-MM-DD' do
       @parsed_form_data_copy['veteran']['date_of_birth'] = '01-01-2020'
 
-      res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+      res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
 
       expect(res.sponsor.date_of_birth).to eq('2020-01-01')
     end
@@ -351,7 +353,7 @@ describe IvcChampva::VesDataFormatter do
     it 'when formatted as MM-DD-YYYY, it reformats to YYYY-MM-DD' do
       @parsed_form_data_copy['veteran']['date_of_marriage'] = '01-01-2020'
 
-      res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+      res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
 
       expect(res.sponsor.date_of_marriage).to eq('2020-01-01')
     end
@@ -363,7 +365,7 @@ describe IvcChampva::VesDataFormatter do
         @parsed_form_data_copy['veteran']['ssn_or_tin'] = '1234567890'
 
         expect do
-          IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+          IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
         end.to raise_error(ArgumentError, 'ssn is invalid. Must be 9 digits (see regex for more detail)')
       end
     end
@@ -371,7 +373,7 @@ describe IvcChampva::VesDataFormatter do
 
   describe 'application UUID is not 36 chars long' do
     it 'raises an exception' do
-      ves_data = IvcChampva::VesDataFormatter.transform_to_ves_format(@parsed_form_data_copy)
+      ves_data = IvcChampva::VesDataFormatter.transform_to_ves_format(@parsed_form_data_copy, form_uuid:)
       ves_data[:application_uuid] = '123'
 
       expect do
@@ -386,7 +388,7 @@ describe IvcChampva::VesDataFormatter do
       @parsed_form_data_copy['applicants'][0]['vet_relationship'] = 'INVALID'
 
       expect do
-        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
       end.to raise_error(ArgumentError,
                          "Relationship INVALID is invalid. Must be in #{possible_values}")
     end
@@ -398,7 +400,7 @@ describe IvcChampva::VesDataFormatter do
       @parsed_form_data_copy['applicants'][0]['applicant_relationship_origin']['relationship_to_veteran'] = 'INVALID'
 
       expect do
-        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
       end.to raise_error(ArgumentError,
                          "beneficiary childtype is invalid. Must be in #{possible_values}")
     end
@@ -410,7 +412,7 @@ describe IvcChampva::VesDataFormatter do
       @parsed_form_data_copy['applicants'][0]['applicant_gender']['gender'] = 'INVALID'
 
       expect do
-        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
       end.to raise_error(ArgumentError,
                          "beneficiary gender is invalid. Must be in #{possible_values}")
     end
@@ -422,7 +424,7 @@ describe IvcChampva::VesDataFormatter do
       @parsed_form_data_copy['veteran']['date_of_death'] = '2020-01-01'
       @parsed_form_data_copy['veteran']['phone_number'] = nil
 
-      res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+      res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
       expect(res.sponsor.phone_number).to be_nil
     end
   end
@@ -463,7 +465,7 @@ describe IvcChampva::VesDataFormatter do
           'postal_code' => '53706'
         }
 
-        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
         address_hash = res.beneficiaries.first.address.to_hash
 
         expect(address_hash[:streetAddress]).to eq('789 Oak Rd')
@@ -486,7 +488,7 @@ describe IvcChampva::VesDataFormatter do
           'postal_code' => '10115'
         }
 
-        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
         address_hash = res.beneficiaries.first.address.to_hash
 
         expect(address_hash[:streetAddress]).to eq('10 Hauptstraße')
@@ -508,7 +510,7 @@ describe IvcChampva::VesDataFormatter do
         }
 
         expect do
-          IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+          IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
         end.to raise_error(ArgumentError, 'beneficiary country is an empty string')
       end
     end
@@ -523,7 +525,7 @@ describe IvcChampva::VesDataFormatter do
         @parsed_form_data_copy['certification']['state'] = 'TX'
         @parsed_form_data_copy['certification']['postal_code'] = '78701'
 
-        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
         address_hash = res.certification.address.to_hash
 
         expect(address_hash[:streetAddress]).to eq('321 Pine St')
@@ -544,7 +546,7 @@ describe IvcChampva::VesDataFormatter do
         @parsed_form_data_copy['certification']['state'] = 'Tokyo'
         @parsed_form_data_copy['certification']['postal_code'] = '150-0002'
 
-        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy)
+        res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
         address_hash = res.certification.address.to_hash
 
         expect(address_hash[:streetAddress]).to eq('1-1-1 Shibuya')
@@ -575,7 +577,7 @@ describe IvcChampva::VesDataFormatter do
     describe '.format_for_request' do
       it 'returns a VesRequest without subforms' do
         regular_form = extended_form_data.merge('form_number' => '10-10D')
-        ves_request = IvcChampva::VesDataFormatter.format_for_request(regular_form)
+        ves_request = IvcChampva::VesDataFormatter.format_for_request(regular_form, form_uuid:)
 
         expect(ves_request).to be_a(IvcChampva::VesRequest)
         expect(ves_request.subforms?).to be false
@@ -584,7 +586,7 @@ describe IvcChampva::VesDataFormatter do
 
     describe '.format_for_extended_request' do
       it 'attaches OHI subforms for applicants with health insurance data' do
-        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(extended_form_data)
+        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(extended_form_data, form_uuid:)
 
         expect(ves_request.subforms?).to be true
         expect(ves_request.subforms.length).to eq(1)
@@ -592,14 +594,14 @@ describe IvcChampva::VesDataFormatter do
       end
 
       it 'propagates application_uuid to subforms' do
-        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(extended_form_data)
+        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(extended_form_data, form_uuid:)
         ohi_request = ves_request.subforms.first[:request]
 
         expect(ohi_request.application_uuid).to eq(ves_request.application_uuid)
       end
 
       it 'propagates person_uuid from matching beneficiary by SSN and name' do
-        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(extended_form_data)
+        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(extended_form_data, form_uuid:)
         ohi_request = ves_request.subforms.first[:request]
         first_beneficiary = ves_request.beneficiaries.first
 
@@ -631,28 +633,28 @@ describe IvcChampva::VesDataFormatter do
 
     describe '.format_for_ohi_request' do
       it 'returns an array of VesOhiRequests' do
-        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(extended_form_data)
+        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(extended_form_data, form_uuid:)
         expect(ohi_requests).to be_an(Array)
         expect(ohi_requests.first).to be_a(IvcChampva::VesOhiRequest)
       end
 
       it 'only builds requests for applicants with OHI data' do
-        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(extended_form_data)
+        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(extended_form_data, form_uuid:)
         expect(ohi_requests.length).to eq(1)
       end
 
-      it 'generates fresh UUIDs for standalone submissions' do
-        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(extended_form_data)
-        expect(ohi_requests.first.application_uuid).to match(/\A[0-9a-f-]{36}\z/)
+      it 'uses the provided form_uuid as application_uuid' do
+        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(extended_form_data, form_uuid:)
+        expect(ohi_requests.first.application_uuid).to eq(form_uuid)
         expect(ohi_requests.first.beneficiary_medicare.person_uuid).to match(/\A[0-9a-f-]{36}\z/)
       end
     end
 
     describe '.find_matching_beneficiary' do
-      let(:ves_request) { IvcChampva::VesDataFormatter.format_for_request(extended_form_data.merge('form_number' => '10-10D')) }
+      let(:ves_request) { IvcChampva::VesDataFormatter.format_for_request(extended_form_data.merge('form_number' => '10-10D'), form_uuid:) }
 
       it 'finds beneficiary by SSN and name' do
-        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(extended_form_data)
+        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(extended_form_data, form_uuid:)
         ohi_beneficiary = ohi_requests.first.beneficiary_medicare
 
         match = IvcChampva::VesDataFormatter.find_matching_beneficiary(ves_request.beneficiaries, ohi_beneficiary)
@@ -662,7 +664,7 @@ describe IvcChampva::VesDataFormatter do
       end
 
       it 'returns nil when no match found' do
-        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(extended_form_data)
+        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(extended_form_data, form_uuid:)
         ohi_beneficiary = ohi_requests.first.beneficiary_medicare
         ohi_beneficiary.ssn = '999999999' # Different SSN
 
@@ -795,13 +797,13 @@ describe IvcChampva::VesDataFormatter do
       end
 
       it 'creates subforms for each applicant with OHI data' do
-        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(multi_applicant_data)
+        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(multi_applicant_data, form_uuid:)
 
         expect(ves_request.subforms.length).to eq(2)
       end
 
       it 'matches correct person_uuid for each subform by SSN and name' do
-        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(multi_applicant_data)
+        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(multi_applicant_data, form_uuid:)
 
         ves_request.subforms.each do |subform|
           ohi_beneficiary = subform[:request].beneficiary_medicare
@@ -818,13 +820,13 @@ describe IvcChampva::VesDataFormatter do
       end
 
       it 'transforms rev2025 form data to VesOhiRequest with complete structure' do
-        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(standalone_form_data)
+        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(standalone_form_data, form_uuid:)
         ohi_request = ohi_requests.first
         beneficiary = ohi_request.beneficiary_medicare
 
         # Request structure
         expect(ohi_request).to be_a(IvcChampva::VesOhiRequest)
-        expect(ohi_request.application_uuid).to be_present
+        expect(ohi_request.application_uuid).to eq(form_uuid)
 
         # Beneficiary fields
         expect(beneficiary.medicare_bene_id).to eq('1EG4TE5MK73')
@@ -843,7 +845,7 @@ describe IvcChampva::VesDataFormatter do
       end
 
       it 'produces valid JSON output with normalized dates' do
-        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(standalone_form_data)
+        ohi_requests = IvcChampva::VesDataFormatter.format_for_ohi_request(standalone_form_data, form_uuid:)
         parsed = JSON.parse(ohi_requests.first.to_json)
 
         expect(parsed['applicationType']).to eq('CHAMPVA_INS_APPLICATION')
@@ -858,7 +860,7 @@ describe IvcChampva::VesDataFormatter do
 
     describe 'extended OHI flow (10-10D-EXTENDED)' do
       it 'attaches OHI subforms with proper structure and UUID propagation' do
-        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(extended_form_data)
+        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(extended_form_data, form_uuid:)
         ohi_request = ves_request.subforms.first[:request]
         beneficiary = ohi_request.beneficiary_medicare
 
@@ -881,7 +883,7 @@ describe IvcChampva::VesDataFormatter do
       end
 
       it 'produces valid JSON with certification from nested object' do
-        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(extended_form_data)
+        ves_request = IvcChampva::VesDataFormatter.format_for_extended_request(extended_form_data, form_uuid:)
         parsed = JSON.parse(ves_request.subforms.first[:request].to_json)
 
         expect(parsed['applicationType']).to eq('CHAMPVA_INS_APPLICATION')
@@ -895,8 +897,10 @@ describe IvcChampva::VesDataFormatter do
       end
 
       it 'produces VesOhiRequest with same structure and normalized enums' do
-        standalone_json = JSON.parse(IvcChampva::VesDataFormatter.format_for_ohi_request(standalone_form_data).first.to_json)
-        extended_json = JSON.parse(IvcChampva::VesDataFormatter.format_for_extended_request(extended_form_data).subforms.first[:request].to_json)
+        standalone_ohi = IvcChampva::VesDataFormatter.format_for_ohi_request(standalone_form_data, form_uuid:)
+        standalone_json = JSON.parse(standalone_ohi.first.to_json)
+        extended_request = IvcChampva::VesDataFormatter.format_for_extended_request(extended_form_data, form_uuid:)
+        extended_json = JSON.parse(extended_request.subforms.first[:request].to_json)
 
         # Same top-level structure
         expect(standalone_json.keys.sort).to eq(extended_json.keys.sort)

@@ -75,13 +75,15 @@ module IvcChampva
     ##
     # Resubmits using the new request_json approach.
     # Rebuilds the VES request(s) using VesDataFormatter and submits them.
+    # Uses form_uuid as application_uuid to maintain consistency with original submission.
     #
     # @param ves_client [IvcChampva::VesApi::Client] the VES API client
     # @param record [IvcChampvaForm] the form record to resubmit
     def resubmit_from_request_json(ves_client, record)
       parsed_form_data = JSON.parse(record.request_json)
       form_number = parsed_form_data['form_number']
-      ves_requests = build_ves_requests(parsed_form_data, form_number)
+      # Use form_uuid as application_uuid to maintain consistency across retries
+      ves_requests = build_ves_requests(parsed_form_data, form_number, form_uuid: record.form_uuid)
 
       if ves_requests.blank?
         Rails.logger.warn("#{LOG_PREFIX}: Skipping retry for #{record.form_uuid} - " \
@@ -151,16 +153,22 @@ module IvcChampva
     ##
     # Resubmits using the legacy ves_request_data approach.
     # Parses the stored JSON and resubmits directly to VES.
+    # Preserves the original application_uuid but uses form_uuid if application_uuid
+    # doesn't match (for submissions made before UUID alignment).
     #
     # @param ves_client [IvcChampva::VesApi::Client] the VES API client
     # @param record [IvcChampvaForm] the form record to resubmit
     def resubmit_from_ves_request_data(ves_client, record)
       ves_request = JSON.parse(record.ves_request_data)
 
-      # Generate a new transaction UUID
-      ves_request['transaction_uuid'] = SecureRandom.uuid
+      # Generate a new transaction UUID for the retry attempt
+      ves_request['transactionUUID'] = SecureRandom.uuid
 
-      response = ves_client.submit_1010d(ves_request['transaction_uuid'], ves_request)
+      # Ensure application_uuid matches form_uuid for consistency
+      # This handles legacy records where they may have been different
+      ves_request['applicationUUID'] = record.form_uuid
+
+      response = ves_client.submit_1010d(ves_request['transactionUUID'], ves_request)
 
       update_record_status(record, response)
     end
@@ -171,16 +179,16 @@ module IvcChampva
     #
     # @param parsed_form_data [Hash] the parsed form data
     # @param form_number [String] the form number (e.g., '10-10D', '10-10D-EXTENDED', '10-7959C')
+    # @param form_uuid [String, nil] optional UUID to use as application_uuid (for retry consistency)
     # @return [Array, nil] array of VES request objects, or nil if unsupported
-    def build_ves_requests(parsed_form_data, form_number)
+    def build_ves_requests(parsed_form_data, form_number, form_uuid: nil)
       case form_number
       when '10-10D'
-        [VesDataFormatter.format_for_request(parsed_form_data)]
+        [VesDataFormatter.format_for_request(parsed_form_data, form_uuid:)]
       when '10-10D-EXTENDED'
-        [VesDataFormatter.format_for_extended_request(parsed_form_data)]
+        [VesDataFormatter.format_for_extended_request(parsed_form_data, form_uuid:)]
       when '10-7959C'
-        result = VesDataFormatter.format_for_ohi_request(parsed_form_data)
-        result.presence
+        VesDataFormatter.format_for_ohi_request(parsed_form_data, form_uuid:).presence
       else
         Rails.logger.warn("#{LOG_PREFIX}: Unsupported form_number '#{form_number}'")
         nil

@@ -31,9 +31,11 @@ module IvcChampva
     PHONE_PATTERN = /\A[0-9+]+\z/
     DATE_PATTERN = /\A\d{4}-\d{2}-\d{2}\z/
 
+    # @param parsed_form_data [Hash] the form data to format
+    # @param form_uuid [String] the UUID to use as application_uuid
     # @return [IvcChampva::VesRequest]
-    def self.format_for_request(parsed_form_data)
-      ves_data = transform_to_ves_format(parsed_form_data)
+    def self.format_for_request(parsed_form_data, form_uuid:)
+      ves_data = transform_to_ves_format(parsed_form_data, form_uuid:)
       validate_ves_data(ves_data)
 
       IvcChampva::VesRequest.new(
@@ -46,10 +48,12 @@ module IvcChampva
     end
 
     # Builds 10-10D request with OHI subforms attached, UUIDs propagated.
+    # @param parsed_form_data [Hash] the form data to format
+    # @param form_uuid [String] the UUID to use as application_uuid
     # @return [IvcChampva::VesRequest]
-    def self.format_for_extended_request(parsed_form_data)
-      ves_request = format_for_request(parsed_form_data)
-      ohi_requests = format_for_ohi_request(parsed_form_data)
+    def self.format_for_extended_request(parsed_form_data, form_uuid:)
+      ves_request = format_for_request(parsed_form_data, form_uuid:)
+      ohi_requests = format_for_ohi_request(parsed_form_data, form_uuid:)
 
       ohi_requests.each do |ohi_request|
         ohi_bene = ohi_request.beneficiary_medicare
@@ -64,14 +68,14 @@ module IvcChampva
     end
 
     # @return [Array<IvcChampva::VesOhiRequest>]
-    def self.format_for_ohi_request(parsed_form_data)
+    def self.format_for_ohi_request(parsed_form_data, form_uuid:)
       applicants = parsed_form_data['applicants'] || []
       ohi_requests = []
 
       applicants.each do |applicant|
         next unless applicant_has_ohi_data?(applicant)
 
-        ohi_data = transform_ohi_to_ves_format(applicant, parsed_form_data)
+        ohi_data = transform_ohi_to_ves_format(applicant, parsed_form_data, form_uuid:)
         validate_ohi_data(ohi_data)
 
         ohi_requests << IvcChampva::VesOhiRequest.new(
@@ -93,10 +97,10 @@ module IvcChampva
       end
     end
 
-    def self.transform_to_ves_format(parsed_form_data)
+    def self.transform_to_ves_format(parsed_form_data, form_uuid:)
       {
         application_type: 'CHAMPVA_APPLICATION',
-        application_uuid: SecureRandom.uuid,
+        application_uuid: form_uuid,
         sponsor: map_sponsor(parsed_form_data['veteran']),
         beneficiaries: parsed_form_data['applicants'].map { |applicant| map_beneficiary(applicant) },
         certification: map_certification(
@@ -214,13 +218,14 @@ module IvcChampva
 
     # @param applicant_data [Hash] the applicant data
     # @param parsed_form_data [Hash] the full form data (for certification)
+    # @param form_uuid [String] the UUID to use as application_uuid
     # @return [Hash] the transformed data
-    def self.transform_ohi_to_ves_format(applicant_data, parsed_form_data)
+    def self.transform_ohi_to_ves_format(applicant_data, parsed_form_data, form_uuid:)
       beneficiary_data = map_ohi_beneficiary(applicant_data)
       medicare_array = applicant_data['medicare'] || []
 
       {
-        application_uuid: SecureRandom.uuid,
+        application_uuid: form_uuid,
         beneficiary_medicare: beneficiary_data.merge(
           medicare_bene_id: extract_medicare_bene_id(medicare_array),
           medicare_parts: map_medicare_parts(medicare_array),

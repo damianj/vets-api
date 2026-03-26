@@ -122,7 +122,8 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
             .and_raise(StandardError.new('oh no'))
           controller = IvcChampva::V1::UploadsController.new
           allow(controller).to receive(:handle_file_uploads)
-          allow(controller).to receive(:params).and_return(ActionController::Parameters.new(data))
+          allow(controller).to receive_messages(get_file_paths_and_metadata: [['path'], { 'uuid' => 'test-uuid' }],
+                                                params: ActionController::Parameters.new(data))
           allow(controller).to receive(:render)
 
           controller.send(:submit)
@@ -139,7 +140,8 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
           allow(IvcChampva::VesDataFormatter).to receive(:format_for_request).and_return(nil)
           controller = IvcChampva::V1::UploadsController.new
           allow(controller).to receive(:handle_file_uploads)
-          allow(controller).to receive(:params).and_return(ActionController::Parameters.new(data))
+          allow(controller).to receive_messages(get_file_paths_and_metadata: [['path'], { 'uuid' => 'test-uuid' }],
+                                                params: ActionController::Parameters.new(data))
           allow(controller).to receive(:render)
 
           controller.send(:submit)
@@ -304,6 +306,7 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
 
   describe '#prepare_ves_request routing' do
     let(:controller) { IvcChampva::V1::UploadsController.new }
+    let(:form_uuid) { '12345678-1234-5678-1234-567812345678' }
     let(:mock_ves_request) { double('IvcChampva::VesRequest') }
     let(:mock_extended_ves_request) { double('IvcChampva::VesRequest with subforms') }
     let(:mock_ohi_requests) { [double('IvcChampva::VesOhiRequest')] }
@@ -325,9 +328,10 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
         let(:parsed_form_data) { { 'form_number' => '10-10D' } }
 
         it 'calls format_for_request' do
-          result = controller.send(:prepare_ves_request, parsed_form_data)
+          result = controller.send(:prepare_ves_request, parsed_form_data, form_uuid:)
 
-          expect(IvcChampva::VesDataFormatter).to have_received(:format_for_request).with(parsed_form_data)
+          expect(IvcChampva::VesDataFormatter).to have_received(:format_for_request)
+            .with(parsed_form_data, form_uuid:)
           expect(IvcChampva::VesDataFormatter).not_to have_received(:format_for_extended_request)
           expect(result).to eq(mock_ves_request)
         end
@@ -337,9 +341,10 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
         let(:parsed_form_data) { { 'form_number' => '10-10D-EXTENDED' } }
 
         it 'calls format_for_request (NO subforms in legacy flow)' do
-          result = controller.send(:prepare_ves_request, parsed_form_data)
+          result = controller.send(:prepare_ves_request, parsed_form_data, form_uuid:)
 
-          expect(IvcChampva::VesDataFormatter).to have_received(:format_for_request).with(parsed_form_data)
+          expect(IvcChampva::VesDataFormatter).to have_received(:format_for_request)
+            .with(parsed_form_data, form_uuid:)
           expect(IvcChampva::VesDataFormatter).not_to have_received(:format_for_extended_request)
           expect(result).to eq(mock_ves_request)
         end
@@ -355,9 +360,10 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
         let(:parsed_form_data) { { 'form_number' => '10-10D' } }
 
         it 'calls format_for_request (standalone 10-10D)' do
-          result = controller.send(:prepare_ves_request, parsed_form_data)
+          result = controller.send(:prepare_ves_request, parsed_form_data, form_uuid:)
 
-          expect(IvcChampva::VesDataFormatter).to have_received(:format_for_request).with(parsed_form_data)
+          expect(IvcChampva::VesDataFormatter).to have_received(:format_for_request)
+            .with(parsed_form_data, form_uuid:)
           expect(IvcChampva::VesDataFormatter).not_to have_received(:format_for_extended_request)
           expect(result).to eq(mock_ves_request)
         end
@@ -367,9 +373,10 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
         let(:parsed_form_data) { { 'form_number' => '10-10D-EXTENDED' } }
 
         it 'calls format_for_extended_request (10-10D with OHI subforms)' do
-          result = controller.send(:prepare_ves_request, parsed_form_data)
+          result = controller.send(:prepare_ves_request, parsed_form_data, form_uuid:)
 
-          expect(IvcChampva::VesDataFormatter).to have_received(:format_for_extended_request).with(parsed_form_data)
+          expect(IvcChampva::VesDataFormatter).to have_received(:format_for_extended_request)
+            .with(parsed_form_data, form_uuid:)
           expect(IvcChampva::VesDataFormatter).not_to have_received(:format_for_request)
           expect(result).to eq(mock_extended_ves_request)
         end
@@ -382,7 +389,7 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
 
           it 'raises the error (strict validation - no fallback)' do
             expect do
-              controller.send(:prepare_ves_request, parsed_form_data)
+              controller.send(:prepare_ves_request, parsed_form_data, form_uuid:)
             end.to raise_error(ArgumentError, 'OHI validation failed')
           end
         end
@@ -392,9 +399,10 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
         let(:parsed_form_data) { { 'form_number' => '10-7959C' } }
 
         it 'calls format_for_ohi_request' do
-          result = controller.send(:prepare_ves_request, parsed_form_data)
+          result = controller.send(:prepare_ves_request, parsed_form_data, form_uuid:)
 
-          expect(IvcChampva::VesDataFormatter).to have_received(:format_for_ohi_request).with(parsed_form_data)
+          expect(IvcChampva::VesDataFormatter).to have_received(:format_for_ohi_request)
+            .with(parsed_form_data, form_uuid:)
           expect(IvcChampva::VesDataFormatter).not_to have_received(:format_for_request)
           expect(IvcChampva::VesDataFormatter).not_to have_received(:format_for_extended_request)
           expect(result).to eq(mock_ohi_requests)
@@ -1903,7 +1911,8 @@ RSpec.describe 'IvcChampva::V1::Forms::Uploads', type: :request do
       result = controller.send(:generate_ves_json_file, mock_form, parsed_form_data)
 
       expect(result).to eq(expected_path)
-      expect(IvcChampva::VesDataFormatter).to have_received(:format_for_request).with(parsed_form_data)
+      expect(IvcChampva::VesDataFormatter).to have_received(:format_for_request)
+        .with(parsed_form_data, form_uuid: mock_form.uuid)
       expect(File).to have_received(:write).with(
         expected_path,
         '{"test": "data"}'

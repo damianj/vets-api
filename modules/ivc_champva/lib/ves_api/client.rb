@@ -29,7 +29,7 @@ module IvcChampva
       ##
       # HTTP POST call to the VES VFMP CHAMPVA Application service to submit a 10-10d application.
       #
-      # @param transaction_uuid [string] the UUID for the application
+      # @param transaction_uuid [string] the UUID for the transaction (sent in header)
       # @param ves_request_data [IvcChampva::VesRequest] preformatted request data
       def submit_1010d(transaction_uuid, ves_request_data)
         resp = connection.post("#{config.base_path}/ves-vfmp-app-svc/champva-applications") do |req|
@@ -37,7 +37,9 @@ module IvcChampva
           req.body = ves_request_data.to_json
         end
 
-        monitor.track_ves_response(transaction_uuid, resp.status, resp.body)
+        # Log with application_uuid (which equals form_uuid) for consistent tracking
+        application_uuid = extract_application_uuid(ves_request_data)
+        monitor.track_ves_response(application_uuid, resp.status, resp.body)
 
         raise "response code: #{resp.status}, response body: #{resp.body}" unless resp.status == 200
 
@@ -49,7 +51,7 @@ module IvcChampva
       ##
       # HTTP POST call to the VES VFMP service to submit a 10-7959c OHI certification.
       #
-      # @param transaction_uuid [string] the UUID for the transaction
+      # @param transaction_uuid [string] the UUID for the transaction (sent in header)
       # @param ves_request_data [IvcChampva::VesOhiRequest] preformatted request data
       # @return [Faraday::Response] the response from VES
       # @raise [VesApiError] if the response status is not 200
@@ -59,7 +61,9 @@ module IvcChampva
           req.body = ves_request_data.to_json
         end
 
-        monitor.track_ves_response(transaction_uuid, resp.status, resp.body)
+        # Log with application_uuid (which equals form_uuid) for consistent tracking
+        application_uuid = extract_application_uuid(ves_request_data)
+        monitor.track_ves_response(application_uuid, resp.status, resp.body)
 
         raise "response code: #{resp.status}, response body: #{resp.body}" unless resp.status == 200
 
@@ -89,6 +93,20 @@ module IvcChampva
       #
       def monitor
         @monitor ||= IvcChampva::Monitor.new
+      end
+
+      ##
+      # Extracts application_uuid from the VES request data.
+      # Handles both VesRequest objects (with accessor) and Hash objects (from retries).
+      #
+      # @param ves_request_data [VesRequest, VesOhiRequest, Hash] the request data
+      # @return [String, nil] the application UUID
+      def extract_application_uuid(ves_request_data)
+        if ves_request_data.respond_to?(:application_uuid)
+          ves_request_data.application_uuid
+        elsif ves_request_data.is_a?(Hash)
+          ves_request_data['application_uuid'] || ves_request_data['applicationUUID']
+        end
       end
     end
   end

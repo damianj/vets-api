@@ -6,7 +6,7 @@ require 'ves_api/client'
 RSpec.describe IvcChampva::VesApi::Client do
   let(:client) { described_class.new }
   let(:transaction_uuid) { '12345' }
-  let(:ves_request_data) { instance_double(IvcChampva::VesRequest, to_json: '{}') }
+  let(:ves_request_data) { instance_double(IvcChampva::VesRequest, to_json: '{}', application_uuid: '12345') }
 
   describe '#submit_1010d' do
     before do
@@ -89,7 +89,7 @@ RSpec.describe IvcChampva::VesApi::Client do
   end
 
   describe '#submit_7959c' do
-    let(:ves_ohi_request_data) { instance_double(IvcChampva::VesOhiRequest, to_json: '{}') }
+    let(:ves_ohi_request_data) { instance_double(IvcChampva::VesOhiRequest, to_json: '{}', application_uuid: '12345') }
 
     before do
       allow(client).to receive(:connection).and_return(double(post: response))

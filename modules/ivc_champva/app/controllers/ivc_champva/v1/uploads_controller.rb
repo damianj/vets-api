@@ -114,9 +114,12 @@ module IvcChampva
 
       # Handles VES submission flow for supported forms (10-10D, 10-7959C standalone)
       def handle_ves_submission(form_id, parsed_form_data)
-        ves_request = prepare_ves_request(parsed_form_data)
-
+        # Get file_paths and metadata first so we have form_uuid available for VES
         file_paths, metadata = get_file_paths_and_metadata(parsed_form_data)
+
+        # Prepare VES request using form_uuid as application_uuid for consistency
+        ves_request = prepare_ves_request(parsed_form_data, form_uuid: metadata['uuid'])
+
         statuses, error_messages = upload_form(form_id, file_paths, metadata)
         response = build_json(statuses, error_messages)
 
@@ -189,8 +192,8 @@ module IvcChampva
       # @param [Hash] parsed_form_data complete form submission data object
       # @return [String] The path to the generated VES JSON file
       def generate_ves_json_file(form, parsed_form_data)
-        # Generate VES data
-        ves_data = IvcChampva::VesDataFormatter.format_for_request(parsed_form_data)
+        # Generate VES data using form.uuid as application_uuid for consistency
+        ves_data = IvcChampva::VesDataFormatter.format_for_request(parsed_form_data, form_uuid: form.uuid)
 
         # Create temporary JSON file using form.uuid (absolute path like PDF files)
         ves_file_path = Rails.root.join("tmp/#{form.uuid}_#{form.form_id}_ves.json").to_s
@@ -216,18 +219,19 @@ module IvcChampva
       # - 10-7959C: should not reach here (blocked by should_process_ves?)
       #
       # @param [Hash] parsed_form_data complete form submission data object
+      # @param [String] form_uuid the UUID to use as application_uuid (aligns VES with form records)
       # @return [IvcChampva::VesRequest, Array<IvcChampva::VesOhiRequest>, nil] the formatted request data
-      def prepare_ves_request(parsed_form_data)
+      def prepare_ves_request(parsed_form_data, form_uuid:)
         form_number = parsed_form_data['form_number']
 
         ves_request = if Flipper.enabled?(:champva_send_7959c_to_ves, @current_user)
                         case form_number
                         when '10-10D'
-                          IvcChampva::VesDataFormatter.format_for_request(parsed_form_data)
+                          IvcChampva::VesDataFormatter.format_for_request(parsed_form_data, form_uuid:)
                         when '10-10D-EXTENDED'
-                          IvcChampva::VesDataFormatter.format_for_extended_request(parsed_form_data)
+                          IvcChampva::VesDataFormatter.format_for_extended_request(parsed_form_data, form_uuid:)
                         when '10-7959C'
-                          IvcChampva::VesDataFormatter.format_for_ohi_request(parsed_form_data)
+                          IvcChampva::VesDataFormatter.format_for_ohi_request(parsed_form_data, form_uuid:)
                         else
                           # This should not happen - should_process_ves? should filter unsupported forms
                           Rails.logger.warn("VES: Unexpected form_number '#{form_number}' in prepare_ves_request")
@@ -235,7 +239,7 @@ module IvcChampva
                         end
                       else
                         # Legacy flow: all 10-10D variants use format_for_request (no subforms)
-                        IvcChampva::VesDataFormatter.format_for_request(parsed_form_data)
+                        IvcChampva::VesDataFormatter.format_for_request(parsed_form_data, form_uuid:)
                       end
 
         raise 'Failed to format data for VES submission' if ves_request.nil?
