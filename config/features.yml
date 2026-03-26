@@ -582,14 +582,6 @@ features:
     actor_type: user
     description: When enabled, aligns evidence request alerts in the claim status tool with VADS best practices.
     enable_in_development: true
-  cst_show_document_upload_status:
-    actor_type: user
-    description: When enabled, claims status tool will display the upload status that comes from the evidence_submissions table.
-    enable_in_development: true
-  cst_update_evidence_submission_on_show:
-    actor_type: user
-    description: When enabled, polls Lighthouse for updated evidence submission statuses when viewing individual claims.
-    enable_in_development: true
   cst_claim_phases:
     actor_type: user
     description: When enabled, claims status tool uses the new claim phase designs

@@ -46,9 +46,7 @@ module V0
       claim_ids = claims['data'].map { |claim| claim['id'] }
       evidence_submissions = fetch_evidence_submissions(claim_ids, 'index')
 
-      if Flipper.enabled?(:cst_show_document_upload_status, @current_user)
-        add_evidence_submissions_to_claims(claims['data'], evidence_submissions, 'index')
-      end
+      add_evidence_submissions_to_claims(claims['data'], evidence_submissions, 'index')
 
       tap_claims(claims['data'])
 
@@ -73,10 +71,8 @@ module V0
 
       evidence_submissions = fetch_evidence_submissions(claim['data']['id'], 'show')
 
-      if Flipper.enabled?(:cst_show_document_upload_status, @current_user)
-        update_evidence_submissions_for_claim(claim['data']['id'], evidence_submissions)
-        add_evidence_submissions_to_claims([claim['data']], evidence_submissions, 'show')
-      end
+      update_evidence_submissions_for_claim(claim['data']['id'], evidence_submissions)
+      add_evidence_submissions_to_claims([claim['data']], evidence_submissions, 'show')
 
       # We want to log some details about claim type patterns to track in DataDog
       log_claim_details(claim['data']['attributes'])
@@ -106,11 +102,7 @@ module V0
     end
 
     def failed_upload_evidence_submissions
-      if Flipper.enabled?(:cst_show_document_upload_status, @current_user)
-        render json: { data: filter_failed_evidence_submissions }
-      else
-        render json: { data: [] }
-      end
+      render json: { data: filter_failed_evidence_submissions }
     end
 
     private
@@ -351,29 +343,26 @@ module V0
     end
 
     def update_evidence_submissions_for_claim(claim_id, evidence_submissions)
-      # Poll for updated statuses on pending evidence submissions if feature flag is enabled
-      if Flipper.enabled?(:cst_update_evidence_submission_on_show, @current_user)
-        # Get pending evidence submissions as an ActiveRecord relation
-        # PENDING = successfully sent to Lighthouse with request_id, awaiting final status
-        # Note: We chain scopes on the provided relation because UpdateDocumentsStatusService
-        # requires an ActiveRecord::Relation with find_by! method (not an Array)
-        pending_submissions = evidence_submissions.where(
-          upload_status: BenefitsDocuments::Constants::UPLOAD_STATUS[:PENDING]
-        ).where.not(request_id: nil)
+      # Get pending evidence submissions as an ActiveRecord relation
+      # PENDING = successfully sent to Lighthouse with request_id, awaiting final status
+      # Note: We chain scopes on the provided relation because UpdateDocumentsStatusService
+      # requires an ActiveRecord::Relation with find_by! method (not an Array)
+      pending_submissions = evidence_submissions.where(
+        upload_status: BenefitsDocuments::Constants::UPLOAD_STATUS[:PENDING]
+      ).where.not(request_id: nil)
 
-        unless pending_submissions.empty?
-          request_ids = pending_submissions.pluck(:request_id)
+      unless pending_submissions.empty?
+        request_ids = pending_submissions.pluck(:request_id)
 
-          # Check if we recently polled for the same request_ids (cache hit)
-          if recently_polled_request_ids?(claim_id, request_ids)
-            StatsD.increment("#{STATSD_METRIC_PREFIX}.show.evidence_submission_cache_hit", tags: STATSD_TAGS)
-            return
-          end
-
-          # Cache miss - proceed with polling
-          StatsD.increment("#{STATSD_METRIC_PREFIX}.show.evidence_submission_cache_miss", tags: STATSD_TAGS)
-          process_evidence_submissions(claim_id, pending_submissions, request_ids)
+        # Check if we recently polled for the same request_ids (cache hit)
+        if recently_polled_request_ids?(claim_id, request_ids)
+          StatsD.increment("#{STATSD_METRIC_PREFIX}.show.evidence_submission_cache_hit", tags: STATSD_TAGS)
+          return
         end
+
+        # Cache miss - proceed with polling
+        StatsD.increment("#{STATSD_METRIC_PREFIX}.show.evidence_submission_cache_miss", tags: STATSD_TAGS)
+        process_evidence_submissions(claim_id, pending_submissions, request_ids)
       end
     end
 

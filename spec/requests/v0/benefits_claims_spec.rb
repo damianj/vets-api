@@ -14,179 +14,107 @@ RSpec.describe 'V0::BenefitsClaims', type: :request do
       get '/v0/benefits_claims/failed_upload_evidence_submissions'
     end
 
-    context 'when the cst_show_document_upload_status is enabled' do
-      before do
-        allow(Flipper).to receive(:enabled?).with(
-          :cst_show_document_upload_status,
-          instance_of(User)
-        ).and_return(true)
-      end
+    context 'when unsuccessful' do
+      context 'when the user is not signed in' do
+        it 'returns a status of 401' do
+          subject
 
-      context 'when unsuccessful' do
-        context 'when the user is not signed in' do
-          it 'returns a status of 401' do
-            subject
-
-            expect(response).to have_http_status(:unauthorized)
-          end
-        end
-
-        context 'when the user is signed in, but does not have valid credentials' do
-          let(:invalid_user) { create(:user, :loa3, :accountable, :legacy_icn, participant_id: nil) }
-
-          before do
-            sign_in_as(invalid_user)
-          end
-
-          it 'returns a status of 403' do
-            subject
-
-            expect(response).to have_http_status(:forbidden)
-          end
-        end
-
-        context 'when the user is signed in and has valid credentials' do
-          before do
-            sign_in_and_set_access_token(user)
-            create(:bd_lh_evidence_submission_failed_type2_error, claim_id:, user_account:)
-          end
-
-          context 'when the ICN is not found' do
-            it 'returns a status of 404' do
-              VCR.use_cassette('lighthouse/benefits_claims/show/404_response') do
-                subject
-              end
-
-              expect(response).to have_http_status(:not_found)
-            end
-          end
-
-          context 'when there is a gateway timeout' do
-            it 'returns a status of 504' do
-              VCR.use_cassette('lighthouse/benefits_claims/show/504_response') do
-                subject
-              end
-
-              expect(response).to have_http_status(:gateway_timeout)
-            end
-          end
-
-          context 'when Lighthouse takes too long to respond' do
-            it 'returns a status of 504' do
-              allow_any_instance_of(BenefitsClaims::Configuration).to receive(:get).and_raise(Faraday::TimeoutError)
-              subject
-
-              expect(response).to have_http_status(:gateway_timeout)
-            end
-          end
+          expect(response).to have_http_status(:unauthorized)
         end
       end
 
-      context 'when successful' do
+      context 'when the user is signed in, but does not have valid credentials' do
+        let(:invalid_user) { create(:user, :loa3, :accountable, :legacy_icn, participant_id: nil) }
+
+        before do
+          sign_in_as(invalid_user)
+        end
+
+        it 'returns a status of 403' do
+          subject
+
+          expect(response).to have_http_status(:forbidden)
+        end
+      end
+
+      context 'when the user is signed in and has valid credentials' do
         before do
           sign_in_and_set_access_token(user)
-          create(:bd_lh_evidence_submission_success, claim_id:, user_account:)
-          create(:bd_lh_evidence_submission_failed_type1_error, claim_id:, user_account:)
           create(:bd_lh_evidence_submission_failed_type2_error, claim_id:, user_account:)
         end
 
-        it 'returns an array of only the failed evidence submissions' do
-          VCR.use_cassette('lighthouse/benefits_claims/show/200_response') do
-            subject
-          end
-
-          expect(response).to have_http_status(:ok)
-          parsed_response = JSON.parse(response.body)
-          expect(parsed_response['data'].size).to eq(2)
-          expect(parsed_response['data'].first['document_type']).to eq('Birth Certificate')
-          expect(parsed_response['data'].second['document_type']).to eq('Birth Certificate')
-        end
-
-        context 'when multiple claims are returned for the evidence submission records' do
-          before do
-            create(:bd_lh_evidence_submission_failed_type1_error, claim_id: 600_229_972, user_account:)
-          end
-
-          it 'returns evidence submissions for all claims' do
-            VCR.use_cassette('lighthouse/benefits_claims/show/200_response') do
-              VCR.use_cassette('lighthouse/benefits_claims/show/200_death_claim_response') do
-                subject
-              end
-            end
-
-            expect(response).to have_http_status(:ok)
-            parsed_response = JSON.parse(response.body)
-            expect(parsed_response['data'].size).to eq(3)
-          end
-        end
-
-        context 'when no failed submissions exist' do
-          before do
-            EvidenceSubmission.destroy_all
-          end
-
-          it 'returns an empty array' do
-            VCR.use_cassette('lighthouse/benefits_claims/show/200_response') do
+        context 'when the ICN is not found' do
+          it 'returns a status of 404' do
+            VCR.use_cassette('lighthouse/benefits_claims/show/404_response') do
               subject
             end
 
-            expect(response).to have_http_status(:ok)
-            expect(JSON.parse(response.body)).to eq({ 'data' => [] })
+            expect(response).to have_http_status(:not_found)
+          end
+        end
+
+        context 'when there is a gateway timeout' do
+          it 'returns a status of 504' do
+            VCR.use_cassette('lighthouse/benefits_claims/show/504_response') do
+              subject
+            end
+
+            expect(response).to have_http_status(:gateway_timeout)
+          end
+        end
+
+        context 'when Lighthouse takes too long to respond' do
+          it 'returns a status of 504' do
+            allow_any_instance_of(BenefitsClaims::Configuration).to receive(:get).and_raise(Faraday::TimeoutError)
+            subject
+
+            expect(response).to have_http_status(:gateway_timeout)
           end
         end
       end
     end
 
-    context 'when the cst_show_document_upload_status is disabled' do
+    context 'when successful' do
       before do
-        allow(Flipper).to receive(:enabled?).with(
-          :cst_show_document_upload_status,
-          instance_of(User)
-        ).and_return(false)
+        sign_in_and_set_access_token(user)
+        create(:bd_lh_evidence_submission_success, claim_id:, user_account:)
+        create(:bd_lh_evidence_submission_failed_type1_error, claim_id:, user_account:)
+        create(:bd_lh_evidence_submission_failed_type2_error, claim_id:, user_account:)
       end
 
-      context 'when unsuccessful' do
-        context 'when the user is not signed in' do
-          it 'returns a status of 401' do
-            subject
-
-            expect(response).to have_http_status(:unauthorized)
-          end
+      it 'returns an array of only the failed evidence submissions' do
+        VCR.use_cassette('lighthouse/benefits_claims/show/200_response') do
+          subject
         end
 
-        context 'when the user is signed in, but does not have valid credentials' do
-          let(:invalid_user) { create(:user, :loa3, :accountable, :legacy_icn, participant_id: nil) }
+        expect(response).to have_http_status(:ok)
+        parsed_response = JSON.parse(response.body)
+        expect(parsed_response['data'].size).to eq(2)
+        expect(parsed_response['data'].first['document_type']).to eq('Birth Certificate')
+        expect(parsed_response['data'].second['document_type']).to eq('Birth Certificate')
+      end
 
-          before do
-            sign_in_as(invalid_user)
-          end
-
-          it 'returns a status of 403' do
-            subject
-
-            expect(response).to have_http_status(:forbidden)
-          end
+      context 'when multiple claims are returned for the evidence submission records' do
+        before do
+          create(:bd_lh_evidence_submission_failed_type1_error, claim_id: 600_229_972, user_account:)
         end
 
-        context 'when the user is signed in and has valid credentials' do
-          before do
-            sign_in_and_set_access_token(user)
-          end
-
-          it 'returns an empty array' do
-            VCR.use_cassette('lighthouse/benefits_claims/show/200_response') do
+        it 'returns evidence submissions for all claims' do
+          VCR.use_cassette('lighthouse/benefits_claims/show/200_response') do
+            VCR.use_cassette('lighthouse/benefits_claims/show/200_death_claim_response') do
               subject
             end
-
-            expect(response).to have_http_status(:ok)
-            expect(JSON.parse(response.body)).to eq({ 'data' => [] })
           end
+
+          expect(response).to have_http_status(:ok)
+          parsed_response = JSON.parse(response.body)
+          expect(parsed_response['data'].size).to eq(3)
         end
       end
 
-      context 'when successful' do
+      context 'when no failed submissions exist' do
         before do
-          sign_in_and_set_access_token(user)
+          EvidenceSubmission.destroy_all
         end
 
         it 'returns an empty array' do
