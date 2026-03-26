@@ -27,7 +27,7 @@ describe ValidatePdf, :uploader_helpers do
     end
   end
 
-  context 'with an encrypted PDF' do
+  context 'with a user-password-protected PDF' do
     let(:file) do
       Rack::Test::UploadedFile.new('spec/fixtures/files/locked_pdf_password_is_test.pdf',
                                    'application/pdf')
@@ -45,6 +45,34 @@ describe ValidatePdf, :uploader_helpers do
     it 'raises an error' do
       expect { store_image }
         .to raise_error(Common::Exceptions::UnprocessableEntity)
+    end
+  end
+
+  context 'with an owner-password-only PDF' do
+    let(:file) do
+      Rack::Test::UploadedFile.new('spec/fixtures/files/locked-pdf.pdf',
+                                   'application/pdf')
+    end
+
+    context 'when pdf_allow_owner_encrypted_uploads is enabled' do
+      before do
+        allow(Flipper).to receive(:enabled?).with(:pdf_allow_owner_encrypted_uploads).and_return(true)
+      end
+
+      it 'does not raise an error' do
+        expect { store_image }.not_to raise_error
+      end
+    end
+
+    context 'when pdf_allow_owner_encrypted_uploads is disabled' do
+      before do
+        allow(Flipper).to receive(:enabled?).with(:pdf_allow_owner_encrypted_uploads).and_return(false)
+      end
+
+      it 'raises an error' do
+        expect { store_image }
+          .to raise_error(Common::Exceptions::UnprocessableEntity)
+      end
     end
   end
 end

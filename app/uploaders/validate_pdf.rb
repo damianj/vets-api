@@ -10,12 +10,19 @@ module ValidatePdf
   end
 
   def validate(temp_file)
-    metadata = PdfInfo::Metadata.read(temp_file)
-    if metadata.encrypted?
-      raise Common::Exceptions::UnprocessableEntity.new(detail: I18n.t('errors.messages.uploads.pdf.locked'),
-                                                        source: 'ValidatePdf')
+    if Flipper.enabled?(:pdf_allow_owner_encrypted_uploads)
+      PdfInfo::Metadata.read(temp_file)
+    else
+      metadata = PdfInfo::Metadata.read(temp_file)
+      if metadata.encrypted?
+        raise Common::Exceptions::UnprocessableEntity.new(detail: I18n.t('errors.messages.uploads.pdf.locked'),
+                                                          source: 'ValidatePdf')
+      end
     end
     temp_file.rewind
+  rescue PdfInfo::PasswordRequiredError
+    raise Common::Exceptions::UnprocessableEntity.new(detail: I18n.t('errors.messages.uploads.pdf.locked'),
+                                                      source: 'ValidatePdf')
   rescue PdfInfo::MetadataReadError
     raise Common::Exceptions::UnprocessableEntity.new(detail: I18n.t('errors.messages.uploads.pdf.invalid'),
                                                       source: 'ValidatePdf')

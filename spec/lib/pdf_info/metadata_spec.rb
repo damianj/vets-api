@@ -72,6 +72,18 @@ describe PdfInfo::Metadata do
         expect { described_class.read('/tmp/file.pdf') }.to raise_error(PdfInfo::MetadataReadError, /pdfinfo exited/)
       end
     end
+
+    context 'when the command errors due to an incorrect password' do
+      let(:password_result) do
+        StringIO.new("Command Line Error: Incorrect password\n")
+      end
+
+      it 'raises a PdfInfo::PasswordRequiredError' do
+        expect(Open3).to receive(:popen2e).with('pdfinfo', '-l', '-1', '/tmp/file.pdf').and_yield('', password_result,
+                                                                                                  bad_exit)
+        expect { described_class.read('/tmp/file.pdf') }.to raise_error(PdfInfo::PasswordRequiredError)
+      end
+    end
   end
 
   describe '#[]' do

@@ -7,6 +7,8 @@ module PdfInfo
     end
   end
 
+  class PasswordRequiredError < MetadataReadError; end
+
   class Metadata
     def self.read(file_or_path)
       if file_or_path.is_a? String
@@ -81,7 +83,11 @@ module PdfInfo
     end
 
     def init_error
-      raise PdfInfo::MetadataReadError.new(@exit_status.exitstatus, @stdout.join('\n'))
+      if @stdout.any? { |line| line.include?('Incorrect password') }
+        raise PdfInfo::PasswordRequiredError.new(@exit_status.exitstatus, @stdout.join("\n"))
+      end
+
+      raise PdfInfo::MetadataReadError.new(@exit_status.exitstatus, @stdout.join("\n"))
     end
 
     def force_utf8_encoding(str)
