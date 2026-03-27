@@ -1,3 +1,5 @@
+ARG IMAGEMAGICK_IMAGE=008577686731.dkr.ecr.us-gov-west-1.amazonaws.com/dpokidov/imagemagick:7.1.1-47-bookworm
+
 FROM public.ecr.aws/docker/library/ruby:3.3.6-slim-bookworm AS rubyimg
 FROM rubyimg AS modules
 
@@ -10,7 +12,7 @@ RUN find modules -type f ! \( -name Gemfile -o -name "*.gemspec" -o -path "*/lib
 
 # ImageMagick 7 is not available on Bookwork 
 # This can be replaced with the imagemagick-7 package if using Trixie
-FROM dpokidov/imagemagick:7.1.1-47-bookworm AS imagemagick
+FROM ${IMAGEMAGICK_IMAGE} AS imagemagick
 
 FROM rubyimg
 
@@ -34,7 +36,7 @@ RUN apt-get update --fix-missing \
   && apt-get clean \
   && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Copy ImageMagick 7 and its dependencies from dpokidov/imagemagick
+# Copy ImageMagick 7 and its dependencies from the ImageMagick build stage
 COPY --from=imagemagick /usr/local/bin/magick /usr/local/bin/magick
 COPY --from=imagemagick /usr/local/lib/ /usr/local/lib/
 COPY --from=imagemagick /usr/local/etc/ImageMagick-7/ /usr/local/etc/ImageMagick-7/
