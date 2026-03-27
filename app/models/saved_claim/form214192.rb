@@ -117,7 +117,7 @@ class SavedClaim::Form214192 < SavedClaim
     employer_address = employment['employerAddress'] || {}
 
     {
-      'EMPLOYER_NAME_ADDRESS' => build_employer_name_and_address(employment['employerName'], employer_address)
+      'EMPLOYER_NAME_ADDRESS' => build_employer_name_and_address(employment['employerName'], employer_address).to_s
     }
   end
 

@@ -301,7 +301,7 @@ RSpec.describe SavedClaim::Form21p530a, type: :model do
       end
 
       it 'includes veteran service number and VA file number' do
-        expect(ibm_data['VETERAN_SERVICE_NUMBER']).to be_nil
+        expect(ibm_data['VETERAN_SERVICE_NUMBER']).to eq('')
         expect(ibm_data).to have_key('VA_FILE_NUMBER')
       end
 

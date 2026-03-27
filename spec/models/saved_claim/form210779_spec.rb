@@ -152,8 +152,8 @@ RSpec.describe SavedClaim::Form210779, type: :model do
 
     it 'includes form metadata and system fields' do
       ibm_payload = claim.to_ibm
-      expect(ibm_payload['FORM_TYPE_1']).to eq('VA FORM 0779, NOV 2023')
-      expect(ibm_payload['FLASH_TEXT']).to be_nil
+      expect(ibm_payload['FORM_TYPE_1']).to eq('VA FORM 0779, SEP 2023')
+      expect(ibm_payload['FLASH_TEXT']).to eq('')
       expect(ibm_payload['CB_VA_STAMP']).to eq(0)
     end
 
@@ -220,9 +220,9 @@ RSpec.describe SavedClaim::Form210779, type: :model do
 
       # Form metadata (3 fields including system fields)
       expect(ibm_payload).to include(
-        'FLASH_TEXT' => nil,
+        'FLASH_TEXT' => '',
         'CB_VA_STAMP' => 0,
-        'FORM_TYPE_1' => 'VA FORM 0779, NOV 2023'
+        'FORM_TYPE_1' => 'VA FORM 0779, SEP 2023'
       )
     end
   end

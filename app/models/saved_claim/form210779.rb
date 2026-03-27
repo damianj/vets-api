@@ -88,9 +88,9 @@ class SavedClaim::Form210779 < SavedClaim
 
     build_veteran_basic_fields(vet_info)
       .merge({
-               'VETERAN_NAME' => build_full_name(full_name),
-               'VETERAN_SSN' => vet_id['ssn'],
-               'VA_FILE_NUMBER' => vet_id['vaFileNumber']
+               'VETERAN_NAME' => build_full_name(full_name).to_s,
+               'VETERAN_SSN' => vet_id['ssn'].to_s,
+               'VA_FILE_NUMBER' => vet_id['vaFileNumber'].to_s
              })
   end
 
@@ -105,13 +105,13 @@ class SavedClaim::Form210779 < SavedClaim
     fields = build_claimant_fields(claimant_info)
 
     # Add full name field
-    fields['CLAIMANT_NAME'] = build_full_name(full_name)
+    fields['CLAIMANT_NAME'] = build_full_name(full_name).to_s
 
     # Override SSN with correct path (from veteranId object)
-    fields['CLAIMANT_SSN'] = claimant_id['ssn']
+    fields['CLAIMANT_SSN'] = claimant_id['ssn'].to_s
 
     # Box 7: VA File Number
-    fields['CL_FILE_NUMBER'] = claimant_id['vaFileNumber']
+    fields['CL_FILE_NUMBER'] = claimant_id['vaFileNumber'].to_s
 
     fields
   end
@@ -125,14 +125,14 @@ class SavedClaim::Form210779 < SavedClaim
 
     {
       # Box 9: Name of nursing home
-      'NAME_FACILITY_C' => nursing_home['nursingHomeName'],
+      'NAME_FACILITY_C' => nursing_home['nursingHomeName'].to_s,
       # Box 10: Address of nursing home
-      'FACILITY_ADDRESS_LINE1_C' => nursing_address['street'],
-      'FACILITY_ADDRESS_LINE2_C' => nursing_address['street2'],
-      'FACILITY_ADDRESS_CITY_C' => nursing_address['city'],
-      'FACILITY_ADDRESS_STATE_C' => nursing_address['state'],
-      'FACILITY_ADDRESS_COUNTRY_C' => nursing_address['country'],
-      'FACILITY_ADDRESS_ZIP_C' => nursing_address['postalCode']
+      'FACILITY_ADDRESS_LINE1_C' => nursing_address['street'].to_s,
+      'FACILITY_ADDRESS_LINE2_C' => nursing_address['street2'].to_s,
+      'FACILITY_ADDRESS_CITY_C' => nursing_address['city'].to_s,
+      'FACILITY_ADDRESS_STATE_C' => nursing_address['state'].to_s,
+      'FACILITY_ADDRESS_COUNTRY_C' => nursing_address['country'].to_s,
+      'FACILITY_ADDRESS_ZIP_C' => nursing_address['postalCode'].to_s
     }
   end
 
@@ -150,14 +150,14 @@ class SavedClaim::Form210779 < SavedClaim
   # Build Medicaid-related fields (Boxes 12-14)
   def build_medicaid_fields(general_info)
     {
-      'DATE_ADMISSION_TO_FACILITY_C' => format_date_for_ibm(general_info['admissionDate']),
+      'DATE_ADMISSION_TO_FACILITY_C' => format_date_for_ibm(general_info['admissionDate']).to_s,
       'MEDICAID_APPROVED_Y' => build_checkbox_value(general_info['medicaidFacility'] == true),
       'MEDICAID_APPROVED_N' => build_checkbox_value(general_info['medicaidFacility'] == false),
       'MEDICAID_APPLIED_Y' => build_checkbox_value(general_info['medicaidApplication'] == true),
       'MEDICAID_APPLIED_N' => build_checkbox_value(general_info['medicaidApplication'] == false),
       'MEDICAID_COVERAGE_Y' => build_checkbox_value(general_info['patientMedicaidCovered'] == true),
       'MEDICAID_COVERAGE_N' => build_checkbox_value(general_info['patientMedicaidCovered'] == false),
-      'MEDICAID_START' => format_date_for_ibm(general_info['medicaidStartDate'])
+      'MEDICAID_START' => format_date_for_ibm(general_info['medicaidStartDate']).to_s
     }
   end
 
@@ -166,10 +166,10 @@ class SavedClaim::Form210779 < SavedClaim
     monthly_costs = general_info['monthlyCosts']
 
     {
-      'OUT_OF_POCKET' => format_currency_for_ibm(monthly_costs),
-      'OUT_OF_POCKET_THSNDS' => extract_currency_thousands(monthly_costs),
-      'OUT_OF_POCKET_HNDRDS' => extract_currency_hundreds(monthly_costs),
-      'OUT_OF_POCKET_CENTS' => extract_currency_cents(monthly_costs),
+      'OUT_OF_POCKET' => format_currency_for_ibm(monthly_costs).to_s,
+      'OUT_OF_POCKET_THSNDS' => extract_currency_thousands(monthly_costs).to_s,
+      'OUT_OF_POCKET_HNDRDS' => extract_currency_hundreds(monthly_costs).to_s,
+      'OUT_OF_POCKET_CENTS' => extract_currency_cents(monthly_costs).to_s,
       'SKILLED_CARE' => build_checkbox_value(general_info['certificationLevelOfCare'] == 'skilled'),
       'INTERMEDIATE_CARE' => build_checkbox_value(general_info['certificationLevelOfCare'] == 'intermediate')
     }
@@ -178,11 +178,11 @@ class SavedClaim::Form210779 < SavedClaim
   # Build nursing home official fields (Boxes 17-21)
   def build_nursing_official_fields(general_info)
     {
-      'NAME_COMPLETING_WORKSHEET_C' => general_info['nursingOfficialName'],
-      'ROLE_PERFORM_AT_FACILITY_C' => general_info['nursingOfficialTitle'],
-      'FACILITY_TELEPHONE_NUMBER_C' => format_phone_for_ibm(general_info['nursingOfficialPhoneNumber']),
-      'SIGNATURE_OF_PROVIDER_C' => general_info['signature'],
-      'SIGNATURE_DATE_PROVIDER_C' => format_date_for_ibm(general_info['signatureDate'])
+      'NAME_COMPLETING_WORKSHEET_C' => general_info['nursingOfficialName'].to_s,
+      'ROLE_PERFORM_AT_FACILITY_C' => general_info['nursingOfficialTitle'].to_s,
+      'FACILITY_TELEPHONE_NUMBER_C' => format_phone_for_ibm(general_info['nursingOfficialPhoneNumber']).to_s,
+      'SIGNATURE_OF_PROVIDER_C' => general_info['signature'].to_s,
+      'SIGNATURE_DATE_PROVIDER_C' => format_date_for_ibm(general_info['signatureDate']).to_s
     }
   end
 
@@ -190,9 +190,9 @@ class SavedClaim::Form210779 < SavedClaim
   # @return [Hash]
   def build_form_metadata_fields
     {
-      'FLASH_TEXT' => nil,
+      'FLASH_TEXT' => '',
       'CB_VA_STAMP' => 0, # VA date stamp not applied for online submissions via SavedClaim path
-      'FORM_TYPE_1' => 'VA FORM 0779, NOV 2023'
+      'FORM_TYPE_1' => 'VA FORM 0779, SEP 2023'
     }
   end
 
