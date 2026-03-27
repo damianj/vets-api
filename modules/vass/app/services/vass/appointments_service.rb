@@ -594,7 +594,9 @@ module Vass
     def handle_available_cohort(cohort, veteran_id)
       cohort_start_utc = cohort['cohort_start_utc']
       cohort_end_utc = cohort['cohort_end_utc']
-      availability = get_availability(veteran_id:, start_date: cohort_start_utc, end_date: cohort_end_utc)
+      tomorrow_4am_utc = Time.current.utc.beginning_of_day + 1.day + 4.hours
+      two_weeks_end_utc = Time.current.utc.beginning_of_day + 15.days - 1.second
+      availability = get_availability(veteran_id:, start_date: tomorrow_4am_utc, end_date: two_weeks_end_utc)
       slots = availability.dig('data', 'available_time_slots') || []
       filtered_slots = filter_available_slots(slots)
       return build_no_slots_available_response if filtered_slots.empty?
