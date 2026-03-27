@@ -1721,6 +1721,11 @@ vanotify:
         decision_letter_ready_email: fake_template_id
         decision_letter_ready_sms: fake_template_id
         evidence_submission_failure_email: fake_template_id
+    bio_aquia:
+      api_key: fake_secret
+      template_id:
+        form_0779_submission_email: fake_template_id
+        form_4192_submission_email: fake_template_id
     burials: *vanotify_services_burial
     check_in:
       api_key: check-in_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb

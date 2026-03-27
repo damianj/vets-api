@@ -1703,6 +1703,11 @@ vanotify:
         decision_letter_ready_email: <%= ENV['vanotify__services__benefits_management_tools__template_id__decision_letter_ready_email'] %>
         decision_letter_ready_sms: <%= ENV['vanotify__services__benefits_management_tools__template_id__decision_letter_ready_sms'] %>
         evidence_submission_failure_email: <%= ENV['vanotify__services__benefits_management_tools__template_id__evidence_submission_failure_email'] %>
+    bio_aquia:
+      api_key: <%= ENV['vanotify__services__bio_aquia__api_key'] %>
+      template_id:
+        form_0779_submission_email: <%= ENV['vanotify__services__bio_aquia__template_id__form_0779_submission_email'] %>
+        form_4192_submission_email: <%= ENV['vanotify__services__bio_aquia__template_id__form_4192_submission_email'] %>
     burials: *vanotify_services_burial
     check_in:
       api_key: <%= ENV['vanotify__services__check_in__api_key'] %>
