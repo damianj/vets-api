@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+Flipper.enable(:cerner_non_eligible_sis_enabled)
+
 # Create Config for va.gov Sign in Service client
 vaweb = SignIn::ClientConfig.find_or_initialize_by(client_id: 'vaweb')
 vaweb.update!(authentication: SignIn::Constants::Auth::COOKIE,
