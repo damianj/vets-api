@@ -986,6 +986,8 @@ mdot:
   mock: <%= ENV['mdot__mock'] %>
   prefill: true
   url: <%= ENV['mdot__url'] %>
+medical_expense_reports:
+  prefill: true
 memorials:
   prefill: true
 mhv:

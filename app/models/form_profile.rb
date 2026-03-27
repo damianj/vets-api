@@ -141,6 +141,7 @@ class FormProfile
     ivc_champva: ['10-7959C'],
     increase_compensation: %w[21-8940v1 21-8940],
     mdot: ['MDOT'],
+    medical_expense_reports: %w[21P-8416],
     memorials: %w[40-1330M],
     pension_burial: %w[21P-0969 21P-530EZ 21P-527EZ 21-2680 21P-601 21P-0537],
     survivors_benefits: %w[21P-534EZ],
