@@ -138,6 +138,7 @@ module IvcChampva
                          "email_used:#{email_used}",
                          "form_version:#{FORM_VERSION}",
                          "claim_status:#{@data['claim_status']}",
+                         "duty_to_assist:#{dta?}",
                          "pdi_or_claim_number:#{@data['pdi_or_claim_number']}"
                        ])
       Rails.logger.info('IVC ChampVA Forms - 10-7959A Submission', identity:,
@@ -145,6 +146,7 @@ module IvcChampva
                                                                    email_used:,
                                                                    form_version: FORM_VERSION,
                                                                    claim_status: @data['claim_status'],
+                                                                   duty_to_assist: dta?,
                                                                    pdi_or_claim_number: @data['pdi_or_claim_number'])
     end
 

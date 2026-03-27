@@ -306,7 +306,7 @@ RSpec.describe IvcChampva::VHA107959a do
         expect(StatsD).to receive(:increment).with(
           "#{statsd_key}.submission",
           tags: %w[identity:applicant current_user_loa:3 email_used:yes form_version:vha_10_7959a claim_status:
-                   pdi_or_claim_number:]
+                   duty_to_assist:false pdi_or_claim_number:]
         )
         expect(Rails.logger).to receive(:info).with(
           'IVC ChampVA Forms - 10-7959A Submission',
@@ -315,6 +315,7 @@ RSpec.describe IvcChampva::VHA107959a do
           email_used: 'yes',
           form_version:,
           claim_status: nil,
+          duty_to_assist: false,
           pdi_or_claim_number: nil
         )
 
@@ -336,7 +337,7 @@ RSpec.describe IvcChampva::VHA107959a do
         expect(StatsD).to receive(:increment).with(
           "#{statsd_key}.submission",
           tags: %w[identity:applicant current_user_loa:0 email_used:no form_version:vha_10_7959a claim_status:
-                   pdi_or_claim_number:]
+                   duty_to_assist:false pdi_or_claim_number:]
         )
         expect(Rails.logger).to receive(:info).with(
           'IVC ChampVA Forms - 10-7959A Submission',
@@ -345,6 +346,7 @@ RSpec.describe IvcChampva::VHA107959a do
           email_used: 'no',
           form_version:,
           claim_status: nil,
+          duty_to_assist: false,
           pdi_or_claim_number: nil
         )
 
@@ -368,7 +370,7 @@ RSpec.describe IvcChampva::VHA107959a do
         expect(StatsD).to receive(:increment).with(
           "#{statsd_key}.submission",
           tags: ['identity:sponsor', 'current_user_loa:3', 'email_used:yes', 'form_version:vha_10_7959a',
-                 'claim_status:resubmission', 'pdi_or_claim_number:PDI number']
+                 'claim_status:resubmission', 'duty_to_assist:false', 'pdi_or_claim_number:PDI number']
         )
         expect(Rails.logger).to receive(:info).with(
           'IVC ChampVA Forms - 10-7959A Submission',
@@ -377,6 +379,7 @@ RSpec.describe IvcChampva::VHA107959a do
           email_used: 'yes',
           form_version:,
           claim_status: 'resubmission',
+          duty_to_assist: false,
           pdi_or_claim_number: 'PDI number'
         )
 
@@ -400,7 +403,7 @@ RSpec.describe IvcChampva::VHA107959a do
         expect(StatsD).to receive(:increment).with(
           "#{statsd_key}.submission",
           tags: ['identity:sponsor', 'current_user_loa:3', 'email_used:no', 'form_version:vha_10_7959a',
-                 'claim_status:resubmission', 'pdi_or_claim_number:Control number']
+                 'claim_status:resubmission', 'duty_to_assist:false', 'pdi_or_claim_number:Control number']
         )
         expect(Rails.logger).to receive(:info).with(
           'IVC ChampVA Forms - 10-7959A Submission',
@@ -409,6 +412,7 @@ RSpec.describe IvcChampva::VHA107959a do
           email_used: 'no',
           form_version:,
           claim_status: 'resubmission',
+          duty_to_assist: false,
           pdi_or_claim_number: 'Control number'
         )
 
