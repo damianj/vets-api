@@ -136,7 +136,7 @@ module SimpleFormsApi
           'fileNumber' => params.dig(:form_data, :id_number, :ssn) ||
                           params.dig(:form_data, :id_number, :va_file_number),
           'zipCode' => params.dig(:form_data, :postal_code),
-          'source' => 'VA Platform Digital Forms',
+          'source' => 'VA Platform Upload Forms',
           'docType' => params[:form_number],
           'businessLine' => 'CMP'
         }

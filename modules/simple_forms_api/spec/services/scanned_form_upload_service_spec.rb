@@ -210,7 +210,7 @@ RSpec.describe SimpleFormsApi::ScannedFormUploadService do
             'veteranLastName' => 'Doe',
             'fileNumber' => '123-45-6789',
             'zipCode' => '12345',
-            'source' => 'VA Platform Digital Forms',
+            'source' => 'VA Platform Upload Forms',
             'docType' => form_number,
             'businessLine' => 'CMP'
           )
