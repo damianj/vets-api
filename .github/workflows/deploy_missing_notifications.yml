@@ -175,4 +175,4 @@ jobs:
           slack_bot_token: ${{ env.SLACK_BOT_TOKEN }}
           message: "Vets API Deployment Delay:"
           blocks: "[{\"type\": \"divider\"}, {\"type\": \"section\", \"text\": { \"type\": \"mrkdwn\", \"text\": \":scared_and_sweating_smiley: GitHub Action Runner Workflow failed! :scared_and_sweating_smiley:\n <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.workflow }} Run #${{ github.run_number }}>\n\n*Status Summary:*\n${{ needs.check-api-status.outputs.status_summary }}\"}}, {\"type\": \"divider\"}]"
-          channel_id: "C039HRTHXDH"
+          channel_id: "C0APA867M0V"
