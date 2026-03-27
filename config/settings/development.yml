@@ -1880,6 +1880,9 @@ vanotify:
         form21_4142_confirmation_email: form21_4142_confirmation_email_template_id
         form21_4142_error_email: form21_4142_error_email_template_id
         form21_4142_received_email: form21_4142_received_email_template_id
+        form21_4502_confirmation_email: form21_4502_confirmation_email_id
+        form21_4502_error_email: form21_4502_error_email_id
+        form21_4502_received_email: form21_4502_received_email_id
         form21_674_action_needed_email: form21_674_action_needed_email_template_id
         form21_686c_674_action_needed_email: form21_686c_674_action_needed_email_template_id
         form21_686c_action_needed_email: form21_686c_action_needed_email_template_id
