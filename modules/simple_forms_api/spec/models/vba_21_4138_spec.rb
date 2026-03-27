@@ -370,10 +370,20 @@ RSpec.describe SimpleFormsApi::VBA214138 do
   end
 
   describe '#notification_first_name' do
-    let(:data) { { 'full_name' => { 'first' => 'John', 'last' => 'Doe' } } }
+    context 'when a non-veteran claimant is filing' do
+      let(:data) { { 'full_name' => { 'first' => 'John', 'last' => 'Doe' } } }
 
-    it 'returns the first name from full_name' do
-      expect(described_class.new(data).notification_first_name).to eq('John')
+      it 'returns the first name from full_name' do
+        expect(described_class.new(data).notification_first_name).to eq('John')
+      end
+    end
+
+    context 'when the veteran is filing for themselves' do
+      let(:data) { { 'claimant_type' => 'self', 'first' => 'John', 'last' => 'Veteran' } }
+
+      it 'returns the first name from the top-level key' do
+        expect(described_class.new(data).notification_first_name).to eq('John')
+      end
     end
   end
 
