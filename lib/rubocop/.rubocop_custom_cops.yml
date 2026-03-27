@@ -1,0 +1,9 @@
+require:
+  - './cop/ams_serializer.rb'
+  - './cop/dangerous_exception_logging.rb'
+
+Cop/AmsSerializer:
+  Enabled: true
+
+Cop/DangerousExceptionLogging:
+  Enabled: true
