@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_03_11_154143) do
+ActiveRecord::Schema[7.2].define(version: 2026_03_18_225401) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gin"
   enable_extension "fuzzystrmatch"
@@ -380,6 +380,24 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_11_154143) do
     t.string "accredited_individual_registration_number", null: false
     t.datetime "created_at", null: false
     t.index ["saved_claim_id"], name: "idx_on_saved_claim_id_f4f27623c2", unique: true
+  end
+
+  create_table "ask_va_inquiry_submission_checkpoints", force: :cascade do |t|
+    t.bigint "ask_va_inquiry_submission_id", null: false
+    t.string "checkpoint_type", null: false
+    t.text "payload_ciphertext", null: false
+    t.text "encrypted_kms_key"
+    t.boolean "needs_kms_rotation", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ask_va_inquiry_submission_id"], name: "idx_on_ask_va_inquiry_submission_id_532ebd2134"
+  end
+
+  create_table "ask_va_inquiry_submissions", force: :cascade do |t|
+    t.string "crm_message_id"
+    t.string "inquiry_number"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
   create_table "async_transactions", id: :serial, force: :cascade do |t|
@@ -2243,6 +2261,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_11_154143) do
   add_foreign_key "ar_power_of_attorney_request_resolutions", "ar_power_of_attorney_requests", column: "power_of_attorney_request_id"
   add_foreign_key "ar_power_of_attorney_request_withdrawals", "ar_power_of_attorney_requests", column: "superseding_power_of_attorney_request_id"
   add_foreign_key "ar_power_of_attorney_requests", "user_accounts", column: "claimant_id"
+  add_foreign_key "ask_va_inquiry_submission_checkpoints", "ask_va_inquiry_submissions"
   add_foreign_key "async_transactions", "user_accounts"
   add_foreign_key "bgs_submission_attempts", "bgs_submissions"
   add_foreign_key "bgs_submissions", "saved_claims"
