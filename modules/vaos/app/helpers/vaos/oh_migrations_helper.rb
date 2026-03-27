@@ -24,7 +24,7 @@ module VAOS
     #     cancellation_disabled: false
     #   }
     # }
-    def self.get_migrations
+    def self.get_migrations(user: nil)
       raw_value = Settings.mhv.oh_facility_checks.oh_migrations_list
 
       return {} if raw_value.to_s.strip.blank?
@@ -38,14 +38,19 @@ module VAOS
 
         migration_entry = MigrationUtils.parse_single_migration_entry(migration_entry_string)
 
-        MigrationUtils.build_migrations(migrations, migration_entry, today)
+        MigrationUtils.build_migrations(migrations, migration_entry, today, user)
       end
 
       migrations
     end
 
     module MigrationUtils
-      def self.build_migrations(migrations, migration_entry, today)
+      ELIGIBILITY_START_DAYS = -30
+      CANCELLATION_START_DAYS = -10
+      DEFAULT_END_DAYS = 7
+      DARK_DEPLOY_END_DAYS = 5
+
+      def self.build_migrations(migrations, migration_entry, today, user)
         migration_entry[:facilities].each do |facility|
           parent_facility = facility[:facility_id][0, 3]
           migration_days = (today - migration_entry[:migration_date]).to_i
@@ -55,28 +60,37 @@ module VAOS
             migration_date: migration_entry[:migration_date]
           }
 
-          check_eligibility_override(migration, migration_days)
-          check_cancellation_override(migration, migration_days)
+          check_eligibility_override(migration, migration_days, user)
+          check_cancellation_override(migration, migration_days, user)
 
           migrations[parent_facility] = migration
         end
         migrations = {}
       end
 
-      def self.check_eligibility_override(migration, migration_days)
-        is_minus30 = migration_days >= -30
-        is_plus7 = migration_days >= 7
-
-        # eligibility is disabled from 30 days before to 7 days after the migration date
-        migration[:disable_eligibility] = is_minus30 && !is_plus7
+      def self.migration_cutoff(user)
+        if user && Flipper.enabled?(:mhv_oh_migration_dark_deploy_appointments,
+                                    user)
+          DARK_DEPLOY_END_DAYS
+        else
+          DEFAULT_END_DAYS
+        end
       end
 
-      def self.check_cancellation_override(migration, migration_days)
-        is_minus10 = migration_days >= -10
-        is_plus7 = migration_days >= 7
+      def self.check_eligibility_override(migration, migration_days, user)
+        is_minus30 = migration_days >= ELIGIBILITY_START_DAYS
+        is_past_cutoff = migration_days >= migration_cutoff(user)
 
-        # appointment cancellation is disabled from 10 days before to 7 days after the migration date
-        migration[:cancellation_disabled] = is_minus10 && !is_plus7
+        # eligibility is disabled from 30 days before migration until the cutoff
+        migration[:disable_eligibility] = is_minus30 && !is_past_cutoff
+      end
+
+      def self.check_cancellation_override(migration, migration_days, user)
+        is_minus10 = migration_days >= CANCELLATION_START_DAYS
+        is_past_cutoff = migration_days >= migration_cutoff(user)
+
+        # appointment cancellation is disabled from 10 days before migration until the cutoff
+        migration[:cancellation_disabled] = is_minus10 && !is_past_cutoff
       end
 
       def self.parse_single_migration_entry(entry)
