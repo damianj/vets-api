@@ -931,9 +931,6 @@ features:
   disability_compensation_temp_separation_location_code_string:
     actor_type: user
     description: enables forcing separation location code to be a string in submit_all_claim endpoint.
-  disability_compensation_temp_toxic_exposure_optional_dates_fix:
-    actor_type: user
-    description: enables removing malformed optional dates from the Toxic Exposure node of a Form526Submission at SavedClaim creation.
   disability_compensation_toxic_exposure_destruction_modal:
     actor_type: user
     description: enables confirmation modal when removing toxic exposure data from Form 526

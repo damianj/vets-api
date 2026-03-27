@@ -76,17 +76,6 @@ class Form526Submission < ApplicationRecord
   UPLOAD_DELAY_BASE = 60.seconds
   UNIQUENESS_INCREMENT = 5
 
-  # the keys of the Toxic Exposure details for each section
-  TOXIC_EXPOSURE_DETAILS_MAPPING = {
-    'gulfWar1990Details' => %w[afghanistan bahrain egypt iraq israel jordan kuwait neutralzone oman qatar saudiarabia
-                               somalia syria uae turkey waters airspace],
-    'gulfWar2001Details' => %w[djibouti lebanon uzbekistan yemen airspace],
-    'herbicideDetails' => %w[cambodia guam koreandemilitarizedzone johnston laos c123 thailand vietnam],
-    'otherExposuresDetails' => %w[asbestos chemical mos mustardgas radiation water],
-    'otherHerbicideLocations' => [],
-    'specifyOtherExposures' => []
-  }.freeze
-
   # used to track in APMs between systems such as Lighthouse
   # example: can be used as a search parameter in Datadog
   # TODO: follow-up in ticket #93563 to make this more robust, i.e. attempts of jobs, etc.
