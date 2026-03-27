@@ -186,8 +186,8 @@ RSpec.describe 'V0::Form1010Ezrs', type: :request do
       end
 
       it 'ensures the tmp file is deleted when fill_form fails after retries' do
-        expect(PdfFill::Filler).to receive(:fill_ancillary_form).exactly(3).times.and_raise(StandardError,
-                                                                                            'error filling form')
+        expect(PdfFill::Filler).to receive(:fill_ancillary_form).once.and_raise(StandardError,
+                                                                                'error filling form')
 
         subject
 

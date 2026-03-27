@@ -269,7 +269,7 @@ RSpec.describe 'V0::CaregiversAssistanceClaims', type: :request do
 
     it 'ensures the tmp file is deleted when fill_form fails after retries' do
       allow(PdfFill::Filler).to receive(:fill_form).and_raise(StandardError, 'error filling form')
-      expect(claim).to receive(:to_pdf).exactly(3).times.and_raise(StandardError, 'error filling form')
+      expect(claim).to receive(:to_pdf).once.and_raise(StandardError, 'error filling form')
 
       expect_any_instance_of(ApplicationController).not_to receive(:send_data)
       expect_any_instance_of(Form1010cg::Auditor).not_to receive(:record).with(:pdf_download)

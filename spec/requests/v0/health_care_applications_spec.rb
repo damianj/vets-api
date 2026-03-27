@@ -659,13 +659,11 @@ RSpec.describe 'V0::HealthCareApplications', type: %i[request serializer] do
       ).to be(false)
     end
 
-    it 'ensures the tmp file is deleted when fill_form fails after retries' do
-      expect(PdfFill::Filler).to receive(:fill_form).exactly(3).times.and_raise(StandardError, 'error filling form')
-
+    it 'ensures the tmp file is deleted when fill_form fails' do
+      expect(PdfFill::Filler).to receive(:fill_form).once.and_raise(StandardError, 'error filling form')
       subject
 
       expect(response).to have_http_status(:internal_server_error)
-
       expect(
         File.exist?('tmp/pdfs/10-10EZ_file-name-uuid.pdf')
       ).to be(false)

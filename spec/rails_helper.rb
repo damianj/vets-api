@@ -198,6 +198,10 @@ RSpec.configure do |config|
     Sidekiq::Job.clear_all
   end
 
+  config.before do
+    allow(Kernel).to receive(:sleep)
+  end
+
   # clean up carrierwave uploads
   # https://github.com/carrierwaveuploader/carrierwave/wiki/How-to:-Cleanup-after-your-Rspec-tests
   config.after(:all) do
