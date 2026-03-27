@@ -39,6 +39,7 @@ AccreditedRepresentativePortal::Engine.routes.draw do
     post '/upload_supporting_documents', to: 'representative_form_upload#upload_supporting_documents'
 
     resources :claim_submissions, only: :index
+    resources :claimant_claim_submissions, only: :show
 
     resources :power_of_attorney_requests, only: %i[index show] do
       resource :decision, only: :create, controller: 'power_of_attorney_request_decisions'
