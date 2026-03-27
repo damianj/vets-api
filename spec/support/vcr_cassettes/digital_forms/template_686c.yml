@@ -45,6 +45,8 @@ http_interactions:
     }
   ],
   "formTemplate": {
+    "formTemplate": {
+    "21-686c": {
     "$schema": "https://vefs-forms-api.prod.bip.vba.va.gov/api/v1/rest/forms/formTemplateSchema/versions/1.0/schema",
     "formId": "21-686c",
     "title": "21-686c Form Template",
@@ -57,7 +59,9 @@ http_interactions:
         "sectionHeader": "Section 1: Veteran information"
       }
     ]
+    }
+    }
   }
-}'
+  }'
   recorded_at: Tue, 13 May 2025 19:26:37 GMT
 recorded_with: VCR 6.3.1

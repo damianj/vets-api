@@ -18,7 +18,8 @@ module DigitalFormsApi
       end
 
       template = forms_service.template('21-686c')
-      render json: { submission: submission.body['envelope']['payload'], template: template['formTemplate'] }
+      render json: { submission: submission.body['envelope']['payload'],
+                     template: template['formTemplate']['formTemplate']['21-686c'] }
     rescue Common::Client::Errors::ClientError => e
       if e.status == 404
         render json: { error: 'Not found' }, status: :not_found
