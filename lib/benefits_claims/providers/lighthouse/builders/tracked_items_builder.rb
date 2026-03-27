@@ -64,7 +64,8 @@ module BenefitsClaims
               is_dbq: data['isDBQ'],
               is_proper_noun: data['isProperNoun'],
               is_sensitive: data['isSensitive'],
-              no_provide_prefix: data['noProvidePrefix']
+              no_provide_prefix: data['noProvidePrefix'],
+              hide_claim_letter_section: data['hideClaimLetterSection']
             }
           end
         end

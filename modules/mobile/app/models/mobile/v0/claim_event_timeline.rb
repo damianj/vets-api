@@ -22,6 +22,7 @@ module Mobile
       attribute :display_name, Types::String.optional.default(nil)
       attribute :documents, Types::Array.of(ClaimDocument).optional.default(nil)
       attribute :friendly_name, Types::String.optional.default(nil)
+      attribute :hide_claim_letter_section, Types::Bool.optional.default(nil)
       attribute :is_dbq, Types::Bool.optional.default(nil)
       attribute :is_proper_noun, Types::Bool.optional.default(nil)
       attribute :is_sensitive, Types::Bool.optional.default(nil)

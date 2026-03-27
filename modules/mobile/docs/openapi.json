@@ -13134,6 +13134,11 @@
             "nullable": true,
             "example": false
           },
+          "hide_claim_letter_section": {
+            "type": "boolean",
+            "nullable": true,
+            "example": false
+          },
           "long_description": {
             "type": "object",
             "nullable": true,

@@ -246,6 +246,11 @@ module Swagger
           key :description, 'Whether to omit the "Provide" prefix in UI'
           key :example, false
         end
+        property :hideClaimLetterSection do
+          key :type, :boolean
+          key :description, 'Whether to hide the claim letter section for this tracked item'
+          key :example, false
+        end
       end
 
       swagger_schema :ContentBlock do

@@ -44,6 +44,7 @@ module BenefitsClaims
       attribute :is_proper_noun, Bool
       attribute :is_sensitive, Bool
       attribute :no_provide_prefix, Bool
+      attribute :hide_claim_letter_section, Bool
     end
 
     class SupportingDocument

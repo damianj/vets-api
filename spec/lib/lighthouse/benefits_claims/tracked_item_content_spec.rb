@@ -115,6 +115,7 @@ RSpec.describe BenefitsClaims::TrackedItemContent do
         isProperNoun: false,
         isSensitive: false,
         noProvidePrefix: false,
+        hideClaimLetterSection: true,
         longDescription: {
           blocks: [
             { type: 'paragraph', content: 'This is a simple paragraph.' },

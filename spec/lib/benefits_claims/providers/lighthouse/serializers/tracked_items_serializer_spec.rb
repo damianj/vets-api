@@ -88,7 +88,8 @@ RSpec.describe BenefitsClaims::Providers::Lighthouse::Serializers::TrackedItemsS
         no_action_needed: nil,
         is_dbq: nil,
         is_proper_noun: nil,
-        no_provide_prefix: nil
+        no_provide_prefix: nil,
+        hide_claim_letter_section: nil
       )
 
       serialized = described_class.serialize([item]).first
@@ -106,6 +107,7 @@ RSpec.describe BenefitsClaims::Providers::Lighthouse::Serializers::TrackedItemsS
       expect(serialized).not_to have_key('isDBQ')
       expect(serialized).not_to have_key('isProperNoun')
       expect(serialized).not_to have_key('noProvidePrefix')
+      expect(serialized).not_to have_key('hideClaimLetterSection')
     end
   end
 end

@@ -116,6 +116,7 @@ RSpec.describe 'Mobile::V0::Claim', type: :request do
             isProperNoun: true,
             isSensitive: true,
             noProvidePrefix: true,
+            hideClaimLetterSection: true,
             longDescription: { blocks: [{ type: 'paragraph', content: 'Test long description' }] },
             nextSteps: { blocks: [{ type: 'paragraph', content: 'Test next steps' }] }
           }
@@ -151,6 +152,7 @@ RSpec.describe 'Mobile::V0::Claim', type: :request do
           expect(tracked_item['isProperNoun']).to be(true)
           expect(tracked_item['isSensitive']).to be(true)
           expect(tracked_item['noProvidePrefix']).to be(true)
+          expect(tracked_item['hideClaimLetterSection']).to be(true)
           expect(tracked_item['longDescription']).to be_a(Hash)
           expect(tracked_item['nextSteps']).to be_a(Hash)
         end
@@ -176,6 +178,7 @@ RSpec.describe 'Mobile::V0::Claim', type: :request do
           expect(tracked_item['isProperNoun']).to be_nil
           expect(tracked_item['isSensitive']).to be_nil
           expect(tracked_item['noProvidePrefix']).to be_nil
+          expect(tracked_item['hideClaimLetterSection']).to be_nil
           expect(tracked_item['longDescription']).to be_nil
           expect(tracked_item['nextSteps']).to be_nil
         end
