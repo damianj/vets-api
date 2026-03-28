@@ -264,6 +264,31 @@ RSpec.describe SupportingEvidenceAttachmentUploader, :uploader_helpers do
             CarrierWave::IntegrityError, /page size limit/i
           )
         end
+
+        it 'increments the StatsD rejection metric with reason tag' do
+          expect(StatsD).to receive(:increment).with(
+            'api.disability_compensation.upload_validation.rejected',
+            tags: ['reason:benefits_intake_pdf_invalid']
+          )
+          expect { subject.send(:validate_with_benefits_intake_constraints, mock_file) }.to raise_error(
+            CarrierWave::IntegrityError
+          )
+        end
+
+        it 'logs the rejection with structured details' do
+          allow(Rails.logger).to receive(:warn)
+          expect { subject.send(:validate_with_benefits_intake_constraints, mock_file) }.to raise_error(
+            CarrierWave::IntegrityError
+          )
+          expect(Rails.logger).to have_received(:warn).with(
+            hash_including(
+              message: 'Form 526 upload validation rejected',
+              reason: 'benefits_intake_pdf_invalid',
+              file_extension: '.pdf',
+              guid: '1234'
+            )
+          )
+        end
       end
 
       context 'with a PDF that has oversized pages (height exceeds 101in)' do
@@ -272,6 +297,16 @@ RSpec.describe SupportingEvidenceAttachmentUploader, :uploader_helpers do
         it 'raises a CarrierWave::IntegrityError with page size message' do
           expect { subject.send(:validate_with_benefits_intake_constraints, mock_file) }.to raise_error(
             CarrierWave::IntegrityError, /page size limit/i
+          )
+        end
+
+        it 'increments the StatsD rejection metric' do
+          expect(StatsD).to receive(:increment).with(
+            'api.disability_compensation.upload_validation.rejected',
+            tags: ['reason:benefits_intake_pdf_invalid']
+          )
+          expect { subject.send(:validate_with_benefits_intake_constraints, mock_file) }.to raise_error(
+            CarrierWave::IntegrityError
           )
         end
       end
@@ -303,6 +338,16 @@ RSpec.describe SupportingEvidenceAttachmentUploader, :uploader_helpers do
             CarrierWave::IntegrityError, /locked with a user password/i
           )
         end
+
+        it 'increments the StatsD rejection metric' do
+          expect(StatsD).to receive(:increment).with(
+            'api.disability_compensation.upload_validation.rejected',
+            tags: ['reason:benefits_intake_pdf_invalid']
+          )
+          expect { subject.send(:validate_with_benefits_intake_constraints, mock_file) }.to raise_error(
+            CarrierWave::IntegrityError
+          )
+        end
       end
 
       context 'with a PDF exceeding the 100MB size limit' do
@@ -315,6 +360,16 @@ RSpec.describe SupportingEvidenceAttachmentUploader, :uploader_helpers do
         it 'raises a CarrierWave::IntegrityError with file size message' do
           expect { subject.send(:validate_with_benefits_intake_constraints, mock_file) }.to raise_error(
             CarrierWave::IntegrityError, /file size limit/i
+          )
+        end
+
+        it 'increments the StatsD rejection metric' do
+          expect(StatsD).to receive(:increment).with(
+            'api.disability_compensation.upload_validation.rejected',
+            tags: ['reason:benefits_intake_pdf_invalid']
+          )
+          expect { subject.send(:validate_with_benefits_intake_constraints, mock_file) }.to raise_error(
+            CarrierWave::IntegrityError
           )
         end
       end
@@ -333,6 +388,16 @@ RSpec.describe SupportingEvidenceAttachmentUploader, :uploader_helpers do
             CarrierWave::IntegrityError, /not a valid PDF/i
           )
         end
+
+        it 'increments the StatsD rejection metric' do
+          expect(StatsD).to receive(:increment).with(
+            'api.disability_compensation.upload_validation.rejected',
+            tags: ['reason:benefits_intake_pdf_invalid']
+          )
+          expect { subject.send(:validate_with_benefits_intake_constraints, mock_file) }.to raise_error(
+            CarrierWave::IntegrityError
+          )
+        end
       end
 
       context 'when PDFValidator returns multiple errors' do
@@ -347,6 +412,16 @@ RSpec.describe SupportingEvidenceAttachmentUploader, :uploader_helpers do
         it 'joins all errors in the exception message' do
           expect { subject.send(:validate_with_benefits_intake_constraints, mock_file) }.to raise_error(
             CarrierWave::IntegrityError, 'Error one. Error two'
+          )
+        end
+
+        it 'includes the joined errors in the log' do
+          allow(Rails.logger).to receive(:warn)
+          expect { subject.send(:validate_with_benefits_intake_constraints, mock_file) }.to raise_error(
+            CarrierWave::IntegrityError
+          )
+          expect(Rails.logger).to have_received(:warn).with(
+            hash_including(error_detail: 'Error one. Error two')
           )
         end
       end
@@ -440,6 +515,32 @@ RSpec.describe SupportingEvidenceAttachmentUploader, :uploader_helpers do
             expect(error.message).not_to match(/virus/i)
             expect(error.message).not_to match(/malware/i)
           end
+        end
+
+        it 'increments the StatsD rejection metric with virus_detected reason' do
+          file = Rack::Test::UploadedFile.new('spec/fixtures/files/va.gif', 'image/gif')
+          allow(file).to receive(:delete)
+
+          expect(StatsD).to receive(:increment).with(
+            'api.disability_compensation.upload_validation.rejected',
+            tags: ['reason:virus_detected']
+          )
+          expect { subject.send(:validate_virus_free, file) }.to raise_error(CarrierWave::IntegrityError)
+        end
+
+        it 'logs the virus rejection with structured details' do
+          file = Rack::Test::UploadedFile.new('spec/fixtures/files/va.gif', 'image/gif')
+          allow(file).to receive(:delete)
+          allow(Rails.logger).to receive(:warn)
+
+          expect { subject.send(:validate_virus_free, file) }.to raise_error(CarrierWave::IntegrityError)
+          expect(Rails.logger).to have_received(:warn).with(
+            hash_including(
+              message: 'Form 526 upload validation rejected',
+              reason: 'virus_detected',
+              guid: '1234'
+            )
+          )
         end
       end
 
