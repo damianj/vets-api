@@ -19,6 +19,7 @@ module UnifiedHealthData
     attribute :discharge_date, String
     attribute :location, String
     attribute :note, String
+    attribute :addenda, Array
     attribute :source, String
 
     default_sort_by sort_date: :desc

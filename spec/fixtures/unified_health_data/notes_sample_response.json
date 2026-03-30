@@ -5,6 +5,514 @@
             {
                 "resource": {
                     "resourceType": "DocumentReference",
+                    "id": "9b7034fd-ee22-41ff-8b10-1a18232f4711",
+                    "meta": {
+                        "profile": [
+                            "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.note"
+                        ]
+                    },
+                    "contained": [
+                        {
+                            "resourceType": "Practitioner",
+                            "id": "11cce590-8d39-4a13-8077-757cf33ec711",
+                            "meta": {
+                                "profile": [
+                                    "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.practitioner"
+                                ]
+                            },
+                            "identifier": [
+                                {
+                                    "use": "usual",
+                                    "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                                    "value": "AuthorTO.520650339"
+                                }
+                            ],
+                            "name": [
+                                {
+                                    "text": "MCGUIRE,MARCI P",
+                                    "family": "MCGUIRE,MARCI P"
+                                }
+                            ]
+                        },
+                        {
+                            "resourceType": "Practitioner",
+                            "id": "79f70120-c9f9-435e-865e-0b04edc21b6b",
+                            "meta": {
+                                "profile": [
+                                    "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.practitioner"
+                                ]
+                            },
+                            "identifier": [
+                                {
+                                    "use": "usual",
+                                    "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                                    "value": "AuthorTO.520650339"
+                                }
+                            ],
+                            "name": [
+                                {
+                                    "text": "MCGUIRE,MARCI P",
+                                    "family": "MCGUIRE,MARCI P"
+                                }
+                            ]
+                        },
+                        {
+                            "resourceType": "Practitioner",
+                            "id": "0c05a2d4-a803-4c3a-b595-00759c3b933b",
+                            "meta": {
+                                "profile": [
+                                    "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.practitioner"
+                                ]
+                            },
+                            "identifier": [
+                                {
+                                    "use": "usual",
+                                    "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                                    "value": "AuthorTO.520650339"
+                                }
+                            ],
+                            "name": [
+                                {
+                                    "text": "MCGUIRE,MARCI P",
+                                    "family": "MCGUIRE,MARCI P"
+                                }
+                            ]
+                        },
+                        {
+                            "resourceType": "Practitioner",
+                            "id": "cbed74c3-c986-4177-b2c4-16be1a3294ce",
+                            "meta": {
+                                "profile": [
+                                    "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.practitioner"
+                                ]
+                            },
+                            "identifier": [
+                                {
+                                    "use": "usual",
+                                    "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                                    "value": "AuthorTO.520650339"
+                                }
+                            ],
+                            "name": [
+                                {
+                                    "text": "MCGUIRE,MARCI P",
+                                    "family": "MCGUIRE,MARCI P"
+                                }
+                            ]
+                        },
+                        {
+                            "resourceType": "DocumentReference",
+                            "id": "0fd5924f-ab08-40f6-8ba1-7ac5a83fa14b",
+                            "meta": {
+                                "profile": [
+                                    "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.note"
+                                ]
+                            },
+                            "identifier": [
+                                {
+                                    "use": "usual",
+                                    "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                                    "value": "NoteTO.1847782"
+                                },
+                                {
+                                    "system": "vista-uid",
+                                    "value": "urn:va:document:F253:7227761:1847782"
+                                }
+                            ],
+                            "status": "current",
+                            "docStatus": "final",
+                            "type": {
+                                "coding": [
+                                    {
+                                        "system": "http://loinc.org",
+                                        "code": "11506-3",
+                                        "display": "Progress Note"
+                                    }
+                                ],
+                                "text": "RN OUTPATIENT E & M NOTE"
+                            },
+                            "category": [
+                                {
+                                    "coding": [
+                                        {
+                                            "system": "http://hl7.org/fhir/us/core/CodeSystem/us-core-documentreference-category",
+                                            "code": "clinical-note",
+                                            "display": "Clinical Note"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "subject": {
+                                "reference": "Patient/24643801"
+                            },
+                            "date": "2026-03-26T12:25:00+00:00",
+                            "author": [
+                                {
+                                    "reference": "Practitioner/0c05a2d4-a803-4c3a-b595-00759c3b933b"
+                                }
+                            ],
+                            "authenticator": {
+                                "extension": [
+                                    {
+                                        "url": "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/noteAuthenticatedWhen",
+                                        "valueDateTime": "2026-03-26T12:27:38+00:00"
+                                    }
+                                ],
+                                "reference": "Practitioner/cbed74c3-c986-4177-b2c4-16be1a3294ce"
+                            },
+                            "content": [
+                                {
+                                    "attachment": {
+                                        "contentType": "text/plain",
+                                        "data": "SGkhIFRoaXMgaXMgdGhlIFNFQ09ORCBhZGRlbmR1bSB0byB0ZXN0IHBhdGllbnQgU2lsdmEncyAzLzI1LzIwMjYgb3V0cGF0aWVudCANCm5vdGUuDQo=",
+                                        "title": "OUTPATIENT NOTE",
+                                        "creation": "2026-03-26T12:25:00+00:00"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "resourceType": "Practitioner",
+                            "id": "f9339b7f-d67e-4d73-a76e-51991ae7f067",
+                            "meta": {
+                                "profile": [
+                                    "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.practitioner"
+                                ]
+                            },
+                            "identifier": [
+                                {
+                                    "use": "usual",
+                                    "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                                    "value": "AuthorTO.520650339"
+                                }
+                            ],
+                            "name": [
+                                {
+                                    "text": "MCGUIRE,MARCI P",
+                                    "family": "MCGUIRE,MARCI P"
+                                }
+                            ]
+                        },
+                        {
+                            "resourceType": "Practitioner",
+                            "id": "a949ebc2-4187-497f-a086-2812059a25ee",
+                            "meta": {
+                                "profile": [
+                                    "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.practitioner"
+                                ]
+                            },
+                            "identifier": [
+                                {
+                                    "use": "usual",
+                                    "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                                    "value": "AuthorTO.520650339"
+                                }
+                            ],
+                            "name": [
+                                {
+                                    "text": "MCGUIRE,MARCI P",
+                                    "family": "MCGUIRE,MARCI P"
+                                }
+                            ]
+                        },
+                        {
+                            "resourceType": "DocumentReference",
+                            "id": "10e790a0-3bf0-487f-8c10-da5236e6f2d3",
+                            "meta": {
+                                "profile": [
+                                    "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.note"
+                                ]
+                            },
+                            "identifier": [
+                                {
+                                    "use": "usual",
+                                    "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                                    "value": "NoteTO.1847782"
+                                },
+                                {
+                                    "system": "vista-uid",
+                                    "value": "urn:va:document:F253:7227761:1847782"
+                                }
+                            ],
+                            "status": "current",
+                            "docStatus": "final",
+                            "type": {
+                                "coding": [
+                                    {
+                                        "system": "http://loinc.org",
+                                        "code": "11506-3",
+                                        "display": "Progress Note"
+                                    }
+                                ],
+                                "text": "RN OUTPATIENT E & M NOTE"
+                            },
+                            "category": [
+                                {
+                                    "coding": [
+                                        {
+                                            "system": "http://hl7.org/fhir/us/core/CodeSystem/us-core-documentreference-category",
+                                            "code": "clinical-note",
+                                            "display": "Clinical Note"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "subject": {
+                                "reference": "Patient/24643801"
+                            },
+                            "date": "2026-03-26T12:21:00+00:00",
+                            "author": [
+                                {
+                                    "reference": "Practitioner/f9339b7f-d67e-4d73-a76e-51991ae7f067"
+                                }
+                            ],
+                            "authenticator": {
+                                "extension": [
+                                    {
+                                        "url": "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/noteAuthenticatedWhen",
+                                        "valueDateTime": "2026-03-26T12:23:13+00:00"
+                                    }
+                                ],
+                                "reference": "Practitioner/a949ebc2-4187-497f-a086-2812059a25ee"
+                            },
+                            "content": [
+                                {
+                                    "attachment": {
+                                        "contentType": "text/plain",
+                                        "data": "SGVsbG8gaGVsbG8uICBUaGlzIGlzIHRoZSBGSVJTVCBhZGRlbmR1bSB0byB0ZXN0IHBhdGllbnQgU2lsdmEncyAzLzI1LzIwMjYgDQpvdXRwYXRpZW50IG5vdGUuDQo=",
+                                        "title": "OUTPATIENT NOTE",
+                                        "creation": "2026-03-26T12:21:00+00:00"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "resourceType": "Practitioner",
+                            "id": "69aacdba-fc88-4653-9cfa-c6b71c200b57",
+                            "meta": {
+                                "profile": [
+                                    "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.practitioner"
+                                ]
+                            },
+                            "identifier": [
+                                {
+                                    "use": "usual",
+                                    "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                                    "value": "AuthorTO.520650339"
+                                }
+                            ],
+                            "name": [
+                                {
+                                    "text": "MCGUIRE,MARCI P",
+                                    "family": "MCGUIRE,MARCI P"
+                                }
+                            ]
+                        },
+                        {
+                            "resourceType": "Practitioner",
+                            "id": "1c0a3d82-7eed-41a7-a76c-d8d9ea325a1a",
+                            "meta": {
+                                "profile": [
+                                    "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.practitioner"
+                                ]
+                            },
+                            "identifier": [
+                                {
+                                    "use": "usual",
+                                    "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                                    "value": "AuthorTO.520650339"
+                                }
+                            ],
+                            "name": [
+                                {
+                                    "text": "MCGUIRE,MARCI P",
+                                    "family": "MCGUIRE,MARCI P"
+                                }
+                            ]
+                        },
+                        {
+                            "resourceType": "DocumentReference",
+                            "id": "6f64a6f8-9132-4189-84df-baf4b51193f4",
+                            "meta": {
+                                "profile": [
+                                    "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.note"
+                                ]
+                            },
+                            "identifier": [
+                                {
+                                    "use": "usual",
+                                    "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                                    "value": "NoteTO.1847782"
+                                },
+                                {
+                                    "system": "vista-uid",
+                                    "value": "urn:va:document:F253:7227761:1847782"
+                                }
+                            ],
+                            "status": "current",
+                            "docStatus": "final",
+                            "type": {
+                                "coding": [
+                                    {
+                                        "system": "http://loinc.org",
+                                        "code": "11506-3",
+                                        "display": "Progress Note"
+                                    }
+                                ],
+                                "text": "RN OUTPATIENT E & M NOTE"
+                            },
+                            "category": [
+                                {
+                                    "coding": [
+                                        {
+                                            "system": "http://hl7.org/fhir/us/core/CodeSystem/us-core-documentreference-category",
+                                            "code": "clinical-note",
+                                            "display": "Clinical Note"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "subject": {
+                                "reference": "Patient/24643801"
+                            },
+                            "date": "2026-03-25T14:55:18+00:00",
+                            "author": [
+                                {
+                                    "reference": "Practitioner/69aacdba-fc88-4653-9cfa-c6b71c200b57"
+                                }
+                            ],
+                            "authenticator": {
+                                "extension": [
+                                    {
+                                        "url": "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/noteAuthenticatedWhen",
+                                        "valueDateTime": "2026-03-25T14:56:55+00:00"
+                                    }
+                                ],
+                                "reference": "Practitioner/1c0a3d82-7eed-41a7-a76c-d8d9ea325a1a"
+                            },
+                            "content": [
+                                {
+                                    "attachment": {
+                                        "contentType": "text/plain",
+                                        "data": "RG9jdW1lbnRlZDogQ0hPTEVSQSwgTElWRSBBVFRFTlVBVEVEIA0KSGlzdG9yaWNhbCBEYXRlIEFkbWluaXN0ZXJlZDogTWF5IDAyLCAyMDE4ICAgICAgICANCkluZm9ybWF0aW9uIFNvdXJjZTogRlJPTSBQQVRJRU5UJ1MgUkVDQUxMDQpDb21tZW50OiBBZGRpbmcgYSBuZXcgaW1tdW5pemF0aW9uIGZvciB0ZXN0aW5nLiAgDQogICANCg==",
+                                        "title": "OUTPATIENT NOTE",
+                                        "creation": "2026-03-25T14:55:18+00:00"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "resourceType": "Location",
+                            "id": "c0d8c741-ea0f-4f41-a6e4-e6cc719d4be0",
+                            "meta": {
+                                "profile": [
+                                    "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/VA.MHV.PHR.location"
+                                ]
+                            },
+                            "identifier": [
+                                {
+                                    "use": "usual",
+                                    "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                                    "value": "LocationTO.983"
+                                }
+                            ],
+                            "name": "CHYSHR TEST LAB"
+                        }
+                    ],
+                    "identifier": [
+                        {
+                            "use": "usual",
+                            "system": "urn:oid:2.16.840.1.113883.4.349.4.989",
+                            "value": "NoteTO.1847782"
+                        },
+                        {
+                            "system": "vista-uid",
+                            "value": "urn:va:document:F253:7227761:1847782"
+                        }
+                    ],
+                    "status": "current",
+                    "docStatus": "final",
+                    "type": {
+                        "coding": [
+                            {
+                                "system": "http://loinc.org",
+                                "code": "11506-3",
+                                "display": "Progress Note"
+                            }
+                        ],
+                        "text": "RN OUTPATIENT E & M NOTE"
+                    },
+                    "category": [
+                        {
+                            "coding": [
+                                {
+                                    "system": "http://hl7.org/fhir/us/core/CodeSystem/us-core-documentreference-category",
+                                    "code": "clinical-note",
+                                    "display": "Clinical Note"
+                                }
+                            ]
+                        }
+                    ],
+                    "subject": {
+                        "reference": "Patient/24643801"
+                    },
+                    "date": "2026-03-26T12:29:00+00:00",
+                    "author": [
+                        {
+                            "reference": "Practitioner/11cce590-8d39-4a13-8077-757cf33ec711"
+                        }
+                    ],
+                    "authenticator": {
+                        "extension": [
+                            {
+                                "url": "https://department-of-veterans-affairs.github.io/mhv-fhir-phr-mapping/StructureDefinition/noteAuthenticatedWhen",
+                                "valueDateTime": "2026-03-26T12:31:50+00:00"
+                            }
+                        ],
+                        "reference": "Practitioner/79f70120-c9f9-435e-865e-0b04edc21b6b"
+                    },
+                    "relatesTo": [
+                        {
+                            "code": "appends",
+                            "target": {
+                                "reference": "DocumentReference/0fd5924f-ab08-40f6-8ba1-7ac5a83fa14b"
+                            }
+                        },
+                        {
+                            "code": "appends",
+                            "target": {
+                                "reference": "DocumentReference/10e790a0-3bf0-487f-8c10-da5236e6f2d3"
+                            }
+                        },
+                        {
+                            "code": "appends",
+                            "target": {
+                                "reference": "DocumentReference/6f64a6f8-9132-4189-84df-baf4b51193f4"
+                            }
+                        }
+                    ],
+                    "content": [
+                        {
+                            "attachment": {
+                                "contentType": "text/plain",
+                                "data": "SGksIHRoaXMgaXMgdGhlIFRISVJEIGFkZGVuZHVtIHRvIHRlc3QgcGF0aWVudCBTaWx2YSdzIDMvMjUvMjAyNSBvdXRwYXRpZW50IA0Kbm90ZS4gIEJlZm9yZSBhZGRpbmcgdGhpcyBhZGRlbmR1bSwgSSBhbHNvIGVkaXRlZCB0aGUgZW5jb3VudGVyIGluZm9ybWF0aW9uIHRvIA0KYWRkIGFuIGVhciBleGFtIGFuZCBhZGQgYSBzZWNvbmQgY29uZGl0aW9uIHJlbGF0ZWQgdG8gdGhpcyB2aXNpdCAoR0VSRCkNCg==",
+                                "title": "OUTPATIENT NOTE",
+                                "creation": "2026-03-26T12:29:00+00:00"
+                            }
+                        }
+                    ],
+                    "context": {
+                        "related": [
+                            {
+                                "reference": "Location/c0d8c741-ea0f-4f41-a6e4-e6cc719d4be0"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "DocumentReference",
                     "id": "76ad925b-0c2c-4401-ac0a-13542d6b6ef5",
                     "meta": {
                         "profile": [

@@ -603,6 +603,13 @@ describe UnifiedHealthData::Service, type: :service do
       end
     end
 
+    context 'when allergy is not found' do
+      it 'returns nil when no matching allergy exists' do
+        allergy = service.get_single_allergy('nonexistent-allergy-id')
+        expect(allergy).to be_nil
+      end
+    end
+
     context 'error handling' do
       it 'handles unknown errors' do
         uhd_service = double
@@ -811,6 +818,18 @@ describe UnifiedHealthData::Service, type: :service do
       end
     end
 
+    context 'error handling' do
+      it 'propagates unexpected upstream errors' do
+        allow_any_instance_of(UnifiedHealthData::Client)
+          .to receive(:get_vitals_by_date)
+          .and_raise(StandardError, 'Unknown fetch error')
+
+        expect do
+          service.get_vitals
+        end.to raise_error(StandardError, 'Unknown fetch error')
+      end
+    end
+
     context 'logging and metrics' do
       before do
         allow_any_instance_of(UnifiedHealthData::Client)
@@ -906,8 +925,9 @@ describe UnifiedHealthData::Service, type: :service do
       context 'when data exists for both VistA + OH' do
         it 'returns care summaries and notes' do
           notes = service.get_care_summaries_and_notes[:records]
-          expect(notes.size).to eq(6)
+          expect(notes.size).to eq(7)
           expect(notes.map(&:note_type)).to contain_exactly(
+            'physician_procedure_note',
             'physician_procedure_note',
             'physician_procedure_note',
             'consult_result',
@@ -915,7 +935,7 @@ describe UnifiedHealthData::Service, type: :service do
             'discharge_summary',
             'other'
           )
-          # Verify specific note exists (not checking position due to sorting)
+          # Verify specific non-addendum note and validate notes entry metadata
           telehealth_note = notes.find { |n| n.id == 'F253-7227761-1834074' }
           expect(telehealth_note).to have_attributes(
             {
@@ -930,9 +950,12 @@ describe UnifiedHealthData::Service, type: :service do
               'admission_date' => nil,
               'discharge_date' => nil,
               'location' => 'CHYSHR TEST LAB',
-              'note' => /VGhpcyBpcyBhIHRlc3QgdGVsZWhlYWx0aCBka/i
+              'note' => /VGhpcyBpcyBhIHRlc3QgdGVsZWhlYWx0aCBka/i,
+              'addenda' => nil
             }
           )
+
+          # Verify all notes have proper structure
           expect(notes).to all(have_attributes(
                                  {
                                    'id' => be_a(String),
@@ -941,14 +964,41 @@ describe UnifiedHealthData::Service, type: :service do
                                    'loinc_codes' => be_an(Array),
                                    'date' => be_a(String),
                                    'date_signed' => be_a(String).or(be_nil),
-                                   'written_by' => be_a(String),
-                                   'signed_by' => be_a(String),
+                                   'written_by' => be_a(String).or(be_nil),
+                                   'signed_by' => be_a(String).or(be_nil),
                                    'admission_date' => be_a(String).or(be_nil),
                                    'discharge_date' => be_a(String).or(be_nil),
-                                   'location' => be_a(String),
+                                   'location' => be_a(String).or(be_nil),
                                    'note' => be_a(String)
                                  }
                                ))
+          # Every addenda entry across addendum records includes the required metadata keys
+          notes.select { |record| record.addenda.present? }.each do |record|
+            record.addenda.each do |addenda_entry|
+              expect(addenda_entry).to include(
+                :date, :date_signed, :written_by, :signed_by, :note
+              )
+              expect(addenda_entry[:note]).to be_a(String)
+            end
+          end
+        end
+
+        it 'returns addendum notes with addendum entry and original content on top-level note' do
+          notes = service.get_care_summaries_and_notes[:records]
+          # VistA entry[1] is an addendum (relatesTo appends) remapped to F253-7227761-1833586
+          addendum_note = notes.find { |n| n.id == 'F253-7227761-1833586' }
+          expect(addendum_note).not_to be_nil
+
+          # Only the addendum itself appears in the addenda array (not the original)
+          expect(addendum_note.addenda.size).to eq(1)
+
+          addendum_entry = addendum_note.addenda.first
+          expect(addendum_entry).to include(:note)
+          expect(addendum_entry[:note]).to be_a(String)
+
+          # Top-level note field contains the original note content, not the addendum
+          expect(addendum_note.note).to be_a(String)
+          expect(addendum_note.note).not_to eq(addendum_entry[:note])
         end
 
         it 'returns clinical notes sorted by date in descending order' do
@@ -983,14 +1033,18 @@ describe UnifiedHealthData::Service, type: :service do
                                    'loinc_codes' => be_an(Array),
                                    'date' => be_a(String),
                                    'date_signed' => be_a(String).or(be_nil),
-                                   'written_by' => be_a(String),
-                                   'signed_by' => be_a(String),
+                                   'written_by' => be_a(String).or(be_nil),
+                                   'signed_by' => be_a(String).or(be_nil),
                                    'admission_date' => be_a(String).or(be_nil),
                                    'discharge_date' => be_a(String).or(be_nil),
-                                   'location' => be_a(String),
+                                   'location' => be_a(String).or(be_nil),
                                    'note' => be_a(String)
                                  }
                                ))
+          # Validate each addenda entry includes the required metadata keys
+          notes.select { |record| record.addenda.present? }.each do |record|
+            expect(record.addenda).to all(include(:note))
+          end
         end
 
         it 'returns care summaries and notes for OH only' do
@@ -1013,14 +1067,18 @@ describe UnifiedHealthData::Service, type: :service do
                                    'loinc_codes' => be_an(Array),
                                    'date' => be_a(String),
                                    'date_signed' => be_a(String).or(be_nil),
-                                   'written_by' => be_a(String),
-                                   'signed_by' => be_a(String),
+                                   'written_by' => be_a(String).or(be_nil),
+                                   'signed_by' => be_a(String).or(be_nil),
                                    'admission_date' => be_a(String).or(be_nil),
                                    'discharge_date' => be_a(String).or(be_nil),
-                                   'location' => be_a(String),
+                                   'location' => be_a(String).or(be_nil),
                                    'note' => be_a(String)
                                  }
                                ))
+          # Validate each addenda entry includes the required metadata keys
+          notes.select { |record| record.addenda.present? }.each do |record|
+            expect(record.addenda).to all(include(:note))
+          end
         end
       end
 
@@ -1282,9 +1340,9 @@ describe UnifiedHealthData::Service, type: :service do
             resource: 'clinical_notes',
             action: 'loinc_distribution',
             record_type: 'Clinical Notes',
-            loinc_code_distribution: '11506-3:3,11488-4:1,4189665:1,18842-5:1,4189666:1,96339-7:1',
+            loinc_code_distribution: '11506-3:4,11488-4:1,4189665:1,18842-5:1,4189666:1,96339-7:1',
             total_codes: 6,
-            total_records: 6,
+            total_records: 7,
             log_level_context: 'diagnostic'
           )
         )
@@ -1435,7 +1493,7 @@ describe UnifiedHealthData::Service, type: :service do
             service: 'medical_records',
             resource: 'clinical_notes',
             action: 'index',
-            total_notes: 6,
+            total_notes: 7,
             vista_count: be_a(Integer),
             oracle_health_count: be_a(Integer),
             log_level_context: 'diagnostic'
@@ -1446,7 +1504,7 @@ describe UnifiedHealthData::Service, type: :service do
       it 'emits StatsD gauges for note counts by source' do
         service.get_care_summaries_and_notes
 
-        expect(StatsD).to have_received(:gauge).with('api.uhd.clinical_notes.index.total', 6)
+        expect(StatsD).to have_received(:gauge).with('api.uhd.clinical_notes.index.total', 7)
         expect(StatsD).to have_received(:gauge).with('api.uhd.clinical_notes.index.vista', be_a(Integer))
         expect(StatsD).to have_received(:gauge).with('api.uhd.clinical_notes.index.oracle_health', be_a(Integer))
       end
@@ -1537,6 +1595,7 @@ describe UnifiedHealthData::Service, type: :service do
         expect(note.signed_by).to eq('Victoria A Borland')
         expect(note.location).to eq('668 Mann-Grandstaff WA VA Medical Center')
         expect(note.note).to be_present
+        expect(note.addenda).to be_nil
       end
 
       it 'calls get_note_by_source with the correct params' do
@@ -3131,6 +3190,18 @@ describe UnifiedHealthData::Service, type: :service do
       end
     end
 
+    context 'error handling' do
+      it 'propagates unknown errors from the client' do
+        allow_any_instance_of(UnifiedHealthData::Client)
+          .to receive(:get_immunizations_by_date)
+          .and_raise(StandardError.new('Unknown fetch error'))
+
+        expect do
+          service.get_immunizations
+        end.to raise_error(StandardError, 'Unknown fetch error')
+      end
+    end
+
     context 'logging and metrics' do
       before do
         allow_any_instance_of(UnifiedHealthData::Client)
@@ -3462,6 +3533,398 @@ describe UnifiedHealthData::Service, type: :service do
       expect(result.message).to eq('CCD processing requested; awaiting task correlation')
       expect(result.retry_after_seconds).to eq(10)
       expect(result.http_status).to eq(202)
+    end
+  end
+
+  # ------------------------------------------------------------------
+  # Private helper method specs
+  # ------------------------------------------------------------------
+
+  describe '#extract_warnings' do
+    it 'returns warnings from the body and removes them' do
+      body = {
+        'vista' => { 'entry' => [] },
+        '_warnings' => [{ 'source' => 'oracle-health', 'code' => 'not-found' }]
+      }
+
+      warnings = service.send(:extract_warnings, body)
+
+      expect(warnings).to eq([{ 'source' => 'oracle-health', 'code' => 'not-found' }])
+      expect(body).not_to have_key('_warnings')
+    end
+
+    it 'returns empty array when body has no _warnings key' do
+      body = { 'vista' => { 'entry' => [] } }
+
+      expect(service.send(:extract_warnings, body)).to eq([])
+    end
+
+    it 'returns empty array when body is nil' do
+      expect(service.send(:extract_warnings, nil)).to eq([])
+    end
+
+    it 'returns empty array when body is not a Hash' do
+      expect(service.send(:extract_warnings, 'invalid')).to eq([])
+    end
+  end
+
+  describe '#validate_date_param' do
+    it 'does not raise for a valid YYYY-MM-DD date string' do
+      expect { service.send(:validate_date_param, '2024-06-15', 'start_date') }.not_to raise_error
+    end
+
+    it 'raises ArgumentError for an invalid date string' do
+      expect do
+        service.send(:validate_date_param, 'not-a-date', 'start_date')
+      end.to raise_error(ArgumentError, /Invalid start_date/)
+    end
+
+    it 'raises ArgumentError for nil date' do
+      expect do
+        service.send(:validate_date_param, nil, 'end_date')
+      end.to raise_error(ArgumentError, /Invalid end_date/)
+    end
+  end
+
+  describe '#normalize_orders' do
+    it 'returns empty array when orders is nil' do
+      expect(service.send(:normalize_orders, nil)).to eq([])
+    end
+
+    it 'returns empty array when orders is empty' do
+      expect(service.send(:normalize_orders, [])).to eq([])
+    end
+
+    it 'converts hash orders to indifferent access' do
+      orders = [{ 'id' => '123', 'stationNumber' => '570' }]
+      result = service.send(:normalize_orders, orders)
+      expect(result.first[:id]).to eq('123')
+      expect(result.first['id']).to eq('123')
+    end
+
+    it 'passes through objects that do not respond to with_indifferent_access' do
+      struct_order = OpenStruct.new(id: '123', stationNumber: '570')
+      orders = [struct_order]
+      result = service.send(:normalize_orders, orders)
+      expect(result.first).to eq(struct_order)
+    end
+  end
+
+  describe '#build_refill_request_body' do
+    it 'builds correct request body from normalized orders' do
+      orders = [
+        { id: '12345', stationNumber: '570' },
+        { id: '67890', stationNumber: '556' }
+      ]
+      result = service.send(:build_refill_request_body, orders)
+
+      expect(result[:patientId]).to eq(user.icn)
+      expect(result[:orders]).to eq([
+                                      { orderId: '12345', stationNumber: '570' },
+                                      { orderId: '67890', stationNumber: '556' }
+                                    ])
+    end
+
+    it 'converts ids and station numbers to strings' do
+      orders = [{ id: 12_345, stationNumber: 570 }]
+      result = service.send(:build_refill_request_body, orders)
+
+      expect(result[:orders].first[:orderId]).to eq('12345')
+      expect(result[:orders].first[:stationNumber]).to eq('570')
+    end
+
+    it 'handles empty orders' do
+      result = service.send(:build_refill_request_body, [])
+
+      expect(result[:patientId]).to eq(user.icn)
+      expect(result[:orders]).to eq([])
+    end
+  end
+
+  describe '#build_error_response' do
+    it 'builds error response with Service unavailable for each order' do
+      orders = [
+        { id: '123', stationNumber: '570' },
+        { id: '456', stationNumber: '556' }
+      ]
+      result = service.send(:build_error_response, orders)
+
+      expect(result[:success]).to eq([])
+      expect(result[:failed].size).to eq(2)
+      expect(result[:failed].first).to eq({ id: '123', error: 'Service unavailable', station_number: '570' })
+      expect(result[:failed].last).to eq({ id: '456', error: 'Service unavailable', station_number: '556' })
+    end
+
+    it 'returns empty failed array for empty orders' do
+      result = service.send(:build_error_response, [])
+
+      expect(result[:success]).to eq([])
+      expect(result[:failed]).to eq([])
+    end
+  end
+
+  describe '#extract_document_reference' do
+    it 'returns the DocumentReference resource from a FHIR Bundle' do
+      body = {
+        'resourceType' => 'Bundle',
+        'entry' => [
+          { 'resource' => { 'resourceType' => 'Patient', 'id' => '123' } },
+          { 'resource' => { 'resourceType' => 'DocumentReference', 'id' => '456', 'status' => 'current' } }
+        ]
+      }
+
+      result = service.send(:extract_document_reference, body)
+      expect(result['resourceType']).to eq('DocumentReference')
+      expect(result['id']).to eq('456')
+    end
+
+    it 'returns nil when no DocumentReference is present' do
+      body = {
+        'resourceType' => 'Bundle',
+        'entry' => [
+          { 'resource' => { 'resourceType' => 'Patient', 'id' => '123' } }
+        ]
+      }
+
+      expect(service.send(:extract_document_reference, body)).to be_nil
+    end
+
+    it 'returns nil when entries is not an Array' do
+      body = { 'resourceType' => 'Bundle', 'entry' => 'invalid' }
+
+      expect(service.send(:extract_document_reference, body)).to be_nil
+    end
+
+    it 'returns nil when body is nil' do
+      expect(service.send(:extract_document_reference, nil)).to be_nil
+    end
+
+    it 'returns nil when body is not a Hash' do
+      expect(service.send(:extract_document_reference, 'string')).to be_nil
+    end
+  end
+
+  describe '#remap_vista_uid' do
+    it 'remaps VistA note IDs based on vista-uid identifier' do
+      records = {
+        'vista' => {
+          'entry' => [
+            {
+              'resource' => {
+                'id' => 'original-id',
+                'identifier' => [
+                  { 'system' => 'vista-uid', 'value' => 'urn:va:note:500:12345:6789' }
+                ]
+              }
+            }
+          ]
+        }
+      }
+
+      service.send(:remap_vista_uid, records)
+
+      expect(records['vista']['entry'].first['resource']['id']).to eq('500-12345-6789')
+    end
+
+    it 'does not remap when no vista-uid identifier is present' do
+      records = {
+        'vista' => {
+          'entry' => [
+            {
+              'resource' => {
+                'id' => 'original-id',
+                'identifier' => [
+                  { 'system' => 'other-system', 'value' => 'some-value' }
+                ]
+              }
+            }
+          ]
+        }
+      }
+
+      service.send(:remap_vista_uid, records)
+
+      expect(records['vista']['entry'].first['resource']['id']).to eq('original-id')
+    end
+
+    it 'handles entries without identifiers' do
+      records = {
+        'vista' => {
+          'entry' => [
+            { 'resource' => { 'id' => 'original-id' } }
+          ]
+        }
+      }
+
+      expect { service.send(:remap_vista_uid, records) }.not_to raise_error
+      expect(records['vista']['entry'].first['resource']['id']).to eq('original-id')
+    end
+  end
+
+  describe '#remap_vista_identifier' do
+    it 'remaps VistA allergy IDs based on va.gov systems identifier' do
+      records = {
+        'vista' => {
+          'entry' => [
+            {
+              'resource' => {
+                'id' => 'original-allergy-id',
+                'identifier' => [
+                  { 'system' => 'https://va.gov/systems/mhv', 'value' => 'remapped-id-123' }
+                ]
+              }
+            }
+          ]
+        }
+      }
+
+      service.send(:remap_vista_identifier, records)
+
+      expect(records['vista']['entry'].first['resource']['id']).to eq('remapped-id-123')
+    end
+
+    it 'does not remap when no matching identifier is present' do
+      records = {
+        'vista' => {
+          'entry' => [
+            {
+              'resource' => {
+                'id' => 'original-allergy-id',
+                'identifier' => [
+                  { 'system' => 'http://other.system/id', 'value' => 'other-value' }
+                ]
+              }
+            }
+          ]
+        }
+      }
+
+      service.send(:remap_vista_identifier, records)
+
+      expect(records['vista']['entry'].first['resource']['id']).to eq('original-allergy-id')
+    end
+
+    it 'handles entries without identifiers' do
+      records = {
+        'vista' => {
+          'entry' => [
+            { 'resource' => { 'id' => 'original-allergy-id' } }
+          ]
+        }
+      }
+
+      expect { service.send(:remap_vista_identifier, records) }.not_to raise_error
+      expect(records['vista']['entry'].first['resource']['id']).to eq('original-allergy-id')
+    end
+  end
+
+  describe '#parse_notes' do
+    it 'returns empty array when records is nil' do
+      expect(service.send(:parse_notes, nil)).to eq([])
+    end
+
+    it 'returns empty array when records is empty' do
+      expect(service.send(:parse_notes, [])).to eq([])
+    end
+
+    it 'compacts out nil values from parse failures' do
+      result = service.send(:parse_notes, [nil, nil])
+      expect(result).to eq([])
+    end
+  end
+
+  describe '#filter_parsed_notes_by_date_range' do
+    let(:note_in_range) do
+      double('ClinicalNote', date: '2024-06-15T10:00:00Z', id: 'in-range', source: 'vista',
+                             note_type: 'progress', blank?: false)
+    end
+    let(:note_out_of_range) do
+      double('ClinicalNote', date: '2023-01-01T10:00:00Z', id: 'out-of-range', source: 'vista',
+                             note_type: 'progress', blank?: false)
+    end
+    let(:note_blank_date) do
+      double('ClinicalNote', date: nil, id: 'blank-date', source: 'vista',
+                             note_type: 'progress', blank?: false)
+    end
+
+    before do
+      allow(Rails.logger).to receive(:info)
+      allow(Rails.logger).to receive(:warn)
+    end
+
+    it 'returns only notes within the date range' do
+      notes = [note_in_range, note_out_of_range]
+      result = service.send(:filter_parsed_notes_by_date_range, notes, '2024-01-01', '2024-12-31')
+
+      expect(result.size).to eq(1)
+      expect(result.first.id).to eq('in-range')
+    end
+
+    it 'excludes notes with blank dates' do
+      notes = [note_in_range, note_blank_date]
+      result = service.send(:filter_parsed_notes_by_date_range, notes, '2024-01-01', '2024-12-31')
+
+      expect(result.size).to eq(1)
+      expect(result.first.id).to eq('in-range')
+    end
+
+    it 'returns all notes when start_date is blank' do
+      notes = [note_in_range, note_out_of_range]
+      result = service.send(:filter_parsed_notes_by_date_range, notes, nil, '2024-12-31')
+
+      expect(result).to eq(notes)
+    end
+
+    it 'returns all notes when end_date is blank' do
+      notes = [note_in_range, note_out_of_range]
+      result = service.send(:filter_parsed_notes_by_date_range, notes, '2024-01-01', nil)
+
+      expect(result).to eq(notes)
+    end
+
+    it 'returns all notes when notes is empty' do
+      expect(service.send(:filter_parsed_notes_by_date_range, [], '2024-01-01', '2024-12-31')).to eq([])
+    end
+  end
+
+  describe '#get_care_summaries_and_notes date validation' do
+    before do
+      allow(Rails.logger).to receive(:info)
+      allow(Rails.logger).to receive(:warn)
+      allow(StatsD).to receive(:gauge)
+      allow_any_instance_of(UnifiedHealthData::Client)
+        .to receive(:get_notes_by_date)
+        .and_return(Faraday::Response.new(
+                      body: { 'vista' => { 'entry' => [] }, 'oracle-health' => { 'entry' => [] } }
+                    ))
+    end
+
+    it 'raises ArgumentError for invalid start_date' do
+      expect do
+        service.get_care_summaries_and_notes(start_date: 'not-valid', end_date: '2024-12-31')
+      end.to raise_error(ArgumentError, /Invalid start_date/)
+    end
+
+    it 'raises ArgumentError for invalid end_date' do
+      expect do
+        service.get_care_summaries_and_notes(start_date: '2024-01-01', end_date: 'garbage')
+      end.to raise_error(ArgumentError, /Invalid end_date/)
+    end
+
+    it 'does not raise for valid date parameters' do
+      expect do
+        service.get_care_summaries_and_notes(start_date: '2024-01-01', end_date: '2024-12-31')
+      end.not_to raise_error
+    end
+  end
+
+  describe '#default_start_date and #default_end_date' do
+    it 'returns 1900-01-01 as default start date' do
+      expect(service.send(:default_start_date)).to eq('1900-01-01')
+    end
+
+    it 'returns today as default end date' do
+      expect(service.send(:default_end_date)).to eq(Time.zone.today.to_s)
     end
   end
 end
