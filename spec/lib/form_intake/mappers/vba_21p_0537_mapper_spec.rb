@@ -126,10 +126,14 @@ RSpec.describe FormIntake::Mappers::VBA21p0537Mapper do
         expect(payload['REMARRIED_AFTER_VET_DEATH_NO']).to be true
       end
 
-      it 'has nil remarriage fields' do
-        expect(payload['DATE_OF_MARRIAGE']).to be_nil
-        expect(payload['SPOUSE_NAME']).to be_nil
-        expect(payload['SSN']).to be_nil
+      it 'has empty remarriage fields' do
+        expect(payload['DATE_OF_MARRIAGE']).to eq('')
+        expect(payload['SPOUSE_NAME']).to eq('')
+        expect(payload['SSN']).to eq('')
+      end
+
+      it 'does not include nil values in the payload' do
+        expect(payload.values).not_to include(nil)
       end
     end
 
@@ -161,7 +165,7 @@ RSpec.describe FormIntake::Mappers::VBA21p0537Mapper do
       let(:form_submission) { create(:form_submission, form_type: '21P-0537', form_data: minimal_data) }
 
       it 'handles missing middle initial gracefully' do
-        expect(payload['SPOUSE_MIDDLE_INITIAL']).to be_nil
+        expect(payload['SPOUSE_MIDDLE_INITIAL']).to eq('')
         expect(payload['SPOUSE_NAME']).to eq('Bob Spouse')
       end
     end

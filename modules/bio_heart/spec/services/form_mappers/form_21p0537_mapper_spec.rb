@@ -111,7 +111,7 @@ RSpec.describe BioHeartApi::FormMappers::Form21p0537Mapper do
         before { form_data['remarriage']['spouse_name'].delete('middle') }
 
         it 'handles missing middle initial gracefully' do
-          expect(result['SPOUSE_MIDDLE_INITIAL']).to be_nil
+          expect(result['SPOUSE_MIDDLE_INITIAL']).to eq('')
           expect(result['SPOUSE_NAME']).to eq('Bob Spouse')
         end
       end
@@ -222,8 +222,9 @@ RSpec.describe BioHeartApi::FormMappers::Form21p0537Mapper do
       it 'handles missing remarriage data gracefully' do
         result = described_class.new(minimal_data).call
         expect(result['REMARRIED_AFTER_VET_DEATH_NO']).to be(1)
-        expect(result['SPOUSE_NAME']).to be_nil
-        expect(result['DATE_OF_MARRIAGE']).to be_nil
+        expect(result['SPOUSE_NAME']).to eq('')
+        expect(result['DATE_OF_MARRIAGE']).to eq('')
+        expect(result.values).not_to include(nil)
       end
     end
   end
