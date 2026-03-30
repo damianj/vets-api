@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'common/file_helpers'
+require 'datadog'
 require 'ivc_champva/field_transliterator'
 
 module IvcChampva
@@ -20,29 +21,23 @@ module IvcChampva
     end
 
     def generate(current_loa = nil)
-      generated_form_path = Rails.root.join("tmp/#{@uuid}_#{name}-tmp.pdf").to_s
-      stamped_template_path = Rails.root.join("tmp/#{@uuid}_#{name}-stamped.pdf").to_s
+      Datadog::Tracing.trace('IVC Champva Forms - Generate Filled PDF') do
+        generated_form_path = Rails.root.join("tmp/#{@uuid}_#{name}-tmp.pdf").to_s
+        stamped_template_path = Rails.root.join("tmp/#{@uuid}_#{name}-stamped.pdf").to_s
 
-      tempfile = create_tempfile
-      FileUtils.touch(tempfile)
-      FileUtils.copy_file(tempfile.path, stamped_template_path)
-
-      if File.exist? stamped_template_path
+        tempfile = create_tempfile
         begin
-          transliterate_fields(form) if Flipper.enabled?(:champva_foreign_address_fix)
+          prepare_stamped_template(tempfile, stamped_template_path)
 
-          PdfStamper.stamp_pdf(stamped_template_path, form, current_loa)
-          pdftk = PdfForms.new(Settings.binaries.pdftk)
-          pdftk.fill_form(stamped_template_path, generated_form_path, mapped_data, flatten: true)
-          generated_form_path
+          if File.exist? stamped_template_path
+            process_stamped_template(form, stamped_template_path, generated_form_path, current_loa)
+          else
+            raise "stamped template file does not exist: #{stamped_template_path}"
+          end
         ensure
-          Common::FileHelpers.delete_file_if_exists(stamped_template_path)
+          tempfile&.close!
         end
-      else
-        raise "stamped template file does not exist: #{stamped_template_path}"
       end
-    ensure
-      tempfile&.close!
     end
 
     def create_tempfile
@@ -58,6 +53,19 @@ module IvcChampva
 
     private
 
+    def prepare_stamped_template(tempfile, stamped_template_path)
+      FileUtils.touch(tempfile)
+      FileUtils.copy_file(tempfile.path, stamped_template_path)
+    end
+
+    def process_stamped_template(form, stamped_template_path, generated_form_path, current_loa)
+      transliterate_fields(form) if Flipper.enabled?(:champva_foreign_address_fix)
+      stamp_and_fill_pdf(stamped_template_path, generated_form_path, current_loa)
+      generated_form_path
+    ensure
+      Common::FileHelpers.delete_file_if_exists(stamped_template_path)
+    end
+
     def transliterate_fields(form)
       field_patterns = [
         /street/i, /city/i, /state/i, /country/i, /postal_code/i,
@@ -65,6 +73,12 @@ module IvcChampva
       ]
       skip_keys = %w[email_address applicant_email_address]
       IvcChampva::FieldTransliterator.transliterate_all!(form.data, field_patterns:, skip_keys:)
+    end
+
+    def stamp_and_fill_pdf(stamped_template_path, generated_form_path, current_loa)
+      PdfStamper.stamp_pdf(stamped_template_path, form, current_loa)
+      pdftk = PdfForms.new(Settings.binaries.pdftk)
+      pdftk.fill_form(stamped_template_path, generated_form_path, mapped_data, flatten: true)
     end
 
     def mapped_data

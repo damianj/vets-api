@@ -1,16 +1,20 @@
 # frozen_string_literal: true
 
+require 'datadog'
+
 module IvcChampva
   class MetadataValidator
     def self.validate(metadata)
-      name_prefix = Flipper.enabled?(:champva_update_metadata_keys) ? 'sponsor' : 'veteran'
+      Datadog::Tracing.trace('IVC Champva Forms - Validate Metadata') do
+        name_prefix = Flipper.enabled?(:champva_update_metadata_keys) ? 'sponsor' : 'veteran'
 
-      validate_first_name(metadata, name_prefix)
-        .then { |m| validate_last_name(m, name_prefix) }
-        .then { |m| validate_file_number(m) }
-        .then { |m| validate_zip_code(m) }
-        .then { |m| validate_source(m) }
-        .then { |m| validate_doc_type(m) }
+        validate_first_name(metadata, name_prefix)
+          .then { |m| validate_last_name(m, name_prefix) }
+          .then { |m| validate_file_number(m) }
+          .then { |m| validate_zip_code(m) }
+          .then { |m| validate_source(m) }
+          .then { |m| validate_doc_type(m) }
+      end
     end
 
     def self.validate_first_name(metadata, name_prefix = 'veteran')

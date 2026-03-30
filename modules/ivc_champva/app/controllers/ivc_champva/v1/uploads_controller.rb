@@ -30,7 +30,7 @@ module IvcChampva
       ].freeze
 
       def submit(form_data = nil)
-        Datadog::Tracing.trace('Start IVC File Submission') do
+        Datadog::Tracing.trace('IVC Champva Forms - Submit Form') do
           form_id = get_form_id
           Datadog::Tracing.active_trace&.set_tag('form_id', form_id)
           # This allows us to call submit internally (for 10-10d/10-7959c merged
@@ -55,7 +55,7 @@ module IvcChampva
 
       def validate_mpi_profiles(parsed_form_data, form_id)
         if Flipper.enabled?(:champva_mpi_validation, @current_user) && form_id == 'vha_10_10d'
-          begin
+          Datadog::Tracing.trace('IVC Champva Forms - Validate MPI Profiles') do
             # Query MPI and log validation results for veteran and beneficiaries on 10-10D submissions
             IvcChampva::MPIService.new.validate_profiles(parsed_form_data)
           rescue => e
@@ -67,23 +67,28 @@ module IvcChampva
       # This method handles generating OHI forms for all appropriate applicants
       # when a user submits a 10-10d/10-7959c merged form.
       def submit_champva_app_merged
-        parsed_form_data = JSON.parse(params.to_json)
-        form_id = get_form_id
-        apps = applicants_with_ohi(parsed_form_data['applicants'])
+        Datadog::Tracing.trace('IVC Champva Forms - Submit Merged 10-10d + OHI') do
+          parsed_form_data = JSON.parse(params.to_json)
 
-        apps.each do |app|
-          # Generate OHI forms for each applicant. Creates one form per 2 policies
-          # to handle overflow when applicant has more than 2 health insurance policies.
-          ohi_forms = generate_ohi_form(app, parsed_form_data)
-          ohi_forms.each do |f|
-            ohi_path = fill_ohi_and_return_path(f)
-            ohi_supporting_doc = create_custom_attachment(f, ohi_path, 'VA form 10-7959c')
-            add_supporting_doc(parsed_form_data, ohi_supporting_doc)
-            f.track_delegate_form(form_id) if f.respond_to?(:track_delegate_form)
+          Datadog::Tracing.trace('IVC Champva Forms - Generate OHI Forms for Each Applicant') do
+            form_id = get_form_id
+            apps = applicants_with_ohi(parsed_form_data['applicants'])
+
+            apps.each do |app|
+              # Generate OHI forms for each applicant. Creates one form per 2 policies
+              # to handle overflow when applicant has more than 2 health insurance policies.
+              ohi_forms = generate_ohi_form(app, parsed_form_data)
+              ohi_forms.each do |f|
+                ohi_path = fill_ohi_and_return_path(f)
+                ohi_supporting_doc = create_custom_attachment(f, ohi_path, 'VA form 10-7959c')
+                add_supporting_doc(parsed_form_data, ohi_supporting_doc)
+                f.track_delegate_form(form_id) if f.respond_to?(:track_delegate_form)
+              end
+            end
           end
-        end
 
-        submit(parsed_form_data)
+          submit(parsed_form_data)
+        end
       rescue => e
         log_error_and_respond("Error submitting merged form: #{e.message}", e)
       end
@@ -139,23 +144,25 @@ module IvcChampva
       # @param [IvcChampva::VesRequest, Array<IvcChampva::VesOhiRequest>] ves_request
       # @param [Hash] metadata
       def submit_to_ves(ves_request, metadata)
-        return if ves_request.nil?
+        Datadog::Tracing.trace('IVC Champva Forms - Submit to VES') do
+          return if ves_request.nil?
 
-        ves_client = IvcChampva::VesApi::Client.new
+          ves_client = IvcChampva::VesApi::Client.new
 
-        if ves_request.is_a?(Array)
-          # Standalone OHI submissions
-          submit_ves_requests(ves_client, ves_request, metadata)
-        elsif ves_request.subforms?
-          # 10-10D-EXTENDED: submit parent, then subforms on success
-          response = submit_ves_form(ves_client, ves_request, metadata)
-          if response&.status == 200
-            subform_requests = ves_request.subforms.map { |sf| sf[:request] }
-            submit_ves_requests(ves_client, subform_requests, metadata)
+          if ves_request.is_a?(Array)
+            # Standalone OHI submissions
+            submit_ves_requests(ves_client, ves_request, metadata)
+          elsif ves_request.subforms?
+            # 10-10D-EXTENDED: submit parent, then subforms on success
+            response = submit_ves_form(ves_client, ves_request, metadata)
+            if response&.status == 200
+              subform_requests = ves_request.subforms.map { |sf| sf[:request] }
+              submit_ves_requests(ves_client, subform_requests, metadata)
+            end
+          else
+            # Standard 10-10D
+            submit_ves_form(ves_client, ves_request, metadata)
           end
-        else
-          # Standard 10-10D
-          submit_ves_form(ves_client, ves_request, metadata)
         end
       end
 
@@ -192,15 +199,17 @@ module IvcChampva
       # @param [Hash] parsed_form_data complete form submission data object
       # @return [String] The path to the generated VES JSON file
       def generate_ves_json_file(form, parsed_form_data)
-        # Generate VES data using form.uuid as application_uuid for consistency
-        ves_data = IvcChampva::VesDataFormatter.format_for_request(parsed_form_data, form_uuid: form.uuid)
+        Datadog::Tracing.trace('IVC Champva Forms - Generate VES JSON File') do
+          # Generate VES data using form.uuid as application_uuid for consistency
+          ves_data = IvcChampva::VesDataFormatter.format_for_request(parsed_form_data, form_uuid: form.uuid)
 
-        # Create temporary JSON file using form.uuid (absolute path like PDF files)
-        ves_file_path = Rails.root.join("tmp/#{form.uuid}_#{form.form_id}_ves.json").to_s
-        File.write(ves_file_path, ves_data.to_json)
+          # Create temporary JSON file using form.uuid (absolute path like PDF files)
+          ves_file_path = Rails.root.join("tmp/#{form.uuid}_#{form.form_id}_ves.json").to_s
+          File.write(ves_file_path, ves_data.to_json)
 
-        Rails.logger.info "VES JSON file generated for form #{form.form_id}: #{ves_file_path}"
-        ves_file_path
+          Rails.logger.info "VES JSON file generated for form #{form.form_id}: #{ves_file_path}"
+          ves_file_path
+        end
       rescue => e
         # Don't raise - we don't want VES JSON generation failure to break the entire submission
         Rails.logger.error "Error generating VES JSON file for form #{form.form_id}: #{e.message}"
@@ -222,29 +231,31 @@ module IvcChampva
       # @param [String] form_uuid the UUID to use as application_uuid (aligns VES with form records)
       # @return [IvcChampva::VesRequest, Array<IvcChampva::VesOhiRequest>, nil] the formatted request data
       def prepare_ves_request(parsed_form_data, form_uuid:)
-        form_number = parsed_form_data['form_number']
+        Datadog::Tracing.trace('IVC Champva Forms - Prepare VES Request') do
+          form_number = parsed_form_data['form_number']
 
-        ves_request = if Flipper.enabled?(:champva_send_7959c_to_ves, @current_user)
-                        case form_number
-                        when '10-10D'
-                          IvcChampva::VesDataFormatter.format_for_request(parsed_form_data, form_uuid:)
-                        when '10-10D-EXTENDED'
-                          IvcChampva::VesDataFormatter.format_for_extended_request(parsed_form_data, form_uuid:)
-                        when '10-7959C'
-                          IvcChampva::VesDataFormatter.format_for_ohi_request(parsed_form_data, form_uuid:)
+          ves_request = if Flipper.enabled?(:champva_send_7959c_to_ves, @current_user)
+                          case form_number
+                          when '10-10D'
+                            IvcChampva::VesDataFormatter.format_for_request(parsed_form_data, form_uuid:)
+                          when '10-10D-EXTENDED'
+                            IvcChampva::VesDataFormatter.format_for_extended_request(parsed_form_data, form_uuid:)
+                          when '10-7959C'
+                            IvcChampva::VesDataFormatter.format_for_ohi_request(parsed_form_data, form_uuid:)
+                          else
+                            # This should not happen - should_process_ves? should filter unsupported forms
+                            Rails.logger.warn("VES: Unexpected form_number '#{form_number}' in prepare_ves_request")
+                            nil
+                          end
                         else
-                          # This should not happen - should_process_ves? should filter unsupported forms
-                          Rails.logger.warn("VES: Unexpected form_number '#{form_number}' in prepare_ves_request")
-                          nil
+                          # Legacy flow: all 10-10D variants use format_for_request (no subforms)
+                          IvcChampva::VesDataFormatter.format_for_request(parsed_form_data, form_uuid:)
                         end
-                      else
-                        # Legacy flow: all 10-10D variants use format_for_request (no subforms)
-                        IvcChampva::VesDataFormatter.format_for_request(parsed_form_data, form_uuid:)
-                      end
 
-        raise 'Failed to format data for VES submission' if ves_request.nil?
+          raise 'Failed to format data for VES submission' if ves_request.nil?
 
-        ves_request
+          ves_request
+        end
       end
 
       ##
@@ -323,18 +334,20 @@ module IvcChampva
 
       # Modified from claim_documents_controller.rb:
       def unlock_file(file, file_password)
-        return file unless File.extname(file) == '.pdf' && file_password
+        Datadog::Tracing.trace('IVC Champva Forms - Unlock File') do
+          return file unless File.extname(file) == '.pdf' && file_password
 
-        tmpf = Tempfile.new(['decrypted_form_attachment', '.pdf'])
+          tmpf = Tempfile.new(['decrypted_form_attachment', '.pdf'])
 
-        tmpf = if Flipper.enabled?(:champva_use_hexapdf_to_unlock_pdfs, @current_user)
-                 unlock_with_hexapdf(file, file_password, tmpf)
-               else
-                 unlock_with_pdftk(file, file_password, tmpf)
-               end
+          tmpf = if Flipper.enabled?(:champva_use_hexapdf_to_unlock_pdfs, @current_user)
+                   unlock_with_hexapdf(file, file_password, tmpf)
+                 else
+                   unlock_with_pdftk(file, file_password, tmpf)
+                 end
 
-        file.tempfile.unlink
-        file.tempfile = tmpf
+          file.tempfile.unlink
+          file.tempfile = tmpf
+        end
       end
 
       ## Uses pdftk to unlock the provided PDF file with the given password
@@ -394,53 +407,59 @@ module IvcChampva
       end
 
       def submit_supporting_documents # rubocop:disable Metrics/MethodLength
-        if %w[10-10D 10-7959C 10-7959F-2 10-7959A 10-10D-EXTENDED].include?(params[:form_id])
-          attachment = PersistentAttachments::MilitaryRecords.new(form_id: params[:form_id])
+        Datadog::Tracing.trace('IVC Champva Forms - Submit Supporting Document') do
+          if %w[10-10D 10-7959C 10-7959F-2 10-7959A 10-10D-EXTENDED].include?(params[:form_id])
+            attachment = PersistentAttachments::MilitaryRecords.new(form_id: params[:form_id])
 
-          Rails.logger.info "submit_supporting_documents called for form #{params[:form_id]}"
+            Rails.logger.info "submit_supporting_documents called for form #{params[:form_id]}"
 
-          unlocked = unlock_file(params['file'], params['password'])
-          attachment.file = params['password'] ? unlocked : params['file']
+            unlocked = unlock_file(params['file'], params['password'])
+            attachment.file = params['password'] ? unlocked : params['file']
 
-          # pre-validation logging to help debug issues
-          Rails.logger.info "submit_supporting_documents attachment.file class: #{attachment.file.class}"
-          Rails.logger.info "submit_supporting_documents attachment.file present: #{attachment.file.present?}"
-          Rails.logger.info(
-            "submit_supporting_documents attachment.file size: #{number_to_human_size(attachment.file&.size)}"
-          )
+            # pre-validation logging to help debug issues
+            Rails.logger.info "submit_supporting_documents attachment.file class: #{attachment.file.class}"
+            Rails.logger.info "submit_supporting_documents attachment.file present: #{attachment.file.present?}"
+            Rails.logger.info(
+              "submit_supporting_documents attachment.file size: #{number_to_human_size(attachment.file&.size)}"
+            )
 
-          unless attachment.valid?
-            error_msgs = attachment.errors.full_messages.join(', ')
-            Rails.logger.error "submit_supporting_documents attachment is invalid: #{error_msgs}"
-            raise Common::Exceptions::ValidationErrors, attachment
-          end
+            Datadog::Tracing.trace('IVC Champva Forms - Validate Attachment') do
+              unless attachment.valid?
+                error_msgs = attachment.errors.full_messages.join(', ')
+                Rails.logger.error "submit_supporting_documents attachment is invalid: #{error_msgs}"
+                raise Common::Exceptions::ValidationErrors, attachment
+              end
+            end
 
-          # Convert to PDF before save to reduce final submission latency
-          if Flipper.enabled?(:champva_convert_to_pdf_on_upload, @current_user)
-            attachment.file = convert_to_pdf(attachment.file)
-          end
+            # Convert to PDF before save to reduce final submission latency
+            if Flipper.enabled?(:champva_convert_to_pdf_on_upload, @current_user)
+              attachment.file = convert_to_pdf(attachment.file)
+            end
 
-          attachment.save
+            Datadog::Tracing.trace('IVC Champva Forms - Save Attachment') do
+              attachment.save
+            end
 
-          launch_background_job(attachment, params[:form_id].to_s, params['attachment_id'])
+            launch_background_job(attachment, params[:form_id].to_s, params['attachment_id'])
 
-          if Flipper.enabled?(:champva_claims_llm_validation, @current_user)
-            # Prepare the base response
-            response_data = PersistentAttachmentSerializer.new(attachment).serializable_hash
+            if Flipper.enabled?(:champva_claims_llm_validation, @current_user)
+              # Prepare the base response
+              response_data = PersistentAttachmentSerializer.new(attachment).serializable_hash
 
-            # Add LLM analysis if enabled
-            llm_result = call_llm_service(attachment, params[:form_id], params['attachment_id'])
-            response_data[:llm_response] = llm_result if llm_result.present?
+              # Add LLM analysis if enabled
+              llm_result = call_llm_service(attachment, params[:form_id], params['attachment_id'])
+              response_data[:llm_response] = llm_result if llm_result.present?
 
-            render json: response_data
+              render json: response_data
+            else
+              render json: PersistentAttachmentSerializer.new(attachment)
+            end
           else
-            render json: PersistentAttachmentSerializer.new(attachment)
+            raise Common::Exceptions::UnprocessableEntity.new(
+              detail: "Unsupported form_id: #{params[:form_id]}",
+              source: 'IvcChampva::V1::UploadsController'
+            )
           end
-        else
-          raise Common::Exceptions::UnprocessableEntity.new(
-            detail: "Unsupported form_id: #{params[:form_id]}",
-            source: 'IvcChampva::V1::UploadsController'
-          )
         end
       end
 
@@ -449,8 +468,10 @@ module IvcChampva
       # @param [PersistentAttachments::MilitaryRecords] attachment Persistent attachment object for the uploaded file
       # @param [String] form_id The ID of the current form, e.g., 'vha_10_10d' (see FORM_NUMBER_MAP)
       def launch_background_job(attachment, form_id, attachment_id)
-        launch_ocr_job(form_id, attachment, attachment_id)
-        launch_llm_job(form_id, attachment, attachment_id)
+        Datadog::Tracing.trace('IVC Champva Forms - Launch OCR/LLM Job Asynchronously') do
+          launch_ocr_job(form_id, attachment, attachment_id)
+          launch_llm_job(form_id, attachment, attachment_id)
+        end
       rescue Errno::ENOENT
         # Do not log the error details because they may contain PII
         Rails.logger.error 'Unhandled ENOENT error while launching background job(s)'
@@ -495,28 +516,30 @@ module IvcChampva
       # @param [String] attachment_id The document type/attachment ID
       # @return [Hash, nil] LLM analysis result or nil if conditions not met
       def call_llm_service(attachment, form_id, attachment_id)
-        return nil unless Flipper.enabled?(:champva_claims_llm_validation, @current_user)
-        return nil unless form_id == '10-7959A'
+        Datadog::Tracing.trace('IVC Champva Forms - Call OCR/LLM Service Synchronously') do
+          return nil unless Flipper.enabled?(:champva_claims_llm_validation, @current_user)
+          return nil unless form_id == '10-7959A'
 
-        begin
-          # create a temp file from the persistent attachment object
-          tmpfile = tempfile_from_attachment(attachment, form_id)
-          pdf_path = Common::ConvertToPdf.new(tmpfile).run
+          begin
+            # create a temp file from the persistent attachment object
+            tmpfile = tempfile_from_attachment(attachment, form_id)
+            pdf_path = Common::ConvertToPdf.new(tmpfile).run
 
-          # Convert form_id to mapped format for LLM service
-          mapped_form_id = FORM_NUMBER_MAP[form_id]
+            # Convert form_id to mapped format for LLM service
+            mapped_form_id = FORM_NUMBER_MAP[form_id]
 
-          # Call LLM service synchronously
-          llm_service = IvcChampva::LlmService.new
-          llm_service.process_document(
-            form_id: mapped_form_id,
-            file_path: pdf_path,
-            uuid: attachment.guid,
-            attachment_id:
-          )
-        rescue => e
-          Rails.logger.error "Error calling LLM service: #{e.message}"
-          nil
+            # Call LLM service synchronously
+            llm_service = IvcChampva::LlmService.new
+            llm_service.process_document(
+              form_id: mapped_form_id,
+              file_path: pdf_path,
+              uuid: attachment.guid,
+              attachment_id:
+            )
+          rescue => e
+            Rails.logger.error "Error calling LLM service: #{e.message}"
+            nil
+          end
         end
       end
 
@@ -524,29 +547,31 @@ module IvcChampva
       # @param [PersistentAttachments::MilitaryRecords] attachment The attachment object containing the file
       # @param [String] form_id The ID of the current form, e.g., 'vha_10_10d' (see FORM_NUMBER_MAP)
       def tempfile_from_attachment(attachment, form_id)
-        original_filename = if attachment.file.respond_to?(:original_filename)
-                              attachment.file.original_filename
-                            else
-                              File.basename(attachment.file.path)
-                            end
-        # base = File.basename(original_filename, File.extname(original_filename))
-        ext = File.extname(original_filename)
-        tmpfile = Tempfile.new(["#{form_id}_attachment_", ext]) # a timestamp and unique ID are added automatically
-        tmpfile.binmode
-        tmpfile.write(attachment.file.read)
-        tmpfile.flush
-        tmpfile.rewind
+        Datadog::Tracing.trace('IVC Champva Forms - Save Tempfile from Attachment') do
+          original_filename = if attachment.file.respond_to?(:original_filename)
+                                attachment.file.original_filename
+                              else
+                                File.basename(attachment.file.path)
+                              end
+          # base = File.basename(original_filename, File.extname(original_filename))
+          ext = File.extname(original_filename)
+          tmpfile = Tempfile.new(["#{form_id}_attachment_", ext]) # a timestamp and unique ID are added automatically
+          tmpfile.binmode
+          tmpfile.write(attachment.file.read)
+          tmpfile.flush
+          tmpfile.rewind
 
-        content_type = if attachment.file.respond_to?(:content_type)
-                         attachment.file.content_type
-                       else
-                         content_type_from_extension(ext)
-                       end
+          content_type = if attachment.file.respond_to?(:content_type)
+                           attachment.file.content_type
+                         else
+                           content_type_from_extension(ext)
+                         end
 
-        # Define content_type method on the tmpfile singleton
-        tmpfile.define_singleton_method(:content_type) { content_type }
+          # Define content_type method on the tmpfile singleton
+          tmpfile.define_singleton_method(:content_type) { content_type }
 
-        tmpfile
+          tmpfile
+        end
       end
 
       private
@@ -571,16 +596,18 @@ module IvcChampva
       # @return [ActionDispatch::Http::UploadedFile] The converted PDF or original file
       # @raise [StandardError] If PDF conversion fails
       def convert_to_pdf(uploaded_file)
-        return uploaded_file if uploaded_file.content_type == 'application/pdf'
+        Datadog::Tracing.trace('IVC Champva Forms - Convert to PDF') do
+          return uploaded_file if uploaded_file.content_type == 'application/pdf'
 
-        tempfile = IvcChampva::PdfConverter.new(uploaded_file).convert_to_tempfile
-        pdf_filename = uploaded_file.original_filename.sub(/\.[^.]+\z/, '.pdf')
+          tempfile = IvcChampva::PdfConverter.new(uploaded_file).convert_to_tempfile
+          pdf_filename = uploaded_file.original_filename.sub(/\.[^.]+\z/, '.pdf')
 
-        ActionDispatch::Http::UploadedFile.new(
-          tempfile:,
-          filename: pdf_filename,
-          type: 'application/pdf'
-        )
+          ActionDispatch::Http::UploadedFile.new(
+            tempfile:,
+            filename: pdf_filename,
+            type: 'application/pdf'
+          )
+        end
       end
 
       def applicants_with_ohi(applicants)
@@ -734,31 +761,33 @@ module IvcChampva
       # @return [Array<Integer, String>] An array with 1 or more http status codes
       #   and an array with 1 or more message strings.
       def handle_file_uploads(form_id, parsed_form_data)
-        on_failure = lambda do |e, attempt|
-          Rails.logger.error "Error handling file uploads (attempt #{attempt}): #{e.message}"
-          PersonalInformationLog.create(
-            data: parsed_form_data,
-            error_class: 'IvcChampva::V1::UploadsController#handle_file_uploads'
-          )
+        Datadog::Tracing.trace('IVC Champva Forms - Upload Files Without VES Submission') do
+          on_failure = lambda do |e, attempt|
+            Rails.logger.error "Error handling file uploads (attempt #{attempt}): #{e.message}"
+            PersonalInformationLog.create(
+              data: parsed_form_data,
+              error_class: 'IvcChampva::V1::UploadsController#handle_file_uploads'
+            )
+          end
+
+          # set default values for statuses and error_messages to avoid nil reference errors
+          statuses = [500]
+          error_messages = ['Server error occurred']
+
+          IvcChampva::Retry.do(1, retry_on: RETRY_ERROR_CONDITIONS, on_failure:) do
+            file_paths, metadata = get_file_paths_and_metadata(parsed_form_data)
+            options = { insert_db_row: true, current_user: @current_user, parsed_form_data: }
+            uploader = FileUploader.new(form_id, metadata, file_paths, **options)
+            hu_result = uploader.handle_uploads
+            # convert [[200, nil], [400, 'error']] -> [200, 400] and [nil, 'error'] arrays
+            statuses, error_messages = hu_result[0].is_a?(Array) ? hu_result.transpose : hu_result.map { |i| Array(i) }
+
+            # Since some or all of the files failed to upload to S3, trigger retry
+            raise StandardError, error_messages if error_messages.compact.length.positive?
+          end
+
+          [statuses, error_messages]
         end
-
-        # set default values for statuses and error_messages to avoid nil reference errors
-        statuses = [500]
-        error_messages = ['Server error occurred']
-
-        IvcChampva::Retry.do(1, retry_on: RETRY_ERROR_CONDITIONS, on_failure:) do
-          file_paths, metadata = get_file_paths_and_metadata(parsed_form_data)
-          options = { insert_db_row: true, current_user: @current_user, parsed_form_data: }
-          uploader = FileUploader.new(form_id, metadata, file_paths, **options)
-          hu_result = uploader.handle_uploads
-          # convert [[200, nil], [400, 'error']] -> [200, 400] and [nil, 'error'] arrays
-          statuses, error_messages = hu_result[0].is_a?(Array) ? hu_result.transpose : hu_result.map { |i| Array(i) }
-
-          # Since some or all of the files failed to upload to S3, trigger retry
-          raise StandardError, error_messages if error_messages.compact.length.positive?
-        end
-
-        [statuses, error_messages]
       end
 
       ##
@@ -774,30 +803,32 @@ module IvcChampva
       # @return [Array<Integer, String>] An array with 1 or more http status codes
       #   and an array with 1 or more message strings.
       def upload_form(form_id, file_paths, metadata, parsed_form_data = nil)
-        on_failure = lambda do |e, attempt|
-          Rails.logger.error "Error handling file uploads (attempt #{attempt}): #{e.message}"
-          PersonalInformationLog.create(
-            data: parsed_form_data,
-            error_class: 'IvcChampva::V1::UploadsController#upload_form'
-          )
+        Datadog::Tracing.trace('IVC Champva Forms - Upload Files With VES Submission') do
+          on_failure = lambda do |e, attempt|
+            Rails.logger.error "Error handling file uploads (attempt #{attempt}): #{e.message}"
+            PersonalInformationLog.create(
+              data: parsed_form_data,
+              error_class: 'IvcChampva::V1::UploadsController#upload_form'
+            )
+          end
+
+          # set default values for statuses and error_messages to avoid nil reference errors
+          statuses = [500]
+          error_messages = ['Server error occurred']
+
+          IvcChampva::Retry.do(1, retry_on: RETRY_ERROR_CONDITIONS, on_failure:) do
+            options = { insert_db_row: true, current_user: @current_user, parsed_form_data: }
+            uploader = FileUploader.new(form_id, metadata, file_paths, **options)
+            hu_result = uploader.handle_uploads
+            # convert [[200, nil], [400, 'error']] -> [200, 400] and [nil, 'error'] arrays
+            statuses, error_messages = hu_result[0].is_a?(Array) ? hu_result.transpose : hu_result.map { |i| Array(i) }
+
+            # Since some or all of the files failed to upload to S3, trigger retry
+            raise StandardError, error_messages if error_messages.compact.length.positive?
+          end
+
+          [statuses, error_messages]
         end
-
-        # set default values for statuses and error_messages to avoid nil reference errors
-        statuses = [500]
-        error_messages = ['Server error occurred']
-
-        IvcChampva::Retry.do(1, retry_on: RETRY_ERROR_CONDITIONS, on_failure:) do
-          options = { insert_db_row: true, current_user: @current_user, parsed_form_data: }
-          uploader = FileUploader.new(form_id, metadata, file_paths, **options)
-          hu_result = uploader.handle_uploads
-          # convert [[200, nil], [400, 'error']] -> [200, 400] and [nil, 'error'] arrays
-          statuses, error_messages = hu_result[0].is_a?(Array) ? hu_result.transpose : hu_result.map { |i| Array(i) }
-
-          # Since some or all of the files failed to upload to S3, trigger retry
-          raise StandardError, error_messages if error_messages.compact.length.positive?
-        end
-
-        [statuses, error_messages]
       end
 
       def should_retry?(error_message_downcase, attempt, max_attempts = 1)
@@ -877,26 +908,28 @@ module IvcChampva
       # @param [Integer] applicant_rounded_number number of main form attachments needed
       # @return [Array<String>] array of attachment_ids for all documents
       def build_attachment_ids(form_id, parsed_form_data, applicant_rounded_number)
-        # DTA takes highest priority for 10-7959a resubmissions
-        if dta_applies?(form_id, parsed_form_data)
-          build_dta_attachment_ids(parsed_form_data, applicant_rounded_number)
-        elsif Flipper.enabled?(:champva_resubmission_attachment_ids) &&
-              form_id == 'vha_10_7959a' &&
-              parsed_form_data['claim_status'] == 'resubmission'
-          selector = parsed_form_data['pdi_or_claim_number']
+        Datadog::Tracing.trace('IVC Champva Forms - Build Attachment IDs') do # seems quick, but lots nested
+          # DTA takes highest priority for 10-7959a resubmissions
+          if dta_applies?(form_id, parsed_form_data)
+            build_dta_attachment_ids(parsed_form_data, applicant_rounded_number)
+          elsif Flipper.enabled?(:champva_resubmission_attachment_ids) &&
+                form_id == 'vha_10_7959a' &&
+                parsed_form_data['claim_status'] == 'resubmission'
+            selector = parsed_form_data['pdi_or_claim_number']
 
-          if selector == 'Control number'
-            # Relabel main claim sheet as CVA Reopen; supporting docs retain original types.
-            main = Array.new(applicant_rounded_number) { 'CVA Reopen' }
-            main.concat(supporting_document_ids(parsed_form_data))
-          elsif selector == 'PDI number'
-            # Main form keeps default form_id; all supporting docs get relabeled to "CVA Bene Response".
-            build_pdi_resubmission_attachment_ids(form_id, parsed_form_data, applicant_rounded_number)
+            if selector == 'Control number'
+              # Relabel main claim sheet as CVA Reopen; supporting docs retain original types.
+              main = Array.new(applicant_rounded_number) { 'CVA Reopen' }
+              main.concat(supporting_document_ids(parsed_form_data))
+            elsif selector == 'PDI number'
+              # Main form keeps default form_id; all supporting docs get relabeled to "CVA Bene Response".
+              build_pdi_resubmission_attachment_ids(form_id, parsed_form_data, applicant_rounded_number)
+            else
+              build_default_attachment_ids(form_id, parsed_form_data, applicant_rounded_number)
+            end
           else
             build_default_attachment_ids(form_id, parsed_form_data, applicant_rounded_number)
           end
-        else
-          build_default_attachment_ids(form_id, parsed_form_data, applicant_rounded_number)
         end
       end
 
@@ -968,50 +1001,54 @@ module IvcChampva
       # @param parsed_form_data [Hash] The parsed form data where the supporting document will be added
       # @return [nil] This method doesn't return any value
       def add_blank_doc_and_stamp(form, parsed_form_data)
-        # Only triggers if the form in question has a method that returns values
-        # we want to stamp.
-        if form.methods.include?(:stamp_metadata)
-          stamps = form.stamp_metadata
+        Datadog::Tracing.trace('IVC Champva Forms - Add Blank Document') do
+          # Only triggers if the form in question has a method that returns values
+          # we want to stamp.
+          if form.methods.include?(:stamp_metadata)
+            stamps = form.stamp_metadata
 
-          if !stamps.nil? && stamps.is_a?(Hash)
-            blank_page_path = IvcChampva::Attachments.get_blank_page
-            IvcChampva::PdfStamper.stamp_metadata_items(blank_page_path, stamps[:metadata])
-            att = create_custom_attachment(form, blank_page_path, stamps[:attachment_id])
-            add_supporting_doc(parsed_form_data, att)
+            if !stamps.nil? && stamps.is_a?(Hash)
+              blank_page_path = IvcChampva::Attachments.get_blank_page
+              IvcChampva::PdfStamper.stamp_metadata_items(blank_page_path, stamps[:metadata])
+              att = create_custom_attachment(form, blank_page_path, stamps[:attachment_id])
+              add_supporting_doc(parsed_form_data, att)
+            end
           end
         end
       end
 
+      # TODO: add documentation comments and consider renaming, this method also triggers
+      # - PDF filling
+      # - metadata validation
+      # - generation of VES JSON files
       def get_file_paths_and_metadata(parsed_form_data)
-        attachment_ids, form = get_attachment_ids_and_form(parsed_form_data)
+        Datadog::Tracing.trace('IVC Champva Forms - Get File Paths and Metadata and Other Work') do
+          attachment_ids, form = get_attachment_ids_and_form(parsed_form_data)
 
-        # Use the actual form ID for PDF generation, but legacy form ID for S3/metadata
-        actual_form_id = form.form_id
-        legacy_form_id = IvcChampva::FormVersionManager.get_legacy_form_id(actual_form_id)
+          # Use the actual form ID for PDF generation, but legacy form ID for S3/metadata
+          actual_form_id = form.form_id
+          legacy_form_id = IvcChampva::FormVersionManager.get_legacy_form_id(actual_form_id)
 
-        filler = IvcChampva::PdfFiller.new(form_number: actual_form_id, form:, uuid: form.uuid, name: legacy_form_id)
+          filler = IvcChampva::PdfFiller.new(form_number: actual_form_id, form:, uuid: form.uuid, name: legacy_form_id)
 
-        file_path = if @current_user
-                      filler.generate(@current_user.loa[:current])
-                    else
-                      filler.generate
-                    end
+          file_path = @current_user ? filler.generate(@current_user.loa[:current]) : filler.generate
 
-        # Get validated metadata
-        metadata = IvcChampva::MetadataValidator.validate(form.metadata)
+          # Get validated metadata
+          metadata = IvcChampva::MetadataValidator.validate(form.metadata)
 
-        file_paths = form.handle_attachments(file_path)
+          file_paths = form.handle_attachments(file_path)
 
-        # Generate VES JSON file and add to file_paths if conditions are met
-        if should_generate_ves_json?(form.form_id)
-          ves_json_path = generate_ves_json_file(form, parsed_form_data)
-          if ves_json_path
-            file_paths << ves_json_path
-            attachment_ids << 'VES JSON'
+          # Generate VES JSON file and add to file_paths if conditions are met
+          if should_generate_ves_json?(form.form_id)
+            ves_json_path = generate_ves_json_file(form, parsed_form_data)
+            if ves_json_path
+              file_paths << ves_json_path
+              attachment_ids << 'VES JSON'
+            end
           end
-        end
 
-        [file_paths, metadata.merge({ 'attachment_ids' => attachment_ids })]
+          [file_paths, metadata.merge({ 'attachment_ids' => attachment_ids })]
+        end
       end
 
       def get_form_id
