@@ -10,7 +10,7 @@ module TravelPay
 
       rescue_from Common::Exceptions::BadRequest, with: :render_bad_request
 
-      before_action :check_feature_flag
+      before_action :complex_claims_enabled?
 
       def submit
         claim_id = params[:claim_id]
@@ -34,9 +34,10 @@ module TravelPay
       end
 
       def create
-        params.require(%i[appointment_date_time facility_station_number appointment_type is_complete])
-        validate_datetime_format!(params[:appointment_date_time])
-        appt_id = find_or_create_appt_id!('Complex', params)
+        permitted_params = require_and_permit_claim_params(params)
+        validate_required_params!(permitted_params)
+        validate_datetime_format!(permitted_params[:appointment_date_time])
+        appt_id = find_or_create_appt_id!('Complex', permitted_params)
         claim_id = create_claim(appt_id, 'Complex')
         render json: { claimId: claim_id }, status: :created
       rescue Common::Exceptions::ResourceNotFound => e
@@ -51,6 +52,23 @@ module TravelPay
       end
 
       private
+
+      def base_required_fields
+        %i[
+          appointment_date_time
+          facility_station_number
+          appointment_type
+          is_complete
+        ]
+      end
+
+      def v4_additional_fields
+        %i[appointment_name facility_name]
+      end
+
+      def allowed_claim_keys
+        appointments_v4_enabled? ? base_required_fields + v4_additional_fields : base_required_fields
+      end
 
       # Handles Faraday errors for both client (4xx) and server (5xx)
       # e: the Faraday error
@@ -71,11 +89,36 @@ module TravelPay
         render json: { errors: [{ detail: message }] }, status: http_status
       end
 
-      def check_feature_flag
+      def complex_claims_enabled?
         verify_feature_flag!(
           :travel_pay_enable_complex_claims,
           current_user,
           error_message: 'Travel Pay complex claim endpoint unavailable per feature toggle'
+        )
+      end
+
+      def appointments_v4_enabled?
+        Flipper.enabled?(:travel_pay_appt_add_v4_upgrade, current_user)
+      end
+
+      def require_and_permit_claim_params(params)
+        params.require(:complex_claim).permit(*allowed_claim_keys)
+      end
+
+      def validate_required_params!(permitted_params)
+        # Use allowed_claim_keys as the source of truth for required fields
+        required_fields = allowed_claim_keys.map(&:to_s)
+
+        # Find missing keys
+        missing = required_fields.select do |key|
+          value = permitted_params[key] || permitted_params[key.to_sym] # check string or symbol
+          value.nil? || (value.respond_to?(:empty?) && value.empty?) # false is fine
+        end
+
+        return if missing.empty?
+
+        raise Common::Exceptions::BadRequest.new(
+          detail: "Missing required params: #{missing.join(', ')}"
         )
       end
 

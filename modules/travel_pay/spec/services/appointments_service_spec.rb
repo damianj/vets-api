@@ -217,7 +217,9 @@ describe TravelPay::AppointmentsService do
                 { 'appointment_date_time' => '2024-01-01T12:45:00',
                   'facility_station_number' => '123',
                   'appointment_type' => 'Other',
-                  'is_complete' => false }, use_v4_api: true)
+                  'is_complete' => false,
+                  'appointment_name' => 'Test Appointment Name',
+                  'facility_name' => 'Test facility' }, use_v4_api: true)
           .and_return(add_appointment_response)
       end
 
@@ -227,7 +229,9 @@ describe TravelPay::AppointmentsService do
         params = { 'appointment_date_time' => date_string,
                    'facility_station_number' => '123',
                    'appointment_type' => 'Other',
-                   'is_complete' => false }
+                   'is_complete' => false,
+                   'appointment_name' => 'Test Appointment Name',
+                   'facility_name' => 'Test facility' }
 
         appt = service.find_or_create_appointment(params)
 

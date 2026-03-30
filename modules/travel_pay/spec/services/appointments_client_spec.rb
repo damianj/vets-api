@@ -151,6 +151,15 @@ describe TravelPay::AppointmentsClient do
       }
     end
 
+    let(:appointment_params_v4) do
+      {
+        'appointment_date_time' => '2024-01-01T12:45:34.465Z',
+        'facility_station_number' => '123',
+        'appointment_type' => 'Other',
+        'is_complete' => false
+      }
+    end
+
     let(:expected_response_data) do
       [
         {
@@ -210,7 +219,7 @@ describe TravelPay::AppointmentsClient do
         end
 
         client = TravelPay::AppointmentsClient.new
-        response = client.find_or_create(auth_session, appointment_params, use_v4_api: true)
+        response = client.find_or_create(auth_session, appointment_params_v4, use_v4_api: true)
 
         expect(response.body['data']).to eq(expected_response_data)
         expect(StatsD).to have_received(:measure)
