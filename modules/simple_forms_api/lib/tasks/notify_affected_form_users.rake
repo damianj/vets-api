@@ -80,7 +80,8 @@ namespace :va_notify do
   end
 
   def collect_affected_users
-    forms = InProgressForm.where(form_id: FORM_IDS).where(updated_at: 60.days.ago..Time.zone.parse('2026-02-26'))
+    forms = InProgressForm.where(form_id: FORM_IDS)
+                          .where(updated_at: Time.zone.parse('2025-12-01')..Time.zone.parse('2026-02-26'))
                           .not_submitted
 
     affected_users = []
@@ -93,11 +94,8 @@ namespace :va_notify do
       next if email.blank?
 
       affected_users << {
-        form_id: form.id,
-        form_type: form.form_id,
-        email:,
-        first_name:,
-        updated_at: form.updated_at,
+        form_id: form.id, form_type: form.form_id, email:,
+        first_name:, updated_at: form.updated_at,
         metadata: FORM_CONFIG[form.form_id].slice(:plain_name, :full_name)
       }
     rescue => e
