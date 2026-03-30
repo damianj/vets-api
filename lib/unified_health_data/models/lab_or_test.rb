@@ -17,6 +17,7 @@ module UnifiedHealthData
     attribute :value, UnifiedHealthData::ObservationValue
     attribute :reference_range, String
     attribute :status, String
+    attribute :interpretation, String
     attribute :comments, String, array: true
     attribute :body_site, String
     attribute :sample_tested, String
