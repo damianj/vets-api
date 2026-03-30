@@ -58,10 +58,15 @@ describe MHVPrescriptionsPolicy do
         let(:patient) { false }
         let(:champ_va) { false }
 
-        it 'returns false and logs access denial' do
+        it 'returns false and logs access denial with diagnostic fields' do
           expect(Rails.logger).to receive(:info).with(
             'RX ACCESS DENIED',
             hash_including(
+              denial_reason: 'not_patient_or_champ_va',
+              mhv_account_nil: false,
+              mhv_account_patient: false,
+              mhv_account_champ_va: false,
+              loa3: true,
               mhv_id: anything,
               sign_in_service: anything,
               va_facilities: anything,
@@ -72,23 +77,79 @@ describe MHVPrescriptionsPolicy do
           expect(described_class.new(user, mhv_prescriptions).access?).to be(false)
         end
       end
+
+      context 'when mhv_user_account is nil due to validation error' do
+        before do
+          allow(Rails.logger).to receive(:info)
+          allow_any_instance_of(MHV::AccountCreation::Service).to receive(:create_account)
+            .and_raise(MHV::UserAccount::Errors::ValidationError, 'Current terms of use agreement must be present')
+        end
+
+        it 'returns false and logs nil account with validation error category' do
+          expect(described_class.new(user, mhv_prescriptions).access?).to be(false)
+
+          expect(Rails.logger).to have_received(:info).with(
+            'RX ACCESS DENIED',
+            hash_including(
+              denial_reason: 'account_nil:validation',
+              mhv_account_nil: true,
+              mhv_account_patient: nil,
+              mhv_account_champ_va: nil,
+              loa3: true
+            )
+          )
+        end
+      end
+
+      context 'when mhv_user_account is nil due to MHV client error' do
+        before do
+          allow(Rails.logger).to receive(:info)
+          allow_any_instance_of(MHV::AccountCreation::Service).to receive(:create_account)
+            .and_raise(Common::Client::Errors::ClientError.new('MHV API failure', 500))
+        end
+
+        it 'returns false and logs nil account with client error category' do
+          expect(described_class.new(user, mhv_prescriptions).access?).to be(false)
+
+          expect(Rails.logger).to have_received(:info).with(
+            'RX ACCESS DENIED',
+            hash_including(
+              denial_reason: 'account_nil:client',
+              mhv_account_nil: true,
+              mhv_account_patient: nil
+            )
+          )
+        end
+      end
     end
 
     context 'when user is not verified' do
       let(:user) { create(:user, :loa1) }
 
-      it 'returns false and logs access denial' do
-        expect(Rails.logger).to receive(:info).with(
+      it 'returns false and logs not_loa3 denial reason' do
+        allow(Rails.logger).to receive(:info)
+
+        expect(described_class.new(user, mhv_prescriptions).access?).to be(false)
+
+        expect(Rails.logger).to have_received(:info).with(
           'RX ACCESS DENIED',
           hash_including(
+            denial_reason: 'not_loa3',
+            loa3: false,
             mhv_id: anything,
             sign_in_service: anything,
             va_facilities: anything,
             va_patient: anything
           )
         )
+      end
 
-        expect(described_class.new(user, mhv_prescriptions).access?).to be(false)
+      it 'does not attempt MHV account creation' do
+        allow(Rails.logger).to receive(:info)
+
+        expect_any_instance_of(MHV::AccountCreation::Service).not_to receive(:create_account)
+
+        described_class.new(user, mhv_prescriptions).access?
       end
     end
   end

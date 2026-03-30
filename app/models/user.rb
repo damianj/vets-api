@@ -133,11 +133,23 @@ class User < Common::RedisStore
   end
 
   def mhv_user_account(from_cache_only: true)
+    @mhv_user_account_error = nil
     @mhv_user_account ||= MHV::UserAccount::Creator.new(user_verification:, from_cache_only:).perform
+  rescue MHV::UserAccount::Errors::ValidationError => e
+    @mhv_user_account_error = :validation
+    log_mhv_user_account_error(e.message)
+    nil
+  rescue MHV::UserAccount::Errors::MHVClientError => e
+    @mhv_user_account_error = :client
+    log_mhv_user_account_error(e.message)
+    nil
   rescue => e
+    @mhv_user_account_error = :unknown
     log_mhv_user_account_error(e.message)
     nil
   end
+
+  attr_reader :mhv_user_account_error
 
   def middle_name
     identity.middle_name.presence || middle_name_mpi
