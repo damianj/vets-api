@@ -79,17 +79,22 @@ describe 'sm client' do
       end
     end
 
-    it 'includes associated_blocked_triage_groups count in metadata' do
+    it 'includes metadata counts that match collection data' do
       VCR.use_cassette 'sm_client/triage_teams/gets_a_collection_of_all_triage_team_recipients' do
         VCR.use_cassette('sm_client/get_unique_care_systems') do
           collection = client.get_all_triage_teams('1234')
 
+          # Verify metadata keys exist and have correct types
+          expect(collection.metadata).to have_key(:associated_triage_groups)
           expect(collection.metadata).to have_key(:associated_blocked_triage_groups)
+          expect(collection.metadata[:associated_triage_groups]).to be_an(Integer)
           expect(collection.metadata[:associated_blocked_triage_groups]).to be_an(Integer)
 
-          # Verify the count matches the actual number of blocked teams
-          blocked_count = collection.data.count(&:blocked_status)
-          expect(collection.metadata[:associated_blocked_triage_groups]).to eq(blocked_count)
+          # Verify associated_triage_groups matches collection data length
+          expect(collection.metadata[:associated_triage_groups]).to eq(collection.data.length)
+
+          # When no teams are migrating or blocked, count should be 0
+          expect(collection.metadata[:associated_blocked_triage_groups]).to eq(0)
         end
       end
     end
@@ -147,114 +152,112 @@ describe 'sm client' do
         allow(MHV::OhFacilitiesHelper::Service).to receive(:new).and_return(oh_service)
       end
 
-      it 'sets blocked_status and migrating_to_oh to true when station is in p3 phase' do
+      it 'excludes teams when station is in p3 phase' do
         allow(oh_service).to receive(:get_phases_for_station_numbers).and_return({ '979' => 'p3' })
 
         VCR.use_cassette 'sm_client/triage_teams/gets_a_collection_of_all_triage_team_recipients' do
           VCR.use_cassette('sm_client/get_unique_care_systems') do
             collection = client.get_all_triage_teams('1234')
 
-            collection.data.each do |team|
-              expect(team.blocked_status).to be true
-              expect(team.migrating_to_oh).to be true
-            end
+            # Teams with station 979 should be excluded
+            expect(collection.data).to be_empty
 
-            # Verify metadata count reflects the blocked teams
-            expect(collection.metadata[:associated_blocked_triage_groups]).to eq(collection.data.count)
+            # Verify metadata reflects the empty collection
+            expect(collection.metadata[:associated_triage_groups]).to eq(0)
+            expect(collection.metadata[:associated_triage_groups]).to eq(collection.data.length)
+            expect(collection.metadata[:associated_blocked_triage_groups]).to eq(0)
           end
         end
       end
 
-      it 'sets blocked_status and migrating_to_oh to true when station is in p4 phase' do
+      it 'excludes teams when station is in p4 phase' do
         allow(oh_service).to receive(:get_phases_for_station_numbers).and_return({ '979' => 'p4' })
 
         VCR.use_cassette 'sm_client/triage_teams/gets_a_collection_of_all_triage_team_recipients' do
           VCR.use_cassette('sm_client/get_unique_care_systems') do
             collection = client.get_all_triage_teams('1234')
 
-            collection.data.each do |team|
-              expect(team.blocked_status).to be true
-              expect(team.migrating_to_oh).to be true
-            end
+            # Teams with station 979 should be excluded
+            expect(collection.data).to be_empty
+            expect(collection.metadata[:associated_triage_groups]).to eq(collection.data.length)
+            expect(collection.metadata[:associated_blocked_triage_groups]).to eq(0)
           end
         end
       end
 
-      it 'sets blocked_status and migrating_to_oh to true when station is in p5 phase' do
+      it 'excludes teams when station is in p5 phase' do
         allow(oh_service).to receive(:get_phases_for_station_numbers).and_return({ '979' => 'p5' })
 
         VCR.use_cassette 'sm_client/triage_teams/gets_a_collection_of_all_triage_team_recipients' do
           VCR.use_cassette('sm_client/get_unique_care_systems') do
             collection = client.get_all_triage_teams('1234')
 
-            collection.data.each do |team|
-              expect(team.blocked_status).to be true
-              expect(team.migrating_to_oh).to be true
-            end
+            # Teams with station 979 should be excluded
+            expect(collection.data).to be_empty
+            expect(collection.metadata[:associated_triage_groups]).to eq(collection.data.length)
+            expect(collection.metadata[:associated_blocked_triage_groups]).to eq(0)
           end
         end
       end
 
-      it 'does not modify blocked_status or migrating_to_oh when phase is nil' do
+      it 'includes teams when phase is nil' do
         allow(oh_service).to receive(:get_phases_for_station_numbers).and_return({})
 
         VCR.use_cassette 'sm_client/triage_teams/gets_a_collection_of_all_triage_team_recipients' do
           VCR.use_cassette('sm_client/get_unique_care_systems') do
             collection = client.get_all_triage_teams('1234')
 
-            collection.data.each do |team|
-              expect(team.blocked_status).to be false
-              expect(team.migrating_to_oh).to be false
-            end
+            # Teams should not be excluded when phase is nil
+            expect(collection.data).not_to be_empty
 
-            # Verify metadata count is 0 when no teams are blocked
+            # Verify metadata matches collection
+            expect(collection.metadata[:associated_triage_groups]).to eq(collection.data.length)
             expect(collection.metadata[:associated_blocked_triage_groups]).to eq(0)
           end
         end
       end
 
-      it 'does not modify blocked_status or migrating_to_oh when station is in p2 phase' do
+      it 'includes teams when station is in p2 phase' do
         allow(oh_service).to receive(:get_phases_for_station_numbers).and_return({ '979' => 'p2' })
 
         VCR.use_cassette 'sm_client/triage_teams/gets_a_collection_of_all_triage_team_recipients' do
           VCR.use_cassette('sm_client/get_unique_care_systems') do
             collection = client.get_all_triage_teams('1234')
 
-            # The original cassette has blocked_status: false
-            collection.data.each do |team|
-              expect(team.blocked_status).to be false
-              expect(team.migrating_to_oh).to be false
-            end
+            # Teams should not be excluded in p2 phase
+            expect(collection.data).not_to be_empty
+            expect(collection.metadata[:associated_triage_groups]).to eq(collection.data.length)
+            expect(collection.metadata[:associated_blocked_triage_groups]).to eq(0)
           end
         end
       end
 
-      it 'does not set blocked_status and migrating_to_oh to true when station is in p6 phase' do
+      it 'includes teams when station is in p6 phase' do
         allow(oh_service).to receive(:get_phases_for_station_numbers).and_return({ '979' => 'p6' })
 
         VCR.use_cassette 'sm_client/triage_teams/gets_a_collection_of_all_triage_team_recipients' do
           VCR.use_cassette('sm_client/get_unique_care_systems') do
             collection = client.get_all_triage_teams('1234')
 
-            collection.data.each do |team|
-              expect(team.blocked_status).to be false
-              expect(team.migrating_to_oh).to be false
-            end
+            # Teams should not be excluded in p6 phase
+            expect(collection.data).not_to be_empty
+            expect(collection.metadata[:associated_triage_groups]).to eq(collection.data.length)
+            expect(collection.metadata[:associated_blocked_triage_groups]).to eq(0)
           end
         end
       end
 
-      it 'does not modify blocked_status or migrating_to_oh when station is in p7 phase' do
+      it 'includes teams when station is in p7 phase' do
         allow(oh_service).to receive(:get_phases_for_station_numbers).and_return({ '979' => 'p7' })
 
         VCR.use_cassette 'sm_client/triage_teams/gets_a_collection_of_all_triage_team_recipients' do
           VCR.use_cassette('sm_client/get_unique_care_systems') do
             collection = client.get_all_triage_teams('1234')
 
-            collection.data.each do |team|
-              expect(team.blocked_status).to be false
-              expect(team.migrating_to_oh).to be false
-            end
+            # Teams should not be excluded in p7 phase
+            expect(collection.data).not_to be_empty
+            expect(collection.metadata[:associated_triage_groups]).to eq(collection.data.length)
+            expect(collection.metadata[:associated_blocked_triage_groups]).to eq(0)
           end
         end
       end
