@@ -131,4 +131,36 @@ RSpec.describe UnifiedHealthData::Serializers::PrescriptionSerializer do
       end
     end
   end
+
+  describe 'sorted_dispensed_date serialization' do
+    context 'when sorted_dispensed_date is set' do
+      let(:prescription_with_date) do
+        UnifiedHealthData::Prescription.new(
+          id: '100',
+          type: 'Prescription',
+          sorted_dispensed_date: '2025-07-20'
+        )
+      end
+
+      it 'includes sorted_dispensed_date in output' do
+        result = described_class.new(prescription_with_date).serializable_hash
+        expect(result[:data][:attributes][:sorted_dispensed_date]).to eq('2025-07-20')
+      end
+    end
+
+    context 'when sorted_dispensed_date is nil' do
+      let(:prescription_without_date) do
+        UnifiedHealthData::Prescription.new(
+          id: '200',
+          type: 'Prescription',
+          sorted_dispensed_date: nil
+        )
+      end
+
+      it 'returns nil' do
+        result = described_class.new(prescription_without_date).serializable_hash
+        expect(result[:data][:attributes][:sorted_dispensed_date]).to be_nil
+      end
+    end
+  end
 end

@@ -99,6 +99,46 @@ RSpec.describe 'Mobile::V1::Health::Prescriptions', type: :request do
             end
           end
 
+          it 'includes sortedDispensedDate for Oracle Health prescriptions with dispenses' do
+            VCR.use_cassette('unified_health_data/get_prescriptions_success') do
+              get '/mobile/v1/health/rx/prescriptions',
+                  params: { page: { number: 1, size: 100 } },
+                  headers: sis_headers
+
+              expect(response).to have_http_status(:ok)
+              data = response.parsed_body['data']
+
+              oh_with_dates = data.select do |rx|
+                rx.dig('attributes', 'sourceEhr') == 'OH' &&
+                  rx.dig('attributes', 'sortedDispensedDate').present?
+              end
+              expect(oh_with_dates).not_to be_empty
+
+              oh_with_dates.each do |rx|
+                expect(rx['attributes']['sortedDispensedDate']).to match(/\A\d{4}-\d{2}-\d{2}\z/)
+              end
+            end
+          end
+
+          it 'returns nil sortedDispensedDate for VistA prescriptions without dispense records' do
+            VCR.use_cassette('unified_health_data/get_prescriptions_success') do
+              get '/mobile/v1/health/rx/prescriptions',
+                  params: { page: { number: 1, size: 100 } },
+                  headers: sis_headers
+
+              expect(response).to have_http_status(:ok)
+              data = response.parsed_body['data']
+
+              # VistA prescriptions in the cassette have null rxRFRecords and dispensedDate
+              vista_rx = data.find do |rx|
+                rx.dig('attributes', 'sourceEhr') == 'vista' &&
+                  rx.dig('attributes', 'sortedDispensedDate').nil?
+              end
+              expect(vista_rx).not_to be_nil
+              expect(vista_rx['attributes']['sortedDispensedDate']).to be_nil
+            end
+          end
+
           it 'handles pagination parameters correctly (nested page[number], page[size])' do
             VCR.use_cassette('unified_health_data/get_prescriptions_success') do
               get '/mobile/v1/health/rx/prescriptions',

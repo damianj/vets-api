@@ -628,5 +628,77 @@ describe UnifiedHealthData::Adapters::OracleHealthPrescriptionAdapter do
         expect(result.is_trackable).to be false
       end
     end
+
+    context 'with sorted_dispensed_date extraction' do
+      it 'returns the most recent when_handed_over from dispenses' do
+        resource = fhir_resource(
+          dispense_date: '2025-07-20T10:00:00Z'
+        )
+        # Add a second dispense with an earlier date
+        resource['contained'] << {
+          'resourceType' => 'MedicationDispense',
+          'id' => 'dispense-2',
+          'status' => 'completed',
+          'whenHandedOver' => '2025-07-10T08:00:00Z',
+          'location' => { 'display' => '648' }
+        }
+
+        result = subject.parse(resource)
+        expect(result.sorted_dispensed_date).to eq('2025-07-20')
+      end
+
+      it 'falls back to when_prepared when when_handed_over is absent' do
+        resource = base_fhir_resource.merge(
+          'contained' => [
+            {
+              'resourceType' => 'MedicationDispense',
+              'id' => 'dispense-1',
+              'status' => 'completed',
+              'whenPrepared' => '2025-03-05T09:00:00Z',
+              'location' => { 'display' => '648' }
+            },
+            {
+              'resourceType' => 'MedicationDispense',
+              'id' => 'dispense-2',
+              'status' => 'completed',
+              'whenPrepared' => '2025-03-01T10:00:00Z',
+              'location' => { 'display' => '648' }
+            }
+          ]
+        )
+
+        result = subject.parse(resource)
+        expect(result.sorted_dispensed_date).to eq('2025-03-05')
+      end
+
+      it 'returns nil when no dispenses exist' do
+        result = subject.parse(base_fhir_resource)
+        expect(result.sorted_dispensed_date).to be_nil
+      end
+
+      it 'ignores invalid dispense dates and uses the most recent valid date' do
+        resource = base_fhir_resource.merge(
+          'contained' => [
+            {
+              'resourceType' => 'MedicationDispense',
+              'id' => 'dispense-invalid',
+              'status' => 'completed',
+              'whenHandedOver' => 'not-a-valid-datetime',
+              'location' => { 'display' => '648' }
+            },
+            {
+              'resourceType' => 'MedicationDispense',
+              'id' => 'dispense-valid',
+              'status' => 'completed',
+              'whenHandedOver' => '2025-03-06T12:00:00Z',
+              'location' => { 'display' => '648' }
+            }
+          ]
+        )
+
+        result = subject.parse(resource)
+        expect(result.sorted_dispensed_date).to eq('2025-03-06')
+      end
+    end
   end
 end

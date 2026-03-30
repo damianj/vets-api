@@ -43,6 +43,8 @@ module UnifiedHealthData
     attribute :disp_status, String
     attribute :source_ehr, String
 
+    attribute :sorted_dispensed_date, String
+
     # Method aliases to match serializer expectations
     def prescription_id
       id
