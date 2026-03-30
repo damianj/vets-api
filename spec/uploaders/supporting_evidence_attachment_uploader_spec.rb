@@ -472,6 +472,17 @@ RSpec.describe SupportingEvidenceAttachmentUploader, :uploader_helpers do
     end
 
     context 'when feature toggle is enabled' do
+      # Stubbing Rails.env.production? causes SupportingEvidenceAttachmentUploader#initialize
+      # to call set_aws_config, which permanently mutates self.class.storage = :aws.
+      # Without this around block, that class-level mutation leaks into subsequent tests,
+      # causing "No region was provided" errors when CarrierWave tries to connect to S3.
+      around do |example|
+        previous_storage = described_class._storage
+        example.run
+      ensure
+        described_class.storage previous_storage
+      end
+
       before do
         allow(Flipper).to receive(:enabled?).with(:disability_compensation_upload_dual_api_validation).and_return(true)
         allow(Rails.env).to receive(:production?).and_return(true)
