@@ -119,7 +119,10 @@ module BioHeartApi
           'FORM_TYPE_1' => FORM_TYPE,
 
           # Form Type - Bottom of Page 2
-          'FORM_TYPE' => FORM_TYPE
+          'FORM_TYPE' => FORM_TYPE,
+
+          # Form Type - Bottom of Page 3
+          'FORM_TYPE_2' => FORM_TYPE
         }
 
         # Add Box 14A-D - Surviving Relatives (up to 4)
@@ -131,7 +134,7 @@ module BioHeartApi
         # Add Box 18A-B - Other Debts (up to 4)
         add_other_debts(payload, form)
 
-        payload
+        payload.transform_values { |v| v.nil? ? '' : v }
       end
       # rubocop:enable Metrics/MethodLength
 
