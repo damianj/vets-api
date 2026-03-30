@@ -40,4 +40,44 @@ RSpec.describe BGSDependents::Divorce do
       expect(formatted_info).to eq(formatted_params_result)
     end
   end
+
+  describe '#divorce_state' do
+    context 'when divorce occurred in the US' do
+      it 'returns the state where the divorce occurred' do
+        divorce = described_class.new(divorce_info_v2)
+        expect(divorce.divorce_state).to eq('FL')
+      end
+    end
+
+    context 'when divorce occurred outside the US' do
+      let(:divorce_info_outside_us) do
+        divorce_info_v2.merge(
+          'divorce_location' => {
+            'outside_usa' => true,
+            'location' => {
+              'state' => 'NA',
+              'city' => 'Toronto',
+              'country' => 'Canada'
+            }
+          }
+        )
+      end
+
+      it 'returns nil for the state' do
+        divorce = described_class.new(divorce_info_outside_us)
+        expect(divorce.divorce_state).to be_nil
+      end
+    end
+
+    context 'when divorce location is missing' do
+      let(:divorce_info_no_location) do
+        divorce_info_v2.except('divorce_location')
+      end
+
+      it 'returns nil for the state' do
+        divorce = described_class.new(divorce_info_no_location)
+        expect(divorce.divorce_state).to be_nil
+      end
+    end
+  end
 end

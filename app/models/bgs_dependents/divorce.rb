@@ -8,7 +8,7 @@ module BGSDependents
 
     def format_info
       {
-        divorce_state: @divorce_info.dig('divorce_location', 'location', 'state'),
+        divorce_state:,
         divorce_city: @divorce_info.dig('divorce_location', 'location', 'city'),
         divorce_country: @divorce_info.dig('divorce_location', 'location', 'country'),
         marriage_termination_type_code: @divorce_info['reason_marriage_ended'],
@@ -27,6 +27,17 @@ module BGSDependents
       else
         @divorce_info['spouse_income']
       end
+    end
+
+    # The BGS API expects the state to be nil if the divorce occurred outside the US,
+    # so we check the 'outside_usa' flag in the location data.
+    # FE should pass nil for state in this case, but this is a safeguard
+    #
+    # @return [String, nil] The state where the divorce occurred, or nil if it occurred outside the US.
+    def divorce_state
+      return if @divorce_info.dig('divorce_location', 'outside_usa')
+
+      @divorce_info.dig('divorce_location', 'location', 'state')
     end
   end
 end
