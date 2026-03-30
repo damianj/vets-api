@@ -527,10 +527,6 @@ features:
     actor_type: user
     description: Uses local_bgs rather than bgs-ext
     enable_in_development: true
-  claims_api_poa_uploads_bd_refactor:
-    actor_type: user
-    description: When enabled, sends poa forms to BD via the refactored logic
-    enable_in_development: true
   claims_api_526_validations_v1_local_bgs:
     actor_type: user
     description: Enables the method calls in the v1 526 validations use local_bgs
@@ -542,10 +538,6 @@ features:
   claims_api_use_update_poa_relationship:
     actor_type: user
     description: Uses local_bgs rather than bgs-ext
-    enable_in_development: true
-  claims_api_526_v2_uploads_bd_refactor:
-    actor_type: user
-    description: When enabled, sends 526 forms to BD via the refactored logic
     enable_in_development: true
   claims_api_add_document_uuid_to_claim:
     actor_type: user
