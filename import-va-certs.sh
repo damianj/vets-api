@@ -37,18 +37,15 @@ set -euo pipefail
     )
 
     echo "Downloading VA certificates..."
-    va_cert_paths=$(curl -s http://aia.pki.va.gov/PKI/AIA/VA/ \
-        | grep -oP '(?<=href=")[^"]+VA[^"]+\.cer' || true)
-
-    if [ -z "$va_cert_paths" ]; then
-        echo "⚠ Warning: No VA cert URLs found in directory listing"
-    else
-        while read -r path; do
-            filename=$(basename "$path")
-            curl -sS -o "$filename" "http://aia.pki.va.gov${path}"
-            echo "✓ Downloaded $filename"
-        done <<< "$va_cert_paths"
-    fi
+    wget \
+        --level=1 \
+        --quiet \
+        --recursive \
+        --no-parent \
+        --no-host-directories \
+        --no-directories \
+        --accept="VA*.cer" \
+        http://aia.pki.va.gov/PKI/AIA/VA/
 
     # Check if any certificate files exist before processing
     shopt -s nullglob
