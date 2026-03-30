@@ -2485,6 +2485,9 @@ features:
       Use referring_provider_npi from CCRA for EPS provider lookups.
       Default is treating_provider_npi (root level). Falls back to nested provider_npi if selected NPI is blank.
       Primary care flag takes priority if both are enabled.
+  vba_documents_enable_kafka_tracking:
+    actor_type: user
+    description: Enables Kafka event tracking for 21P-527EZ uploads
   vba_documents_virus_scan:
     actor_type: user
     description: ClamAV virus scanning for Benefits Intake API upload submissions
