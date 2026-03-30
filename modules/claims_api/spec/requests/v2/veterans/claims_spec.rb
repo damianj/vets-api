@@ -10,10 +10,10 @@ require 'bgs_service/tracked_item_service'
 require 'concerns/claims_api/v2/claims_requests/supporting_documents'
 
 RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
-  let(:veteran_id) { '1013062086V794840' }
-  let(:file_number) { '796111863' }
+  let(:veteran_id) { '1012667169V030190' }
+  let(:file_number) { '796378782' }
   let(:claimant_on_behalf_of_veteran_id) { '8675309' }
-  let(:claim_id) { '600131328' }
+  let(:claim_id) { '600397218' }
   let(:all_claims_path) { "/services/claims/v2/veterans/#{veteran_id}/claims" }
   let(:claim_by_id_path) { "/services/claims/v2/veterans/#{veteran_id}/claims/#{claim_id}" }
   let(:claim_by_id_with_claimant_path) do
@@ -50,16 +50,16 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
   end
   let(:target_veteran) do
     OpenStruct.new(
-      icn: '1013062086V794840',
-      first_name: 'abraham',
-      last_name: 'lincoln',
+      icn: '1012667169V030190',
+      first_name: 'Ralph',
+      last_name: 'Lee',
       loa: { current: 3, highest: 3 },
-      ssn: '796111863',
-      edipi: '8040545646',
-      participant_id: '600061742',
+      ssn: '796378782',
+      edipi: nil,
+      participant_id: '600045025',
       mpi: OpenStruct.new(
-        icn: '1013062086V794840',
-        profile: OpenStruct.new(ssn: '796111863')
+        icn: '1012667169V030190',
+        profile: OpenStruct.new(ssn: '796378782')
       )
     )
   end
@@ -557,7 +557,7 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
               get all_claims_path, headers: auth_header
 
               json_response = JSON.parse(response.body)
-              expect(response).to have_http_status(:unprocessable_entity)
+              expect(response).to have_http_status(:unprocessable_content)
               expect(json_response['errors'][0]['detail']).to eq(
                 "Unable to locate Veteran's Participant ID in Master Person Index (MPI). " \
                 'Please submit an issue at ask.va.gov or call 1-800-MyVA411 (800-698-2411) for assistance.'
@@ -578,7 +578,7 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
           mock_ccg(scopes) do |auth_header|
             VCR.use_cassette('claims_api/bgs/tracked_items/find_tracked_items') do
               VCR.use_cassette('claims_api/evss/documents/get_claim_documents') do
-                bgs_claim_response[:benefit_claim_details_dto][:ptcpnt_vet_id] = '600061742'
+                bgs_claim_response[:benefit_claim_details_dto][:ptcpnt_vet_id] = '600045025'
                 expect_any_instance_of(bnft_claim_web_service)
                   .to receive(:find_benefit_claim_details_by_benefit_claim_id).and_return(bgs_claim_response)
                 expect(ClaimsApi::AutoEstablishedClaim)
@@ -662,21 +662,23 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
 
       it 'uses BD when it should', vcr: 'claims_api/v2/claims_show' do
         allow(Flipper).to receive(:enabled?).with(:lighthouse_claims_api_use_birls_id).and_return false
-        lh_claim = create(:auto_established_claim, status: 'PENDING', veteran_icn: veteran_id,
-                                                   evss_id: '111111111')
+        allow_any_instance_of(ClaimsApi::PersonWebService)
+          .to receive(:find_by_ssn).and_return({ file_nbr: '796378782' })
+        lh_claim = create(:auto_established_claim, status: 'PENDING', veteran_icn: '1012667169V030190',
+                                                   evss_id: '600397218')
         mock_ccg(scopes) do |auth_header|
-          expect_any_instance_of(bnft_claim_web_service)
-            .to receive(:find_benefit_claim_details_by_benefit_claim_id).and_return(bgs_claim_response)
+          allow_any_instance_of(ClaimsApi::V2::Veterans::ClaimsController)
+            .to receive(:target_veteran).and_return(target_veteran)
           expect(ClaimsApi::AutoEstablishedClaim)
             .to receive(:get_by_id_and_icn).and_return(lh_claim)
-          expect_any_instance_of(ClaimsApi::V2::BenefitsDocuments::Service)
-            .to receive(:get_auth_token).and_return('some-value-here')
+          # To re-record VCR cassettes, comment out stub_claims_api_auth_token
+          stub_claims_api_auth_token
 
           get claim_by_id_path, headers: auth_header
           json_response = JSON.parse(response.body)
 
           expect(response).to have_http_status(:ok)
-          expect(json_response['data']['attributes']['supportingDocuments'].length).to eq(2)
+          expect(json_response['data']['attributes']['supportingDocuments'].length).to eq(1)
         end
       end
 
@@ -704,7 +706,7 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
 
         context 'when a Lighthouse claim does exist' do
           let(:lighthouse_claim) do
-            create(:auto_established_claim, status: 'PENDING', veteran_icn: '1013062086V794840',
+            create(:auto_established_claim, status: 'PENDING', veteran_icn: '1012667169V030190',
                                             evss_id: '111111111')
           end
           let(:matched_claim_veteran_path) do
@@ -734,6 +736,8 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
             it 'returns a 200' do
               mock_ccg(scopes) do |auth_header|
                 VCR.use_cassette('claims_api/bgs/tracked_items/find_tracked_items') do
+                  expect(ClaimsApi::AutoEstablishedClaim)
+                    .to receive(:get_by_id_and_icn).and_return(lighthouse_claim)
                   expect_any_instance_of(bnft_claim_web_service)
                     .to receive(:find_benefit_claim_details_by_benefit_claim_id).and_return(bgs_claim)
 
@@ -752,6 +756,8 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
               it "provides a value for 'lighthouseId', but 'claimId' will be 'nil'" do
                 mock_ccg(scopes) do |auth_header|
                   VCR.use_cassette('claims_api/bgs/tracked_items/find_tracked_items') do
+                    expect(ClaimsApi::AutoEstablishedClaim)
+                      .to receive(:get_by_id_and_icn).and_return(lighthouse_claim)
                     expect_any_instance_of(bnft_claim_web_service)
                       .to receive(:find_benefit_claim_details_by_benefit_claim_id).and_return(bgs_claim)
 
@@ -1260,10 +1266,10 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
               VCR.use_cassette('claims_api/v2/claims_show') do
                 allow_any_instance_of(ClaimsApi::V2::ClaimsRequests::SupportingDocuments).to receive(
                   :get_file_number
-                ).and_return(file_number)
+                ).and_return('796378782')
 
-                expect_any_instance_of(ClaimsApi::V2::BenefitsDocuments::Service)
-                  .to receive(:get_auth_token).and_return('some-value-here')
+                # To re-record VCR cassettes, comment out stub_claims_api_auth_token
+                stub_claims_api_auth_token
                 expect(ClaimsApi::AutoEstablishedClaim)
                   .to receive(:get_by_id_and_icn).and_return(nil)
 
@@ -1275,7 +1281,7 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
                 expect(response).to have_http_status(:ok)
                 expect(json_response).to be_an_instance_of(Hash)
                 expect(json_response['data']['attributes']['claimType']).to eq('Compensation')
-                expect(first_doc_id).to eq('6A40E389-EB12-473C-8C23-D1D6C996C544')
+                expect(first_doc_id).to eq('{6A40E389-EB12-473C-8C23-D1D6C996C544}')
               end
             end
           end
@@ -1287,9 +1293,9 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
               VCR.use_cassette('claims_api/v2/claims_show') do
                 allow_any_instance_of(ClaimsApi::V2::ClaimsRequests::SupportingDocuments).to receive(
                   :get_file_number
-                ).and_return(file_number)
-                expect_any_instance_of(ClaimsApi::V2::BenefitsDocuments::Service)
-                  .to receive(:get_auth_token).and_return('some-value-here')
+                ).and_return('796378782')
+                # To re-record VCR cassettes, comment out stub_claims_api_auth_token
+                stub_claims_api_auth_token
                 expect(ClaimsApi::AutoEstablishedClaim)
                   .to receive(:get_by_id_and_icn).and_return(nil)
 
@@ -1298,6 +1304,30 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
                 json_response = JSON.parse(response.body)
                 first_doc = json_response['data']['attributes'].dig('supportingDocuments', 0)
                 expect(first_doc['uploadDateTime']).to eq('2023-04-14T13:55:00Z')
+              end
+            end
+          end
+        end
+
+        context 'documentUuid field on supporting docs' do
+          it 'includes the documentUuid for each document' do
+            mock_ccg(scopes) do |auth_header|
+              VCR.use_cassette('claims_api/v2/claims_show') do
+                allow_any_instance_of(ClaimsApi::V2::ClaimsRequests::SupportingDocuments).to receive(
+                  :get_file_number
+                ).and_return('796378782')
+                # To re-record VCR cassettes, comment out stub_claims_api_auth_token
+                stub_claims_api_auth_token
+                expect(ClaimsApi::AutoEstablishedClaim)
+                  .to receive(:get_by_id_and_icn).and_return(nil)
+
+                get claim_by_id_path, headers: auth_header
+
+                json_response = JSON.parse(response.body)
+                supporting_docs = json_response['data']['attributes']['supportingDocuments']
+                expect(supporting_docs.length).to eq(1)
+                expect(supporting_docs[0]).to have_key('documentUuid')
+                expect(supporting_docs[0]['documentUuid']).to eq('{29421740-dc43-4634-be42-17dfabf3502e}')
               end
             end
           end
@@ -1332,7 +1362,7 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
 
         context 'it has no bgs_claim' do
           let(:lighthouse_claim) do
-            create(:auto_established_claim, status: 'PENDING', veteran_icn: '1013062086V794840',
+            create(:auto_established_claim, status: 'PENDING', veteran_icn: '1012667169V030190',
                                             evss_id: '111111111')
           end
           let(:matched_claim_veteran_path) do
@@ -1343,6 +1373,8 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
           it "returns a claim with 'supporting_documents' as an empty array" do
             mock_ccg(scopes) do |auth_header|
               VCR.use_cassette('claims_api/bgs/tracked_items/find_tracked_items') do
+                expect(ClaimsApi::AutoEstablishedClaim)
+                  .to receive(:get_by_id_and_icn).and_return(lighthouse_claim)
                 expect_any_instance_of(bnft_claim_web_service)
                   .to receive(:find_benefit_claim_details_by_benefit_claim_id).and_return(bgs_claim)
 
@@ -1362,7 +1394,7 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
             create(
               :auto_established_claim,
               :errored,
-              source: 'abraham lincoln',
+              source: 'Ralph Lee',
               veteran_icn: veteran_id,
               evss_response: [
                 {
@@ -1378,6 +1410,9 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
           it "returns a claim with the 'errors' attribute populated" do
             mock_ccg(scopes) do |auth_header|
               VCR.use_cassette('claims_api/evss/claims/claims') do
+                expect(ClaimsApi::AutoEstablishedClaim)
+                  .to receive(:get_by_id_and_icn).and_return(claim)
+
                 get claim_by_id_path, headers: auth_header
 
                 json_response = JSON.parse(response.body)
@@ -1487,7 +1522,7 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
 
         context 'it has no bgs_claim' do
           let(:lighthouse_claim) do
-            create(:auto_established_claim, status: 'PENDING', veteran_icn: '1013062086V794840',
+            create(:auto_established_claim, status: 'PENDING', veteran_icn: '1012667169V030190',
                                             evss_id: '111111111')
           end
           let(:matched_claim_veteran_path) do
@@ -1498,6 +1533,8 @@ RSpec.describe 'ClaimsApi::V2::Veterans::Claims', type: :request do
           it "returns a claim with 'tracked_items' as an empty array" do
             mock_ccg(scopes) do |auth_header|
               VCR.use_cassette('claims_api/bgs/tracked_items/find_tracked_items') do
+                expect(ClaimsApi::AutoEstablishedClaim)
+                  .to receive(:get_by_id_and_icn).and_return(lighthouse_claim)
                 expect_any_instance_of(bnft_claim_web_service)
                   .to receive(:find_benefit_claim_details_by_benefit_claim_id).and_return(bgs_claim)
 
