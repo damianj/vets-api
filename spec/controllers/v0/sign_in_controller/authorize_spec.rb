@@ -46,8 +46,7 @@ RSpec.describe V0::SignInController, '#authorize', type: :controller do
     before { allow(Rails.logger).to receive(:info) }
 
     shared_examples 'api based error response' do
-      let(:expected_error_json) { { 'errors' => expected_error } }
-      let(:expected_error_status) { :bad_request }
+      let(:expected_error_status) { :ok }
       let(:statsd_auth_failure) { SignIn::Constants::Statsd::STATSD_SIS_AUTHORIZE_FAILURE }
       let(:expected_error_log) { '[SignInService] [V0::SignInController] authorize error' }
       let(:expected_error_message) do
@@ -57,9 +56,23 @@ RSpec.describe V0::SignInController, '#authorize', type: :controller do
           acr: acr_value,
           operation: operation_value }
       end
+      let(:error_code) { SignIn::Constants::ErrorCode::INVALID_REQUEST }
+      let(:request_id) { SecureRandom.uuid }
 
-      it 'renders expected error' do
-        expect(JSON.parse(subject.body)).to eq(expected_error_json)
+      before do
+        allow_any_instance_of(ActionController::TestRequest).to receive(:request_id).and_return(request_id)
+      end
+
+      it 'renders the error page HTML' do
+        expect(subject.body).to include("We can't sign you in")
+      end
+
+      it 'includes the error code in the rendered page' do
+        expect(subject.body).to include(error_code)
+      end
+
+      it 'includes the request id in the rendered page' do
+        expect(subject.body).to include(request_id)
       end
 
       it 'returns expected status' do

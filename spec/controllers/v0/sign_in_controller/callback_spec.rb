@@ -45,8 +45,7 @@ RSpec.describe V0::SignInController, '#callback', type: :controller do
     end
 
     shared_examples 'api based error response' do
-      let(:expected_error_json) { { 'errors' => expected_error } }
-      let(:expected_error_status) { :bad_request }
+      let(:expected_error_status) { :ok }
       let(:statsd_tags) do
         ["type:#{type}",
          "client_id:#{client_id}",
@@ -58,9 +57,23 @@ RSpec.describe V0::SignInController, '#callback', type: :controller do
       let(:expected_error_message) do
         { errors: expected_error, client_id:, type:, acr:, operation: }
       end
+      let(:error_code) { SignIn::Constants::ErrorCode::INVALID_REQUEST }
+      let(:request_id) { SecureRandom.uuid }
 
-      it 'renders expected error' do
-        expect(JSON.parse(subject.body)).to eq(expected_error_json)
+      before do
+        allow_any_instance_of(ActionController::TestRequest).to receive(:request_id).and_return(request_id)
+      end
+
+      it 'renders the error page HTML' do
+        expect(subject.body).to include("We can't sign you in")
+      end
+
+      it 'includes the error code in the rendered page' do
+        expect(subject.body).to include(error_code)
+      end
+
+      it 'includes the request id in the rendered page' do
+        expect(subject.body).to include(request_id)
       end
 
       it 'returns expected status' do

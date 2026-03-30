@@ -260,14 +260,19 @@ module V0
     end
 
     def handle_pre_login_error(error, client_id)
+      error_code = error.try(:code) || SignIn::Constants::ErrorCode::INVALID_REQUEST
+      request_id = request.request_id
+
       if cookie_authentication?(client_id)
-        error_code = error.try(:code) || SignIn::Constants::ErrorCode::INVALID_REQUEST
-        params_hash = { auth: 'fail', code: error_code, request_id: request.request_id }
+        params_hash = { auth: 'fail', code: error_code, request_id:  }
         render body: SignIn::RedirectUrlGenerator.new(redirect_uri: client_config(client_id).redirect_uri,
                                                       params_hash:).perform,
                content_type: 'text/html'
       else
-        render json: { errors: error }, status: :bad_request
+        redirect_uri = client_config(client_id)&.logout_redirect_uri
+
+        render body: SignIn::ErrorPageRenderer.new(error_code:, request_id:, redirect_uri:).perform,
+               content_type: 'text/html'
       end
     end
 
