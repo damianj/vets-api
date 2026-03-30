@@ -127,10 +127,10 @@ properties:
                     type: float
                   transactionTotalAmount:
                     type: float
-            receivableId:
-              type: string
+            rcvblId:
+              type: integer
               nullable: true
-              example: '123456789'
+              example: 123456789
   meta:
     type: object
     additionalProperties: false

@@ -15746,10 +15746,10 @@
                         }
                       }
                     },
-                    "receivableId": {
-                      "type": "string",
+                    "rcvblId": {
+                      "type": "integer",
                       "nullable": true,
-                      "example": "123456789"
+                      "example": 123456789
                     }
                   }
                 }
@@ -15960,10 +15960,10 @@
                       }
                     }
                   },
-                  "receivableId": {
-                    "type": "string",
+                  "rcvblId": {
+                    "type": "integer",
                     "nullable": true,
-                    "example": "123456789"
+                    "example": 123456789
                   }
                 }
               }

@@ -23,7 +23,7 @@ module Mobile
         attribute :description, Types::String
       end
       attribute :fiscal_transaction_data, Types::Array
-      attribute :receivable_id, Types::String
+      attribute :rcvbl_id, Types::Integer
     end
   end
 end
