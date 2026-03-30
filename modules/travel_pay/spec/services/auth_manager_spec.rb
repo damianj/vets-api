@@ -8,12 +8,13 @@ describe TravelPay::AuthManager do
     let(:user_verification) { create(:user_verification, user_account:) }
     let(:idme_uuid) { user_verification.idme_uuid }
     let!(:user) { create(:user, :loa3, user_account:, user_verification:, idme_uuid:) }
-    let(:tokens) do
-      {
+    let(:auth_session) do
+      TravelPay::AuthSession.new(
         veis_token: 'fake_veis_token',
         btsss_token: 'fake_btsss_token'
-      }
+      )
     end
+    let(:tokens) { { veis_token: 'fake_veis_token', btsss_token: 'fake_btsss_token' } }
     let(:cached_tokens) do
       {
         user_account_id: user.user_account_uuid,
@@ -32,12 +33,9 @@ describe TravelPay::AuthManager do
         client_number = 123
 
         allow_any_instance_of(TravelPay::TokenClient)
-          .to receive(:request_veis_token)
-          .and_return(tokens[:veis_token])
-        allow_any_instance_of(TravelPay::TokenClient)
-          .to receive(:request_btsss_token)
-          .with(tokens[:veis_token], user)
-          .and_return(tokens[:btsss_token])
+          .to receive(:authorized_user_session)
+          .with(user)
+          .and_return(auth_session)
 
         service = TravelPay::AuthManager.new(client_number, user)
         response = service.authorize
@@ -45,7 +43,6 @@ describe TravelPay::AuthManager do
         # Verify that the tokens were stored
         expect($redis.ttl("travel-pay-store:#{user.user_account_uuid}")).to eq(3300)
         saved_tokens = $redis.get("travel-pay-store:#{user.user_account_uuid}")
-        # The Oj.load method is normally handled by the RedisStore
         Oj.load(saved_tokens) => { veis_token:, btsss_token: }
         destructured_tokens = { veis_token:, btsss_token: }
         expect(destructured_tokens).to eq(tokens)

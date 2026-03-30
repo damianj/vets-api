@@ -21,6 +21,25 @@ describe TravelPay::TokenClient do
     allow(StatsD).to receive(:measure)
   end
 
+  context 'authorized_user_session' do
+    it 'returns an AuthSession with veis and btsss tokens' do
+      allow_any_instance_of(TravelPay::TokenClient)
+        .to receive(:request_veis_token)
+        .and_return('fake_veis_token')
+      allow_any_instance_of(TravelPay::TokenClient)
+        .to receive(:request_btsss_token)
+        .with('fake_veis_token', user)
+        .and_return('fake_btsss_token')
+
+      token_client = TravelPay::TokenClient.new(123)
+      auth_session = token_client.authorized_user_session(user)
+
+      expect(auth_session).to be_a(TravelPay::AuthSession)
+      expect(auth_session.veis_token).to eq('fake_veis_token')
+      expect(auth_session.btsss_token).to eq('fake_btsss_token')
+    end
+  end
+
   context 'request_veis_token' do
     it 'returns veis token from proper endpoint' do
       tenant_id = Settings.travel_pay.veis.tenant_id

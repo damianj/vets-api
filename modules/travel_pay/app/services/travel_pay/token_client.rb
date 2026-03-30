@@ -10,6 +10,16 @@ module TravelPay
       @client_number = client_number
     end
 
+    def authorized_user_session(user)
+      veis_token = request_veis_token
+      btsss_token = request_btsss_token(veis_token, user)
+
+      TravelPay::AuthSession.new(
+        veis_token:,
+        btsss_token:
+      )
+    end
+
     # HTTP POST call to the VEIS Auth endpoint to get the access token
     #
     # @return [Faraday::Response]
