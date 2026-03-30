@@ -6,6 +6,7 @@ describe TravelPay::DocumentsService do
   let(:user) { build(:user) }
   let(:client) { instance_double(TravelPay::DocumentsClient) }
   let(:auth_manager) { instance_double(TravelPay::AuthManager) }
+  let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
   let(:service) { described_class.new(auth_manager) }
   let(:doc_summary_data) do
     double(body: { 'data' => [{
@@ -29,8 +30,7 @@ describe TravelPay::DocumentsService do
 
   before do
     allow_any_instance_of(TravelPay::DocumentsClient).to receive(:get_document_binary).and_return(doc_binary_data)
-    allow(auth_manager).to receive_messages(authorize: { veis_token: 'veis_token',
-                                                         btsss_token: 'btsss_token' })
+    allow(auth_manager).to receive_messages(authorize: auth_session)
   end
 
   describe '#get_document_summaries' do
@@ -39,8 +39,7 @@ describe TravelPay::DocumentsService do
     end
 
     it 'calls the client to get document IDs' do
-      expect_any_instance_of(TravelPay::DocumentsClient).to receive(:get_document_ids).with('veis_token',
-                                                                                            'btsss_token', 'claim_id')
+      expect_any_instance_of(TravelPay::DocumentsClient).to receive(:get_document_ids).with(auth_session, 'claim_id')
       service.get_document_summaries('claim_id')
     end
   end
@@ -52,8 +51,7 @@ describe TravelPay::DocumentsService do
 
     it 'calls the client to get document binary' do
       params = { claim_id: 'claim_id', doc_id: 'doc_id' }
-      expect_any_instance_of(TravelPay::DocumentsClient).to receive(:get_document_binary).with('veis_token',
-                                                                                               'btsss_token', params)
+      expect_any_instance_of(TravelPay::DocumentsClient).to receive(:get_document_binary).with(auth_session, params)
       service.download_document(*params.values)
     end
 
@@ -85,8 +83,7 @@ describe TravelPay::DocumentsService do
 
     it 'calls the client to upload the document' do
       expect_any_instance_of(TravelPay::DocumentsClient).to receive(:add_document).with(
-        'veis_token',
-        'btsss_token',
+        auth_session,
         hash_including(claim_id:, document: file)
       )
       service.upload_document(claim_id, file)
@@ -153,8 +150,7 @@ describe TravelPay::DocumentsService do
 
     it 'calls the client to delete the document' do
       expect_any_instance_of(TravelPay::DocumentsClient).to receive(:delete_document).with(
-        'veis_token',
-        'btsss_token',
+        auth_session,
         hash_including(claim_id:, document_id: doc_id)
       )
       service.delete_document(claim_id, doc_id)

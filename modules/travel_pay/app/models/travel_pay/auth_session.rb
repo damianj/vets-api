@@ -7,9 +7,5 @@ module TravelPay
 
     attribute :veis_token, :string
     attribute :btsss_token, :string
-
-    def to_hash
-      { veis_token:, btsss_token: }
-    end
   end
 end

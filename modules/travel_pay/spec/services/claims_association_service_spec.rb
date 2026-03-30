@@ -116,12 +116,12 @@ describe TravelPay::ClaimAssociationService do
 
     let(:expected_uuids) { %w[uuid1] }
 
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
 
     before do
       allow_any_instance_of(TravelPay::AuthManager)
         .to receive(:authorize)
-        .and_return(tokens)
+        .and_return(auth_session)
       allow(Settings.travel_pay).to receive_messages(client_number: '12345', mobile_client_number: '56789')
     end
 
@@ -341,12 +341,12 @@ describe TravelPay::ClaimAssociationService do
       }
     end
 
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
 
     before do
       allow(TravelPay::AuthManager)
         .to receive(:new)
-        .and_return(double('AuthManager', authorize: tokens))
+        .and_return(double('AuthManager', authorize: auth_session))
       allow(Settings.travel_pay).to receive_messages(client_number: '12345', mobile_client_number: '56789')
     end
 
@@ -502,12 +502,12 @@ describe TravelPay::ClaimAssociationService do
       )
     end
 
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
 
     before do
       allow_any_instance_of(TravelPay::AuthManager)
         .to receive(:authorize)
-        .and_return(tokens)
+        .and_return(auth_session)
       allow(Settings.travel_pay).to receive_messages(client_number: '12345', mobile_client_number: '56789')
     end
 

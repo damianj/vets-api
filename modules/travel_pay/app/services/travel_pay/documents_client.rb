@@ -15,14 +15,14 @@ module TravelPay
     #
     # @return [TravelPay::DocumentSummary]
     #
-    def get_document_ids(veis_token, btsss_token, claim_id)
+    def get_document_ids(auth_session, claim_id)
       btsss_url = Settings.travel_pay.base_url
       correlation_id = SecureRandom.uuid
       Rails.logger.info(message: 'Correlation ID', correlation_id:)
       log_to_statsd('documents', 'get_document_ids') do
         connection(server_url: btsss_url).get("api/v2/claims/#{claim_id}/documents") do |req|
-          req.headers['Authorization'] = "Bearer #{veis_token}"
-          req.headers['BTSSS-Access-Token'] = btsss_token
+          req.headers['Authorization'] = "Bearer #{auth_session.veis_token}"
+          req.headers['BTSSS-Access-Token'] = auth_session.btsss_token
           req.headers['X-Correlation-ID'] = correlation_id
           req.headers.merge!(claim_headers)
         end
@@ -35,15 +35,15 @@ module TravelPay
     #
     # @return [TravelPay::DocumentBinary]
     #
-    def get_document_binary(veis_token, btsss_token, params)
+    def get_document_binary(auth_session, params)
       btsss_url = Settings.travel_pay.base_url
       correlation_id = SecureRandom.uuid
       params.symbolize_keys => { claim_id:, doc_id: }
       Rails.logger.debug(message: 'Correlation ID', correlation_id:)
       log_to_statsd('documents', 'get_document_binary') do
         connection(server_url: btsss_url).get("api/v2/claims/#{claim_id}/documents/#{doc_id}") do |req|
-          req.headers['Authorization'] = "Bearer #{veis_token}"
-          req.headers['BTSSS-Access-Token'] = btsss_token
+          req.headers['Authorization'] = "Bearer #{auth_session.veis_token}"
+          req.headers['BTSSS-Access-Token'] = auth_session.btsss_token
           req.headers['X-Correlation-ID'] = correlation_id
           req.headers.merge!(claim_headers)
         end
@@ -57,7 +57,7 @@ module TravelPay
     #
     # @return [TravelPay::DocumentId]
     #
-    def add_document(veis_token, btsss_token, params = {})
+    def add_document(auth_session, params = {})
       btsss_url = Settings.travel_pay.base_url
       correlation_id = SecureRandom.uuid
 
@@ -70,8 +70,8 @@ module TravelPay
       log_to_statsd('documents', 'add_document') do
         connection(server_url: btsss_url, multipart: true)
           .post("api/v3/claims/#{claim_id}/documents/form-data") do |req|
-            req.headers['Authorization'] = "Bearer #{veis_token}"
-            req.headers['BTSSS-Access-Token'] = btsss_token
+            req.headers['Authorization'] = "Bearer #{auth_session.veis_token}"
+            req.headers['BTSSS-Access-Token'] = auth_session.btsss_token
             req.headers['X-Correlation-ID'] = correlation_id
             # Remove the content-type from the claim_headers so that we dont override the multipart/form-data header
             req.headers.merge!(claim_headers.except('Content-Type'))
@@ -93,15 +93,15 @@ module TravelPay
     # @return [TravelPay::DocumentId]
     #
     # brakeman:skip all
-    def delete_document(veis_token, btsss_token, params = {})
+    def delete_document(auth_session, params = {})
       btsss_url = Settings.travel_pay.base_url
       correlation_id = SecureRandom.uuid
       params.symbolize_keys => { claim_id:, document_id: }
       Rails.logger.debug(message: 'Correlation ID', correlation_id:)
       log_to_statsd('documents', 'delete_document') do
         connection(server_url: btsss_url).delete("api/v1/claims/#{claim_id}/documents/#{document_id}") do |req|
-          req.headers['Authorization'] = "Bearer #{veis_token}"
-          req.headers['BTSSS-Access-Token'] = btsss_token
+          req.headers['Authorization'] = "Bearer #{auth_session.veis_token}"
+          req.headers['BTSSS-Access-Token'] = auth_session.btsss_token
           req.headers['X-Correlation-ID'] = correlation_id
           req.headers.merge!(claim_headers)
         end

@@ -14,8 +14,8 @@ module TravelPay
     DEFAULT_PAGE_NUMBER = 1
 
     def get_claims(params)
-      @auth_manager.authorize => { veis_token:, btsss_token: }
-      faraday_response = client.get_claims(veis_token, btsss_token, {
+      auth_session = @auth_manager.authorize
+      faraday_response = client.get_claims(auth_session, {
                                              page_size: params['page_size'] || DEFAULT_PAGE_SIZE,
                                              page_number: params['page_number'] || DEFAULT_PAGE_NUMBER
                                            })
@@ -42,9 +42,9 @@ module TravelPay
         page_number: params['page_number'] || DEFAULT_PAGE_NUMBER
       }.merge!(date_range)
 
-      @auth_manager.authorize => { veis_token:, btsss_token: }
+      auth_session = @auth_manager.authorize
       start_time = Time.current
-      all_claims = loop_and_paginate_claims(loop_params, veis_token, btsss_token)
+      all_claims = loop_and_paginate_claims(loop_params, auth_session)
       elapsed_time = Time.current - start_time
       Rails.logger.info(message: "Looped through #{all_claims[:data].size} claims in #{elapsed_time} seconds.")
 
@@ -59,10 +59,10 @@ module TravelPay
         raise ArgumentError, e.errors.first.detail
       end
 
-      @auth_manager.authorize => { veis_token:, btsss_token: }
-      claim_response = client.get_claim_by_id(veis_token, btsss_token, claim_id)
+      auth_session = @auth_manager.authorize
+      claim_response = client.get_claim_by_id(auth_session, claim_id)
 
-      documents = get_document_summaries(veis_token, btsss_token, claim_id)
+      documents = get_document_summaries(auth_session, claim_id)
 
       claim = claim_response.body['data']
 
@@ -94,8 +94,8 @@ module TravelPay
               message: "Expected BTSSS appointment id to be a valid UUID, got #{params['btsss_appt_id']}."
       end
 
-      @auth_manager.authorize => { veis_token:, btsss_token: }
-      new_claim_response = client.create_claim(veis_token, btsss_token, params)
+      auth_session = @auth_manager.authorize
+      new_claim_response = client.create_claim(auth_session, params)
 
       new_claim_response.body['data']
     end
@@ -113,8 +113,8 @@ module TravelPay
               message: 'Expected BTSSS claim id to be a valid UUID'
       end
 
-      @auth_manager.authorize => { veis_token:, btsss_token: }
-      submitted_claim_response = client.submit_claim(veis_token, btsss_token, claim_id)
+      auth_session = @auth_manager.authorize
+      submitted_claim_response = client.submit_claim(auth_session, claim_id)
 
       submitted_claim_response.body['data']
     end
@@ -164,11 +164,11 @@ module TravelPay
       date_range
     end
 
-    def get_document_summaries(veis_token, btsss_token, claim_id)
+    def get_document_summaries(auth_session, claim_id)
       documents = []
       if include_documents?
         begin
-          documents_response = documents_client.get_document_ids(veis_token, btsss_token, claim_id)
+          documents_response = documents_client.get_document_ids(auth_session, claim_id)
           documents = documents_response.body['data'] || []
         rescue => e
           Rails.logger.error(message:
@@ -209,13 +209,13 @@ module TravelPay
       nil
     end
 
-    def loop_and_paginate_claims(params, veis_token, btsss_token)
+    def loop_and_paginate_claims(params, auth_session)
       page_number = params[:page_number]
       all_claims = []
       total_record_count = 0
 
       client_params = params.deep_dup
-      faraday_response = client.get_claims_by_date(veis_token, btsss_token, client_params)
+      faraday_response = client.get_claims_by_date(auth_session, client_params)
       total_record_count = faraday_response.body['totalRecordCount']
       all_claims.concat(faraday_response.body['data'].deep_dup)
 
@@ -223,7 +223,7 @@ module TravelPay
         page_number += 1
 
         client_params[:page_number] = page_number
-        faraday_response = client.get_claims_by_date(veis_token, btsss_token, client_params)
+        faraday_response = client.get_claims_by_date(auth_session, client_params)
 
         all_claims.concat(faraday_response.body['data'])
       end

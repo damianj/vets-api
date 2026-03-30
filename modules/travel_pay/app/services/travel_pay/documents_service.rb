@@ -7,8 +7,8 @@ module TravelPay
     end
 
     def get_document_summaries(claim_id)
-      @auth_manager.authorize => { veis_token:, btsss_token: }
-      documents_response = client.get_document_ids(veis_token, btsss_token, claim_id)
+      auth_session = @auth_manager.authorize
+      documents_response = client.get_document_ids(auth_session, claim_id)
       documents_response.body['data']
     end
 
@@ -19,9 +19,9 @@ module TravelPay
       end
 
       params = { claim_id:, doc_id: }
-      @auth_manager.authorize => { veis_token:, btsss_token: }
+      auth_session = @auth_manager.authorize
 
-      response = client.get_document_binary(veis_token, btsss_token, params)
+      response = client.get_document_binary(auth_session, params)
 
       {
         body: response.body,
@@ -43,9 +43,9 @@ module TravelPay
       validate_document_size!(document)
 
       params = { claim_id:, document: }
-      @auth_manager.authorize => { veis_token:, btsss_token: }
+      auth_session = @auth_manager.authorize
 
-      documents_response = client.add_document(veis_token, btsss_token, params)
+      documents_response = client.add_document(auth_session, params)
 
       documents_response.body['data']
     end
@@ -59,9 +59,9 @@ module TravelPay
       end
 
       params = { claim_id:, document_id: }
-      @auth_manager.authorize => { veis_token:, btsss_token: }
+      auth_session = @auth_manager.authorize
 
-      documents_response = client.delete_document(veis_token, btsss_token, params)
+      documents_response = client.delete_document(auth_session, params)
 
       documents_response.body['data']
     end

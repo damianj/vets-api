@@ -21,7 +21,7 @@ RSpec.describe TravelPay::V0::ClaimsController, type: :request do
       end
 
       let(:tokens) do
-        { veis_token: 'veis_token', btsss_token: 'btsss_token' }
+        TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token')
       end
 
       it 'responds with 200 when no params passed in' do
@@ -149,7 +149,7 @@ RSpec.describe TravelPay::V0::ClaimsController, type: :request do
 
     it 'returns a successfully submitted claim response' do
       allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-        .and_return({ veis_token: 'vt', btsss_token: 'bt' })
+        .and_return(TravelPay::AuthSession.new(veis_token: 'vt', btsss_token: 'bt'))
 
       VCR.use_cassette('travel_pay/submit/success', match_requests_on: %i[method path]) do
         headers = { 'Authorization' => 'Bearer vagov_token' }
@@ -165,7 +165,7 @@ RSpec.describe TravelPay::V0::ClaimsController, type: :request do
 
     it 'returns a BadRequest response if an invalid appointment date time is given' do
       allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-        .and_return({ veis_token: 'vt', btsss_token: 'bt' })
+        .and_return(TravelPay::AuthSession.new(veis_token: 'vt', btsss_token: 'bt'))
 
       VCR.use_cassette('travel_pay/submit/success', match_requests_on: %i[method path]) do
         headers = { 'Authorization' => 'Bearer vagov_token' }
@@ -182,7 +182,7 @@ RSpec.describe TravelPay::V0::ClaimsController, type: :request do
 
     it 'returns a server error response if a request to the Travel Pay API fails' do
       allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-        .and_return({ veis_token: 'vt', btsss_token: 'bt' })
+        .and_return(TravelPay::AuthSession.new(veis_token: 'vt', btsss_token: 'bt'))
       allow_any_instance_of(TravelPay::ClaimsService).to receive(:submit_claim)
         .and_raise(Common::Exceptions::InternalServerError.new(Faraday::ServerError.new))
 
@@ -207,7 +207,7 @@ RSpec.describe TravelPay::V0::ClaimsController, type: :request do
     ].each do |status_code, expected_status|
       it "maps upstream #{status_code} error to #{expected_status}" do
         allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
+          .and_return(TravelPay::AuthSession.new(veis_token: 'vt', btsss_token: 'bt'))
         error_response = { status: status_code, body: { 'message' => 'upstream error' } }
         allow_any_instance_of(TravelPay::ClaimsService).to receive(:submit_claim)
           .and_raise(Faraday::ServerError.new(nil, error_response))

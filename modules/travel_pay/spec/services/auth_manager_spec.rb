@@ -14,7 +14,8 @@ describe TravelPay::AuthManager do
         btsss_token: 'fake_btsss_token'
       )
     end
-    let(:tokens) { { veis_token: 'fake_veis_token', btsss_token: 'fake_btsss_token' } }
+    let(:expected_veis_token) { 'fake_veis_token' }
+    let(:expected_btsss_token) { 'fake_btsss_token' }
     let(:cached_tokens) do
       {
         user_account_id: user.user_account_uuid,
@@ -29,7 +30,7 @@ describe TravelPay::AuthManager do
     end
 
     context 'authorize' do
-      it 'returns a hash with a veis_token and a btsss_token and stores it in the cache' do
+      it 'returns an AuthSession with a veis_token and a btsss_token and stores it in the cache' do
         client_number = 123
 
         allow_any_instance_of(TravelPay::TokenClient)
@@ -39,13 +40,15 @@ describe TravelPay::AuthManager do
 
         service = TravelPay::AuthManager.new(client_number, user)
         response = service.authorize
-        expect(response).to eq(tokens)
+        expect(response).to be_a(TravelPay::AuthSession)
+        expect(response.veis_token).to eq(expected_veis_token)
+        expect(response.btsss_token).to eq(expected_btsss_token)
         # Verify that the tokens were stored
         expect($redis.ttl("travel-pay-store:#{user.user_account_uuid}")).to eq(3300)
         saved_tokens = $redis.get("travel-pay-store:#{user.user_account_uuid}")
         Oj.load(saved_tokens) => { veis_token:, btsss_token: }
-        destructured_tokens = { veis_token:, btsss_token: }
-        expect(destructured_tokens).to eq(tokens)
+        expect(veis_token).to eq(expected_veis_token)
+        expect(btsss_token).to eq(expected_btsss_token)
       end
     end
 
@@ -58,10 +61,9 @@ describe TravelPay::AuthManager do
         client_number = 123
         service = TravelPay::AuthManager.new(client_number, user)
         response = service.authorize
-        cached_tokens = Oj.load($redis.get("travel-pay-store:#{user.user_account_uuid}"))
-        destructured_cached_tokens = { veis_token: cached_tokens[:veis_token],
-                                       btsss_token: cached_tokens[:btsss_token] }
-        expect(response).to eq(destructured_cached_tokens)
+        expect(response).to be_a(TravelPay::AuthSession)
+        expect(response.veis_token).to eq('cached_veis_token')
+        expect(response.btsss_token).to eq('cached_btsss_token')
       end
     end
   end

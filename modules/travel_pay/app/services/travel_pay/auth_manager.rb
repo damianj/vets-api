@@ -8,14 +8,14 @@ module TravelPay
     end
 
     #
-    # returns a hash containing the veis_token & btsss_token
+    # returns an AuthSession containing the veis_token & btsss_token
     #
     def authorize
       cached = TravelPayStore.find(@user.user_account_uuid)
       if cached
         Rails.logger.info('BTSSS tokens retrieved from cache',
                           { request_id: RequestStore.store['request_id'] })
-        TravelPay::AuthSession.new(veis_token: cached.veis_token, btsss_token: cached.btsss_token).to_hash
+        TravelPay::AuthSession.new(veis_token: cached.veis_token, btsss_token: cached.btsss_token)
       else
         Rails.logger.info('BTSSS tokens not cached, requesting new tokens',
                           { request_id: RequestStore.store['request_id'] })
@@ -35,7 +35,7 @@ module TravelPay
         save_tokens!(@user.user_account_uuid, auth_session)
         Rails.logger.info('BTSSS tokens saved to cache',
                           { request_id: RequestStore.store['request_id'] })
-        auth_session.to_hash
+        auth_session
       end
     end
 

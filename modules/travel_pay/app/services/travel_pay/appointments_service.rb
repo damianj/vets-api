@@ -28,8 +28,8 @@ module TravelPay
     #
     #
     def get_appointment_by_date_time(params = {})
-      @auth_manager.authorize => { veis_token:, btsss_token: }
-      faraday_response = client.get_all_appointments(veis_token, btsss_token, { 'excludeWithClaims' => true })
+      auth_session = @auth_manager.authorize
+      faraday_response = client.get_all_appointments(auth_session, { 'excludeWithClaims' => true })
       raw_appointments = faraday_response.body['data'].deep_dup
       appointment = find_by_date_time(params['appt_datetime'], raw_appointments)
 
@@ -61,12 +61,12 @@ module TravelPay
         # Ensure the date is valid
         DateUtils.try_parse_date(params['appointment_date_time'])
 
-        @auth_manager.authorize => { veis_token:, btsss_token: }
+        auth_session = @auth_manager.authorize
 
         # Use feature flag to determine API version
         use_v4_api = !!(@auth_manager.user && Flipper.enabled?(:travel_pay_appt_add_v4_upgrade, @auth_manager.user))
 
-        faraday_response = client.find_or_create(veis_token, btsss_token, params, use_v4_api:)
+        faraday_response = client.find_or_create(auth_session, params, use_v4_api:)
         appointments = faraday_response.body['data']
 
         {

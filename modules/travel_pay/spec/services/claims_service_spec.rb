@@ -61,8 +61,8 @@ describe TravelPay::ClaimsService do
       )
     end
 
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
-    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: tokens) }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
+    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session) }
     let(:service) { TravelPay::ClaimsService.new(auth_manager, user) }
 
     before do
@@ -82,8 +82,7 @@ describe TravelPay::ClaimsService do
 
     it 'passes default params' do
       expected_statuses = ['In progress', 'In progress', 'Incomplete', 'Claim submitted']
-      expect_any_instance_of(TravelPay::ClaimsClient).to receive(:get_claims).with(tokens[:veis_token],
-                                                                                   tokens[:btsss_token],
+      expect_any_instance_of(TravelPay::ClaimsClient).to receive(:get_claims).with(auth_session,
                                                                                    { page_size: 50, page_number: 1 })
       claims = service.get_claims({})
       actual_statuses = claims[:data].pluck('claimStatus')
@@ -93,8 +92,7 @@ describe TravelPay::ClaimsService do
 
     it 'passes params that were given' do
       expected_statuses = ['In progress', 'In progress', 'Incomplete', 'Claim submitted']
-      expect_any_instance_of(TravelPay::ClaimsClient).to receive(:get_claims).with(tokens[:veis_token],
-                                                                                   tokens[:btsss_token],
+      expect_any_instance_of(TravelPay::ClaimsClient).to receive(:get_claims).with(auth_session,
                                                                                    { page_size: 10, page_number: 2 })
       claims = service.get_claims({ 'page_size' => 10, 'page_number' => 2 })
       actual_statuses = claims[:data].pluck('claimStatus')
@@ -190,8 +188,8 @@ describe TravelPay::ClaimsService do
       )
     end
 
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
-    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: tokens) }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
+    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session) }
     let(:service) { TravelPay::ClaimsService.new(auth_manager, user) }
 
     before do
@@ -486,8 +484,8 @@ describe TravelPay::ClaimsService do
       )
     end
 
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
-    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: tokens) }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
+    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session) }
     let(:service) { TravelPay::ClaimsService.new(auth_manager, user) }
 
     before do
@@ -499,7 +497,7 @@ describe TravelPay::ClaimsService do
       expected_ids = %w[uuid1 uuid2 uuid3]
       allow_any_instance_of(TravelPay::ClaimsClient)
         .to receive(:get_claims_by_date)
-        .with(tokens[:veis_token], tokens[:btsss_token], {
+        .with(auth_session, {
                 start_date: '2024-01-01T16:45:34Z',
                 end_date: '2024-03-01T16:45:34Z',
                 page_size: 1,
@@ -508,7 +506,7 @@ describe TravelPay::ClaimsService do
         .and_return(claims_by_date_response1)
       allow_any_instance_of(TravelPay::ClaimsClient)
         .to receive(:get_claims_by_date)
-        .with(tokens[:veis_token], tokens[:btsss_token], {
+        .with(auth_session, {
                 start_date: '2024-01-01T16:45:34Z',
                 end_date: '2024-03-01T16:45:34Z',
                 page_size: 1,
@@ -517,7 +515,7 @@ describe TravelPay::ClaimsService do
         .and_return(claims_by_date_response2)
       allow_any_instance_of(TravelPay::ClaimsClient)
         .to receive(:get_claims_by_date)
-        .with(tokens[:veis_token], tokens[:btsss_token], {
+        .with(auth_session, {
                 start_date: '2024-01-01T16:45:34Z',
                 end_date: '2024-03-01T16:45:34Z',
                 page_size: 1,
@@ -550,7 +548,7 @@ describe TravelPay::ClaimsService do
 
       expect_any_instance_of(TravelPay::ClaimsClient)
         .to receive(:get_claims_by_date)
-        .with(tokens[:veis_token], tokens[:btsss_token], {
+        .with(auth_session, {
                 start_date: '2024-01-01T00:00:00Z',
                 end_date: '2024-04-01T00:00:00Z',
                 page_size: 50,
@@ -619,7 +617,7 @@ describe TravelPay::ClaimsService do
     it 'raises an exception if error and no claims returned' do
       allow_any_instance_of(TravelPay::ClaimsClient)
         .to receive(:get_claims_by_date)
-        .with(tokens[:veis_token], tokens[:btsss_token], {
+        .with(auth_session, {
                 start_date: '2024-01-01T16:45:34Z',
                 end_date: '2024-03-01T16:45:34Z',
                 page_size: 1,
@@ -652,7 +650,7 @@ describe TravelPay::ClaimsService do
     it 'returns partial success if some claims returned' do
       allow_any_instance_of(TravelPay::ClaimsClient)
         .to receive(:get_claims_by_date)
-        .with(tokens[:veis_token], tokens[:btsss_token], {
+        .with(auth_session, {
                 start_date: '2024-01-01T16:45:34Z',
                 end_date: '2024-03-01T16:45:34Z',
                 page_size: 1,
@@ -661,7 +659,7 @@ describe TravelPay::ClaimsService do
         .and_return(claims_by_date_response1)
       allow_any_instance_of(TravelPay::ClaimsClient)
         .to receive(:get_claims_by_date)
-        .with(tokens[:veis_token], tokens[:btsss_token], {
+        .with(auth_session, {
                 start_date: '2024-01-01T16:45:34Z',
                 end_date: '2024-03-01T16:45:34Z',
                 page_size: 1,
@@ -713,16 +711,16 @@ describe TravelPay::ClaimsService do
       )
     end
 
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
-    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: tokens) }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
+    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session) }
     let(:service) { TravelPay::ClaimsService.new(auth_manager, user) }
 
     it 'returns a claim ID when passed a valid btsss appt id' do
       btsss_appt_id = '73611905-71bf-46ed-b1ec-e790593b8565'
       allow_any_instance_of(TravelPay::ClaimsClient)
         .to receive(:create_claim)
-        .with(tokens[:veis_token], tokens[:btsss_token], { 'btsss_appt_id' => btsss_appt_id,
-                                                           'claim_name' => 'SMOC claim' })
+        .with(auth_session, { 'btsss_appt_id' => btsss_appt_id,
+                              'claim_name' => 'SMOC claim' })
         .and_return(new_claim_response)
 
       actual_claim_response = service.create_new_claim({
@@ -752,8 +750,8 @@ describe TravelPay::ClaimsService do
       )
     end
 
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
-    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: tokens) }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
+    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session) }
     let(:service) { TravelPay::ClaimsService.new(auth_manager, user) }
 
     it 'returns submitted claim information' do
@@ -779,8 +777,8 @@ describe TravelPay::ClaimsService do
 
   context 'decision letter functionality' do
     let(:user) { build(:user) }
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
-    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: tokens) }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
+    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session) }
     let(:service) { TravelPay::ClaimsService.new(auth_manager, user) }
 
     describe '#find_decision_letter_document' do

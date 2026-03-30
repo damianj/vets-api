@@ -4,6 +4,7 @@ require 'rails_helper'
 
 describe TravelPay::ClaimsClient do
   let(:user) { build(:user) }
+  let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
 
   expected_log_prefix = 'travel_pay.claims.response_time'
 
@@ -88,7 +89,7 @@ describe TravelPay::ClaimsClient do
       expected_ids = %w[uuid1 uuid2 uuid3]
 
       client = TravelPay::ClaimsClient.new
-      claims_response = client.get_claims('veis_token', 'btsss_token', {
+      claims_response = client.get_claims(auth_session, {
                                             page_number: 1,
                                             page_size: 50
                                           })
@@ -156,7 +157,7 @@ describe TravelPay::ClaimsClient do
       expected_id = 'uuid1'
 
       client = TravelPay::ClaimsClient.new
-      claims_response = client.get_claim_by_id('veis_token', 'btsss_token', 'uuid1')
+      claims_response = client.get_claim_by_id(auth_session, 'uuid1')
       actual_claim = claims_response.body['data']
 
       expect(StatsD).to have_received(:measure)
@@ -206,7 +207,7 @@ describe TravelPay::ClaimsClient do
       expected = %w[uuid1 uuid3]
 
       client = TravelPay::ClaimsClient.new
-      claims_response = client.get_claims_by_date('veis_token', 'btsss_token',
+      claims_response = client.get_claims_by_date(auth_session,
                                                   { start_date: '2024-01-01T16:45:34.465Z',
                                                     end_date: '2024-02-01T16:45:34.465Z',
                                                     page_number: 1,
@@ -241,7 +242,7 @@ describe TravelPay::ClaimsClient do
       end
 
       client = TravelPay::ClaimsClient.new
-      new_claim_response = client.create_claim('veis_token', 'btsss_token', body)
+      new_claim_response = client.create_claim(auth_session, body)
       actual_claim_id = new_claim_response.body['data']['claimId']
 
       expect(StatsD).to have_received(:measure)
@@ -258,7 +259,7 @@ describe TravelPay::ClaimsClient do
       expect_any_instance_of(Faraday::Connection).to receive(:patch).with("api/v2/claims/#{claim_id}/submit")
 
       client = TravelPay::ClaimsClient.new
-      client.submit_claim('veis_token', 'btsss_token', claim_id)
+      client.submit_claim(auth_session, claim_id)
       expect(StatsD).to have_received(:measure)
         .with(expected_log_prefix,
               kind_of(Numeric),

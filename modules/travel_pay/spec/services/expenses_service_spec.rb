@@ -19,11 +19,11 @@ describe TravelPay::ExpensesService do
     )
   end
 
-  let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
+  let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
 
   describe 'create_expense' do
     before do
-      auth_manager = object_double(TravelPay::AuthManager.new(123, user), authorize: tokens, user:)
+      auth_manager = object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session, user:)
       @expenses_client = instance_double(TravelPay::ExpensesClient)
       @service = TravelPay::ExpensesService.new(auth_manager)
     end
@@ -54,7 +54,7 @@ describe TravelPay::ExpensesService do
 
         allow_any_instance_of(TravelPay::ExpensesClient)
           .to receive(:add_expense)
-          .with(tokens[:veis_token], tokens[:btsss_token], 'lodging', expected_request_body)
+          .with(auth_session, 'lodging', expected_request_body)
           .and_return(general_expense_response)
 
         result = @service.create_expense(params)
@@ -80,7 +80,7 @@ describe TravelPay::ExpensesService do
 
         allow_any_instance_of(TravelPay::ExpensesClient)
           .to receive(:add_expense)
-          .with(tokens[:veis_token], tokens[:btsss_token], 'meal', expected_request_body)
+          .with(auth_session, 'meal', expected_request_body)
           .and_return(general_expense_response)
 
         result = @service.create_expense(params)
@@ -106,7 +106,7 @@ describe TravelPay::ExpensesService do
 
         allow_any_instance_of(TravelPay::ExpensesClient)
           .to receive(:add_expense)
-          .with(tokens[:veis_token], tokens[:btsss_token], 'other', expected_request_body)
+          .with(auth_session, 'other', expected_request_body)
           .and_return(general_expense_response)
 
         result = @service.create_expense(params)
@@ -154,7 +154,7 @@ describe TravelPay::ExpensesService do
   end
 
   context 'get_expense method' do
-    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: tokens) }
+    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session) }
     let(:service) { TravelPay::ExpensesService.new(auth_manager) }
     let(:expense_id) { SecureRandom.uuid }
     let(:get_expense_data) do
@@ -176,7 +176,7 @@ describe TravelPay::ExpensesService do
     it 'returns expense details when passed valid expense type and ID' do
       allow_any_instance_of(TravelPay::ExpensesClient)
         .to receive(:get_expense)
-        .with(tokens[:veis_token], tokens[:btsss_token], 'other', expense_id)
+        .with(auth_session, 'other', expense_id)
         .and_return(get_expense_response)
 
       result = service.get_expense('other', expense_id)
@@ -227,7 +227,7 @@ describe TravelPay::ExpensesService do
 
       allow_any_instance_of(TravelPay::ExpensesClient)
         .to receive(:get_expense)
-        .with(tokens[:veis_token], tokens[:btsss_token], 'other', expense_id)
+        .with(auth_session, 'other', expense_id)
         .and_return(parking_expense_response)
 
       result = service.get_expense('other', expense_id)
@@ -251,7 +251,7 @@ describe TravelPay::ExpensesService do
 
       allow_any_instance_of(TravelPay::ExpensesClient)
         .to receive(:get_expense)
-        .with(tokens[:veis_token], tokens[:btsss_token], 'mileage', expense_id)
+        .with(auth_session, 'mileage', expense_id)
         .and_return(expense_with_name_response)
 
       result = service.get_expense('mileage', expense_id)
@@ -275,7 +275,7 @@ describe TravelPay::ExpensesService do
 
       allow_any_instance_of(TravelPay::ExpensesClient)
         .to receive(:get_expense)
-        .with(tokens[:veis_token], tokens[:btsss_token], 'other', expense_id)
+        .with(auth_session, 'other', expense_id)
         .and_return(expense_blank_name_response)
 
       result = service.get_expense('other', expense_id)
@@ -302,7 +302,7 @@ describe TravelPay::ExpensesService do
 
       allow_any_instance_of(TravelPay::ExpensesClient)
         .to receive(:get_expense)
-        .with(tokens[:veis_token], tokens[:btsss_token], 'commoncarrier', expense_id)
+        .with(auth_session, 'commoncarrier', expense_id)
         .and_return(response)
 
       result = service.get_expense('commoncarrier', expense_id)
@@ -316,7 +316,7 @@ describe TravelPay::ExpensesService do
   end
 
   describe 'add_mileage_expense method' do
-    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: tokens) }
+    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session) }
     let(:service) { TravelPay::ExpensesService.new(auth_manager) }
 
     it 'returns an expense ID when passed a valid claim id and appointment date' do
@@ -327,7 +327,7 @@ describe TravelPay::ExpensesService do
 
       allow_any_instance_of(TravelPay::ExpensesClient)
         .to receive(:add_mileage_expense)
-        .with(tokens[:veis_token], tokens[:btsss_token], params)
+        .with(auth_session, params)
         .and_return(add_expense_response)
 
       actual_new_expense_response = service.add_expense(params)
@@ -341,7 +341,7 @@ describe TravelPay::ExpensesService do
 
       allow_any_instance_of(TravelPay::ExpensesClient)
         .to receive(:add_mileage_expense)
-        .with(tokens[:veis_token], tokens[:btsss_token], params)
+        .with(auth_session, params)
         .and_return(add_expense_response)
 
       actual_new_expense_response = service.add_expense(params)
@@ -359,7 +359,7 @@ describe TravelPay::ExpensesService do
   end
 
   describe '#update_expense' do
-    let(:auth_manager) { instance_double(TravelPay::AuthManager, authorize: { veis_token: 'veis_token', btsss_token: 'btsss_token' }, user:) }
+    let(:auth_manager) { instance_double(TravelPay::AuthManager, authorize: TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token'), user:) }
     let(:params) do
       {
         'expense_type' => 'lodging',
@@ -391,7 +391,7 @@ describe TravelPay::ExpensesService do
       result = service.update_expense(expense_id, expense_type, params)
 
       expect(client_double).to have_received(:update_expense)
-        .with('veis_token', 'btsss_token', expense_id, expense_type, expected_request_body)
+        .with(kind_of(TravelPay::AuthSession), expense_id, expense_type, expected_request_body)
       expect(result).to eq({ 'id' => expense_id })
     end
 
@@ -403,7 +403,7 @@ describe TravelPay::ExpensesService do
 
       result = service.update_expense(expense_id, expense_type, partial_params)
       expect(client_double).to have_received(:update_expense)
-        .with('veis_token', 'btsss_token', expense_id, expense_type, partial_request_body)
+        .with(kind_of(TravelPay::AuthSession), expense_id, expense_type, partial_request_body)
       expect(result).to eq({ 'id' => expense_id })
     end
 
@@ -424,7 +424,7 @@ describe TravelPay::ExpensesService do
   end
 
   describe '#delete_expense' do
-    let(:auth_manager) { instance_double(TravelPay::AuthManager, authorize: { veis_token: 'veis_token', btsss_token: 'btsss_token' }, user:) }
+    let(:auth_manager) { instance_double(TravelPay::AuthManager, authorize: TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token'), user:) }
     let(:service) { described_class.new(auth_manager) }
     let(:client_double) { instance_double(TravelPay::ExpensesClient) }
     let(:expense_id) { '123e4567-e89b-12d3-a456-426614174000' }
@@ -440,7 +440,7 @@ describe TravelPay::ExpensesService do
       result = service.delete_expense(expense_id:, expense_type:)
 
       expect(client_double).to have_received(:delete_expense)
-        .with('veis_token', 'btsss_token', expense_id, expense_type)
+        .with(kind_of(TravelPay::AuthSession), expense_id, expense_type)
       expect(result).to eq({ 'id' => expense_id })
     end
 
@@ -456,7 +456,7 @@ describe TravelPay::ExpensesService do
   end
 
   describe '#build_expense_request_body (private method)' do
-    let(:auth_manager) { instance_double(TravelPay::AuthManager, authorize: { veis_token: 'veis_token', btsss_token: 'btsss_token' }, user:) }
+    let(:auth_manager) { instance_double(TravelPay::AuthManager, authorize: TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token'), user:) }
     let(:service) { described_class.new(auth_manager) }
 
     # Access private method for testing

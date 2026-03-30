@@ -5,7 +5,7 @@ require 'rails_helper'
 describe TravelPay::AppointmentsClient do
   let(:user) { build(:user) }
 
-  let(:tokens) { %w[veis_token btsss_token] }
+  let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
 
   let(:data) do
     [
@@ -106,7 +106,7 @@ describe TravelPay::AppointmentsClient do
       expected_ids = %w[uuid1 uuid2 uuid3]
 
       client = TravelPay::AppointmentsClient.new
-      appts_response = client.get_all_appointments(*tokens, { 'excludeWithClaims' => true })
+      appts_response = client.get_all_appointments(auth_session, { 'excludeWithClaims' => true })
       actual_appt_ids = appts_response.body['data'].pluck('id')
 
       expect(StatsD).to have_received(:measure)
@@ -130,7 +130,7 @@ describe TravelPay::AppointmentsClient do
       expected_ids = %w[uuid1 uuid2 uuid3]
 
       client = TravelPay::AppointmentsClient.new
-      appts_response = client.get_all_appointments(*tokens)
+      appts_response = client.get_all_appointments(auth_session)
       actual_appt_ids = appts_response.body['data'].pluck('id')
 
       expect(StatsD).to have_received(:measure)
@@ -187,7 +187,7 @@ describe TravelPay::AppointmentsClient do
         end
 
         client = TravelPay::AppointmentsClient.new
-        response = client.find_or_create(*tokens, appointment_params, use_v4_api: false)
+        response = client.find_or_create(auth_session, appointment_params, use_v4_api: false)
 
         expect(response.body['data']).to eq(expected_response_data)
         expect(StatsD).to have_received(:measure)
@@ -210,7 +210,7 @@ describe TravelPay::AppointmentsClient do
         end
 
         client = TravelPay::AppointmentsClient.new
-        response = client.find_or_create(*tokens, appointment_params, use_v4_api: true)
+        response = client.find_or_create(auth_session, appointment_params, use_v4_api: true)
 
         expect(response.body['data']).to eq(expected_response_data)
         expect(StatsD).to have_received(:measure)
@@ -233,7 +233,7 @@ describe TravelPay::AppointmentsClient do
         end
 
         client = TravelPay::AppointmentsClient.new
-        response = client.find_or_create(*tokens, appointment_params)
+        response = client.find_or_create(auth_session, appointment_params)
 
         expect(response.body['data']).to eq(expected_response_data)
         expect(StatsD).to have_received(:measure)

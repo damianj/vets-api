@@ -16,8 +16,9 @@ RSpec.describe TravelPay::V0::ComplexClaimsController, type: :request do
   let(:claim_id) { '3fa85f64-5717-4562-b3fc-2c963f66afa6' }
 
   before do
-    allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize).and_return({ veis_token: 'veis_token',
-                                                                                      btsss_token: 'btsss_token' })
+    allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
+      .and_return(TravelPay::AuthSession.new(veis_token: 'veis_token',
+                                             btsss_token: 'btsss_token'))
     sign_in(user)
     allow_any_instance_of(TravelPay::V0::ComplexClaimsController).to receive(:current_user).and_return(user)
   end
