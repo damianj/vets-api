@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_03_18_225401) do
+ActiveRecord::Schema[7.2].define(version: 2026_03_29_193215) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gin"
   enable_extension "fuzzystrmatch"
@@ -531,6 +531,15 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_18_225401) do
     t.text "encrypted_kms_key", comment: "KMS key used to encrypt the reference data"
     t.boolean "needs_kms_rotation", default: false, null: false
     t.index ["needs_kms_rotation"], name: "index_bpds_submissions_on_needs_kms_rotation"
+  end
+
+  create_table "cave_submissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.bigint "saved_claim_id"
+    t.string "cave_response_ciphertext"
+    t.text "encrypted_kms_key"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["saved_claim_id"], name: "index_cave_submissions_on_saved_claim_id"
   end
 
   create_table "central_mail_submissions", id: :serial, force: :cascade do |t|
