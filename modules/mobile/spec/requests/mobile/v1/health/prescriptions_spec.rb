@@ -21,7 +21,8 @@ RSpec.describe 'Mobile::V1::Health::Prescriptions', type: :request do
     sign_in_as(user)
     allow(Flipper).to receive(:enabled?).with(:mhv_medications_cerner_pilot, anything).and_return(true)
     # Freeze today so service default_end_date is deterministic for VCR cassettes
-    allow(Time.zone).to receive(:today).and_return(Date.new(2025, 9, 19))
+    allow(Time.zone).to receive(:today).and_return(Date.new(2026, 3, 25))
+    allow(UniqueUserEvents).to receive(:log_event)
   end
 
   describe 'GET /mobile/v1/health/rx/prescriptions' do
@@ -247,7 +248,6 @@ RSpec.describe 'Mobile::V1::Health::Prescriptions', type: :request do
               status_count = response.parsed_body['meta']['prescriptionStatusCount']
               expect(status_count).to be_a(Hash)
 
-              # Verify the structure includes expected keys
               expected_keys = %w[isRefillable active]
               expected_keys.each do |key|
                 expect(status_count).to have_key(key)

@@ -2,6 +2,7 @@
 
 require 'rails_helper'
 require 'unified_health_data/adapters/oracle_health_tracking_helper'
+require 'unified_health_data/adapters/oracle_health_prescription_adapter'
 require 'unified_health_data/adapters/fhir_helpers'
 
 # Test class that includes the tracking helper for testing
@@ -15,9 +16,8 @@ class TrackingHelperTestClass
   end
 
   def extract_prescription_number(resource)
-    identifiers = resource['identifier'] || []
-    prescription_id = identifiers.find { |id| id['system']&.include?('prescription') }
-    prescription_id ? prescription_id['value'] : 'DEFAULT-RX-001'
+    @adapter ||= UnifiedHealthData::Adapters::OracleHealthPrescriptionAdapter.new
+    @adapter.send(:extract_prescription_number, resource)
   end
 
   def extract_ndc_number(dispense)
@@ -111,7 +111,8 @@ describe UnifiedHealthData::Adapters::OracleHealthTrackingHelper do
               ]
             },
             'identifier' => [
-              { 'system' => 'http://example.com/prescription', 'value' => 'TEST-001' }
+              { 'system' => 'http://va.gov/identifier/rx-number', 'value' => '12345678' },
+              { 'system' => 'http://va.gov/identifier/station-prefix', 'value' => '3001' }
             ],
             'contained' => [
               {
@@ -138,7 +139,7 @@ describe UnifiedHealthData::Adapters::OracleHealthTrackingHelper do
           tracking = result.first
           expect(tracking[:tracking_number]).to eq('9999888877776666')
           expect(tracking[:prescription_name]).to eq('Test Medication')
-          expect(tracking[:prescription_number]).to eq('TEST-001')
+          expect(tracking[:prescription_number]).to eq('3001-12345678')
           expect(tracking[:ndc_number]).to eq('11111-2222-33')
         end
       end

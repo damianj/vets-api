@@ -499,10 +499,33 @@ module UnifiedHealthData
       end
 
       def extract_prescription_number(resource)
-        # Look for identifier with prescription number
         identifiers = resource['identifier'] || []
-        prescription_id = identifiers.find { |id| id['system']&.include?('prescription') }
-        prescription_id ? prescription_id['value'] : nil
+        rx_number = identifiers.find { |id| id['system'] == 'http://va.gov/identifier/rx-number' }&.dig('value')
+        station_prefix = identifiers.find do |id|
+          id['system'] == 'http://va.gov/identifier/station-prefix'
+        end&.dig('value')
+        missing_station_prefix = station_prefix.blank?
+        missing_rx_number = rx_number.blank?
+        if missing_station_prefix || missing_rx_number
+          log_missing_prescription_identifiers(resource, station_prefix, missing_station_prefix, missing_rx_number)
+          return nil
+        end
+
+        "#{station_prefix}-#{rx_number}"
+      end
+
+      def log_missing_prescription_identifiers(resource, station_prefix, missing_station_prefix, missing_rx_number)
+        log_payload = {
+          prescription_id_suffix: resource['id']&.to_s&.last(6),
+          station_prefix: station_prefix.presence,
+          missing_station_prefix:,
+          missing_rx_number:
+        }
+        if missing_station_prefix && missing_rx_number
+          Rails.logger.debug('Oracle Health prescription missing both identifiers', **log_payload)
+        else
+          Rails.logger.warn('Oracle Health prescription missing identifier', **log_payload)
+        end
       end
 
       def extract_prescription_name(resource)
