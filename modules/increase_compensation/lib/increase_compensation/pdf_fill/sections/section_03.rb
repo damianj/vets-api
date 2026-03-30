@@ -62,6 +62,7 @@ module IncreaseCompensation
         'occupationDuringMostEarnings' => {
           question_num: 17,
           question_suffix: 'C',
+          question_text: 'Occupation During That Year?',
           limit: 27,
           key: 'form1[0].#subform[0].Occupation_During_That_Year[0]'
         },
