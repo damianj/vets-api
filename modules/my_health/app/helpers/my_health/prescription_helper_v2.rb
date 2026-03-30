@@ -127,7 +127,7 @@ module MyHealth
 
       def get_sorted_dispensed_date(med)
         return extract_last_refill_date(med) if med.respond_to?(:dispenses) && med.dispenses.present?
-        return med.sorted_dispensed_date if med.respond_to?(:sorted_dispensed_date)
+        return med.sorted_dispensed_date&.to_date if med.respond_to?(:sorted_dispensed_date)
 
         med.dispensed_date&.to_date
       end
