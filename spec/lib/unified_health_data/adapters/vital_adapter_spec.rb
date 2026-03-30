@@ -363,4 +363,98 @@ RSpec.describe 'VitalAdapter' do
       end
     end
   end
+
+  describe 'entered-in-error filtering' do
+    let(:user) { build(:user, :loa3, icn: '1000123456V123456') }
+    let(:adapter_with_user) { UnifiedHealthData::Adapters::VitalAdapter.new(user:) }
+
+    let(:normal_record) do
+      {
+        'resource' => {
+          'resourceType' => 'Observation',
+          'id' => 'normal-vital',
+          'status' => 'final',
+          'code' => { 'coding' => [{ 'code' => '29463-7' }], 'text' => 'Weight' },
+          'valueQuantity' => { 'value' => 180, 'unit' => 'lb_av' }
+        }
+      }
+    end
+
+    let(:entered_in_error_record) do
+      {
+        'resource' => {
+          'resourceType' => 'Observation',
+          'id' => 'error-vital',
+          'status' => 'entered-in-error',
+          'code' => { 'coding' => [{ 'code' => '29463-7' }], 'text' => 'Weight' },
+          'valueQuantity' => { 'value' => 999, 'unit' => 'lb_av' }
+        }
+      }
+    end
+
+    before do
+      allow(Flipper).to receive(:enabled?).and_return(false)
+    end
+
+    it 'filters out records with entered-in-error status' do
+      result = adapter_with_user.parse([entered_in_error_record])
+      expect(result).to be_empty
+    end
+
+    it 'keeps records with non-error status' do
+      result = adapter_with_user.parse([normal_record])
+      expect(result.length).to eq(1)
+    end
+
+    it 'filters entered-in-error but keeps normal records in mixed list' do
+      result = adapter_with_user.parse([normal_record, entered_in_error_record])
+      expect(result.length).to eq(1)
+      expect(result.first.id).to eq('normal-vital')
+    end
+
+    context 'diagnostic logging for filtered records' do
+      before do
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_vitals_diagnostic, user)
+          .and_return(true)
+        allow(StatsD).to receive(:increment)
+      end
+
+      it 'logs diagnostic message when a vital is filtered' do
+        expect(Rails.logger).to receive(:info).with(
+          hash_including(
+            service: 'medical_records',
+            resource: 'vitals',
+            action: 'filter',
+            record_id: 'error-vital',
+            status: 'entered-in-error',
+            reason: 'entered_in_error',
+            log_level_context: 'diagnostic'
+          )
+        )
+
+        adapter_with_user.parse([entered_in_error_record])
+      end
+
+      it 'increments StatsD counter when a vital is filtered' do
+        adapter_with_user.parse([entered_in_error_record])
+
+        expect(StatsD).to have_received(:increment).with(
+          'unified_health_data.vital.filtered_observation',
+          tags: ['reason:entered_in_error']
+        )
+      end
+
+      it 'does not log or increment when no records are filtered' do
+        expect(Rails.logger).not_to receive(:info).with(
+          hash_including(resource: 'vitals', action: 'filter')
+        )
+        expect(StatsD).not_to receive(:increment).with(
+          'unified_health_data.vital.filtered_observation', anything
+        )
+
+        adapter_with_user.parse([normal_record])
+      end
+    end
+  end
 end

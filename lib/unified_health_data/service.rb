@@ -17,6 +17,10 @@ require_relative 'client'
 require_relative 'source_constants'
 require_relative 'concerns/clinical_notes_logging'
 require_relative 'concerns/labs_and_tests_logging'
+require_relative 'concerns/vaccines_logging'
+require_relative 'concerns/allergies_logging'
+require_relative 'concerns/conditions_logging'
+require_relative 'concerns/vitals_logging'
 require_relative 'concerns/facility_cache_warming'
 
 module UnifiedHealthData
@@ -25,6 +29,10 @@ module UnifiedHealthData
     include Common::Client::Concerns::Monitoring
     include Concerns::ClinicalNotesLogging
     include Concerns::LabsAndTestsLogging
+    include Concerns::VaccinesLogging
+    include Concerns::AllergiesLogging
+    include Concerns::ConditionsLogging
+    include Concerns::VitalsLogging
     include Concerns::FacilityCacheWarming
 
     def initialize(user)
@@ -67,8 +75,16 @@ module UnifiedHealthData
         response = uhd_client.get_conditions_by_date(patient_id: @user.icn, start_date:, end_date:)
         body = response.body
 
+        log_conditions_raw_source_counts(body)
         combined_records = fetch_combined_records(body)
-        conditions_adapter.parse(combined_records)
+        parsed_conditions = conditions_adapter.parse(combined_records)
+        log_conditions_metrics(combined_records, parsed_conditions)
+        parsed_conditions
+      rescue Common::Exceptions::BackendServiceException,
+             Common::Client::Errors::ClientError,
+             Faraday::Error => e
+        log_conditions_error(e)
+        raise
       end
     end
 
@@ -181,9 +197,18 @@ module UnifiedHealthData
 
         response = uhd_client.get_vitals_by_date(patient_id: @user.icn, start_date:, end_date:)
         body = response.body
+
+        log_vitals_raw_source_counts(body)
         combined_records = fetch_combined_records(body)
 
-        vitals_adapter.parse(combined_records)
+        parsed_vitals = vitals_adapter.parse(combined_records)
+        log_vitals_metrics(combined_records, parsed_vitals)
+        parsed_vitals
+      rescue Common::Exceptions::BackendServiceException,
+             Common::Client::Errors::ClientError,
+             Faraday::Error => e
+        log_vitals_error(e)
+        raise
       end
     end
 
@@ -196,10 +221,18 @@ module UnifiedHealthData
         response = uhd_client.get_allergies_by_date(patient_id: @user.icn, start_date:, end_date:)
         body = response.body
 
+        log_allergies_raw_source_counts(body)
         remap_vista_identifier(body)
         combined_records = fetch_combined_records(body)
 
-        allergy_adapter.parse(combined_records)
+        parsed_allergies = allergy_adapter.parse(combined_records)
+        log_allergies_metrics(combined_records, parsed_allergies)
+        parsed_allergies
+      rescue Common::Exceptions::BackendServiceException,
+             Common::Client::Errors::ClientError,
+             Faraday::Error => e
+        log_allergies_error(e)
+        raise
       end
     end
 
@@ -230,9 +263,18 @@ module UnifiedHealthData
 
         response = uhd_client.get_immunizations_by_date(patient_id: @user.icn, start_date:, end_date:)
         body = response.body
+
+        log_vaccines_raw_source_counts(body)
         combined_records = fetch_combined_records(body)
 
-        immunization_adapter.parse(combined_records)
+        parsed_immunizations = immunization_adapter.parse(combined_records)
+        log_vaccines_metrics(combined_records, parsed_immunizations)
+        parsed_immunizations
+      rescue Common::Exceptions::BackendServiceException,
+             Common::Client::Errors::ClientError,
+             Faraday::Error => e
+        log_vaccines_error(e)
+        raise
       end
     end
 
@@ -549,7 +591,7 @@ module UnifiedHealthData
     end
 
     def allergy_adapter
-      @allergy_adapter ||= UnifiedHealthData::Adapters::AllergyAdapter.new
+      @allergy_adapter ||= UnifiedHealthData::Adapters::AllergyAdapter.new(user: @user)
     end
 
     def lab_or_test_adapter
@@ -565,15 +607,15 @@ module UnifiedHealthData
     end
 
     def conditions_adapter
-      @conditions_adapter ||= UnifiedHealthData::Adapters::ConditionsAdapter.new
+      @conditions_adapter ||= UnifiedHealthData::Adapters::ConditionsAdapter.new(user: @user)
     end
 
     def vitals_adapter
-      @vitals_adapter ||= UnifiedHealthData::Adapters::VitalAdapter.new
+      @vitals_adapter ||= UnifiedHealthData::Adapters::VitalAdapter.new(user: @user)
     end
 
     def immunization_adapter
-      @immunization_adapter ||= UnifiedHealthData::Adapters::ImmunizationAdapter.new(@user)
+      @immunization_adapter ||= UnifiedHealthData::Adapters::ImmunizationAdapter.new(user: @user)
     end
 
     def default_start_date

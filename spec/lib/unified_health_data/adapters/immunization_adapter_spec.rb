@@ -6,7 +6,7 @@ require 'unified_health_data/models/immunization'
 
 RSpec.describe 'ImmunizationAdapter' do
   let(:user) { build(:user, :loa3, icn: '1000123456V123456') }
-  let(:adapter) { UnifiedHealthData::Adapters::ImmunizationAdapter.new(user) }
+  let(:adapter) { UnifiedHealthData::Adapters::ImmunizationAdapter.new(user:) }
   let(:vaccine_sample_response) do
     JSON.parse(Rails.root.join(
       'spec', 'fixtures', 'unified_health_data', 'immunizations_sample.json'
@@ -515,6 +515,76 @@ RSpec.describe 'ImmunizationAdapter' do
         'id' => 'M20875183430'
       }
       expect(adapter.send(:extract_site, resource)).to be_nil
+    end
+  end
+
+  describe 'filter diagnostic logging' do
+    let(:completed_record) do
+      {
+        'resource' => {
+          'resourceType' => 'Immunization',
+          'id' => 'completed-vax',
+          'status' => 'completed',
+          'vaccineCode' => { 'text' => 'Flu', 'coding' => [{ 'code' => '140' }] },
+          'occurrenceDateTime' => '2024-01-15'
+        }
+      }
+    end
+
+    let(:error_record) do
+      {
+        'resource' => {
+          'resourceType' => 'Immunization',
+          'id' => 'error-vax',
+          'status' => 'entered-in-error',
+          'vaccineCode' => { 'text' => 'Flu', 'coding' => [{ 'code' => '140' }] },
+          'occurrenceDateTime' => '2024-01-15'
+        }
+      }
+    end
+
+    before do
+      allow(Flipper).to receive(:enabled?).and_return(false)
+      allow(Flipper).to receive(:enabled?)
+        .with(:mhv_medical_records_vaccines_diagnostic, user)
+        .and_return(true)
+      allow(StatsD).to receive(:increment)
+    end
+
+    it 'logs diagnostic message when an immunization is filtered' do
+      expect(Rails.logger).to receive(:info).with(
+        hash_including(
+          service: 'medical_records',
+          resource: 'vaccines',
+          action: 'filter',
+          record_id: 'error-vax',
+          status: 'entered-in-error',
+          reason: 'entered_in_error',
+          log_level_context: 'diagnostic'
+        )
+      )
+
+      adapter.parse([error_record])
+    end
+
+    it 'increments StatsD counter when an immunization is filtered' do
+      adapter.parse([error_record])
+
+      expect(StatsD).to have_received(:increment).with(
+        'unified_health_data.vaccine.filtered_immunization',
+        tags: ['reason:entered_in_error']
+      )
+    end
+
+    it 'does not log or increment for completed immunizations' do
+      expect(Rails.logger).not_to receive(:info).with(
+        hash_including(resource: 'vaccines', action: 'filter')
+      )
+      expect(StatsD).not_to receive(:increment).with(
+        'unified_health_data.vaccine.filtered_immunization', anything
+      )
+
+      adapter.parse([completed_record])
     end
   end
 end

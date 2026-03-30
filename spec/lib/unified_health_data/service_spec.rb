@@ -493,6 +493,55 @@ describe UnifiedHealthData::Service, type: :service do
         end.to raise_error(StandardError, 'Unknown fetch error')
       end
     end
+
+    context 'logging and metrics' do
+      before do
+        allow_any_instance_of(UnifiedHealthData::Client)
+          .to receive(:get_allergies_by_date)
+          .and_return(sample_client_response)
+        allow(Rails.logger).to receive(:info)
+        allow(StatsD).to receive(:gauge)
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_allergies_diagnostic, user)
+          .and_return(false)
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_diagnostic_logging, user)
+          .and_return(false)
+      end
+
+      it 'calls log_allergies_metrics when flipper enabled' do
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_allergies_diagnostic, user)
+          .and_return(true)
+
+        service.get_allergies
+
+        expect(Rails.logger).to have_received(:info).with(
+          hash_including(
+            service: 'medical_records',
+            resource: 'allergies',
+            action: 'filter',
+            log_level_context: 'diagnostic'
+          )
+        ).at_least(:once)
+      end
+
+      it 'emits StatsD gauges for allergies index' do
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_allergies_diagnostic, user)
+          .and_return(true)
+
+        service.get_allergies
+
+        expect(StatsD).to have_received(:gauge).with('api.uhd.allergies.index.total', anything)
+      end
+
+      it 'does not log diagnostic when flipper disabled' do
+        expect(Rails.logger).not_to receive(:info)
+          .with(hash_including(resource: 'allergies', action: 'filter'))
+        service.get_allergies
+      end
+    end
   end
 
   describe '#get_single_allergy' do
@@ -757,6 +806,56 @@ describe UnifiedHealthData::Service, type: :service do
           vitals = service.get_vitals
           expect(vitals.size).to eq(0)
         end
+      end
+    end
+
+    context 'logging and metrics' do
+      before do
+        allow_any_instance_of(UnifiedHealthData::Client)
+          .to receive(:get_vitals_by_date)
+          .and_return(sample_client_response)
+        allow(Rails.logger).to receive(:info)
+        allow(Rails.logger).to receive(:warn)
+        allow(StatsD).to receive(:gauge)
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_vitals_diagnostic, user)
+          .and_return(false)
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_diagnostic_logging, user)
+          .and_return(false)
+      end
+
+      it 'calls log_vitals_metrics when flipper enabled' do
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_vitals_diagnostic, user)
+          .and_return(true)
+
+        service.get_vitals
+
+        expect(Rails.logger).to have_received(:info).with(
+          hash_including(
+            service: 'medical_records',
+            resource: 'vitals',
+            action: 'filter',
+            log_level_context: 'diagnostic'
+          )
+        )
+      end
+
+      it 'emits StatsD gauges for vitals index' do
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_vitals_diagnostic, user)
+          .and_return(true)
+
+        service.get_vitals
+
+        expect(StatsD).to have_received(:gauge).with('api.uhd.vitals.index.total', anything)
+      end
+
+      it 'does not log diagnostic when flipper disabled' do
+        expect(Rails.logger).not_to receive(:info)
+          .with(hash_including(resource: 'vitals', action: 'filter'))
+        service.get_vitals
       end
     end
   end
@@ -2770,6 +2869,55 @@ describe UnifiedHealthData::Service, type: :service do
         expect(condition).to be_nil
       end
     end
+
+    context 'logging and metrics' do
+      before do
+        allow_any_instance_of(UnifiedHealthData::Client)
+          .to receive(:get_conditions_by_date)
+          .and_return(sample_client_response)
+        allow(Rails.logger).to receive(:info)
+        allow(StatsD).to receive(:gauge)
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_conditions_diagnostic, user)
+          .and_return(false)
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_diagnostic_logging, user)
+          .and_return(false)
+      end
+
+      it 'calls log_conditions_metrics when flipper enabled' do
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_conditions_diagnostic, user)
+          .and_return(true)
+
+        service.get_conditions
+
+        expect(Rails.logger).to have_received(:info).with(
+          hash_including(
+            service: 'medical_records',
+            resource: 'conditions',
+            action: 'filter',
+            log_level_context: 'diagnostic'
+          )
+        )
+      end
+
+      it 'emits StatsD gauges for conditions index' do
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_conditions_diagnostic, user)
+          .and_return(true)
+
+        service.get_conditions
+
+        expect(StatsD).to have_received(:gauge).with('api.uhd.conditions.index.total', anything)
+      end
+
+      it 'does not log diagnostic when flipper disabled' do
+        expect(Rails.logger).not_to receive(:info)
+          .with(hash_including(resource: 'conditions', action: 'filter'))
+        service.get_conditions
+      end
+    end
   end
 
   # Vaccines
@@ -2953,6 +3101,55 @@ describe UnifiedHealthData::Service, type: :service do
           vaccines = service.get_immunizations
           expect(vaccines.size).to eq(0)
         end
+      end
+    end
+
+    context 'logging and metrics' do
+      before do
+        allow_any_instance_of(UnifiedHealthData::Client)
+          .to receive(:get_immunizations_by_date)
+          .and_return(sample_client_response)
+        allow(Rails.logger).to receive(:info)
+        allow(StatsD).to receive(:gauge)
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_vaccines_diagnostic, user)
+          .and_return(false)
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_diagnostic_logging, user)
+          .and_return(false)
+      end
+
+      it 'calls log_vaccines_metrics when flipper enabled' do
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_vaccines_diagnostic, user)
+          .and_return(true)
+
+        service.get_immunizations
+
+        expect(Rails.logger).to have_received(:info).with(
+          hash_including(
+            service: 'medical_records',
+            resource: 'vaccines',
+            action: 'filter',
+            log_level_context: 'diagnostic'
+          )
+        )
+      end
+
+      it 'emits StatsD gauges for vaccines index' do
+        allow(Flipper).to receive(:enabled?)
+          .with(:mhv_medical_records_vaccines_diagnostic, user)
+          .and_return(true)
+
+        service.get_immunizations
+
+        expect(StatsD).to have_received(:gauge).with('api.uhd.vaccines.index.total', anything)
+      end
+
+      it 'does not log diagnostic when flipper disabled' do
+        expect(Rails.logger).not_to receive(:info)
+          .with(hash_including(resource: 'vaccines', action: 'filter'))
+        service.get_immunizations
       end
     end
   end

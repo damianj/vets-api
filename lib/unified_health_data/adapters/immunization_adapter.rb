@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'medical_records/medical_records_log'
 require_relative '../models/immunization'
 require_relative 'date_normalizer'
 
@@ -10,9 +11,10 @@ module UnifiedHealthData
 
       FILTERED_STATUSES = %w[entered-in-error].freeze
 
-      def initialize(user)
+      def initialize(user: nil)
         super()
         @user = user
+        @mr_log = MedicalRecords::MedicalRecordsLog.new(user:)
       end
 
       def parse(records)
@@ -20,9 +22,13 @@ module UnifiedHealthData
 
         filtered = records.select do |record|
           resource = record['resource']
-          resource &&
-            resource['resourceType'] == 'Immunization' &&
-            FILTERED_STATUSES.exclude?(resource['status'])
+          next false unless resource && resource['resourceType'] == 'Immunization'
+
+          unless FILTERED_STATUSES.exclude?(resource['status'])
+            log_filtered_immunization(resource, 'entered_in_error')
+            next false
+          end
+          true
         end
         parsed = filtered.map { |record| parse_single_immunization(record) }
         parsed.compact
@@ -264,6 +270,19 @@ module UnifiedHealthData
           display.present?
         end
         entry&.dig(:display) || entry&.dig('display')
+      end
+
+      def log_filtered_immunization(resource, reason)
+        @mr_log.diagnostic(
+          resource: MedicalRecords::MedicalRecordsLog::VACCINES,
+          action: 'filter',
+          record_id: resource['id'],
+          status: resource['status'],
+          reason:
+        )
+
+        StatsD.increment('unified_health_data.vaccine.filtered_immunization',
+                         tags: ["reason:#{reason}"])
       end
     end
   end

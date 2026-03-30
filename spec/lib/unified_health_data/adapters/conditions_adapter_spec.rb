@@ -318,4 +318,106 @@ RSpec.describe UnifiedHealthData::Adapters::ConditionsAdapter, type: :service do
       end
     end
   end
+
+  describe 'filter diagnostic logging' do
+    let(:user) { build(:user, :loa3, icn: '1000123456V123456') }
+    let(:adapter_with_user) { UnifiedHealthData::Adapters::ConditionsAdapter.new(user:) }
+
+    let(:active_condition) do
+      {
+        'resource' => {
+          'resourceType' => 'Condition',
+          'id' => 'active-cond',
+          'onsetDateTime' => '2024-01-15',
+          'clinicalStatus' => { 'coding' => [{ 'code' => 'active' }] },
+          'code' => { 'coding' => [{ 'display' => 'Active Condition' }] }
+        }
+      }
+    end
+
+    let(:resolved_condition) do
+      {
+        'resource' => {
+          'resourceType' => 'Condition',
+          'id' => 'resolved-cond',
+          'onsetDateTime' => '2024-01-10',
+          'clinicalStatus' => { 'coding' => [{ 'code' => 'resolved' }] },
+          'code' => { 'coding' => [{ 'display' => 'Resolved Condition' }] }
+        }
+      }
+    end
+
+    let(:missing_status_condition) do
+      {
+        'resource' => {
+          'resourceType' => 'Condition',
+          'id' => 'no-status-cond',
+          'onsetDateTime' => '2024-01-05',
+          'code' => { 'coding' => [{ 'display' => 'No Status Condition' }] }
+        }
+      }
+    end
+
+    before do
+      allow(Flipper).to receive(:enabled?).and_return(false)
+      allow(Flipper).to receive(:enabled?)
+        .with(:mhv_medical_records_conditions_diagnostic, user)
+        .and_return(true)
+      allow(StatsD).to receive(:increment)
+    end
+
+    it 'logs diagnostic with inactive_clinical_status reason for resolved conditions' do
+      expect(Rails.logger).to receive(:info).with(
+        hash_including(
+          service: 'medical_records',
+          resource: 'conditions',
+          action: 'filter',
+          record_id: 'resolved-cond',
+          reason: 'inactive_clinical_status',
+          log_level_context: 'diagnostic'
+        )
+      )
+
+      adapter_with_user.parse([resolved_condition])
+    end
+
+    it 'logs diagnostic with missing_clinical_status reason for conditions without status' do
+      expect(Rails.logger).to receive(:info).with(
+        hash_including(
+          service: 'medical_records',
+          resource: 'conditions',
+          action: 'filter',
+          record_id: 'no-status-cond',
+          reason: 'missing_clinical_status',
+          log_level_context: 'diagnostic'
+        )
+      )
+
+      adapter_with_user.parse([missing_status_condition])
+    end
+
+    it 'increments StatsD counter with correct reason tag' do
+      adapter_with_user.parse([resolved_condition, missing_status_condition])
+
+      expect(StatsD).to have_received(:increment).with(
+        'unified_health_data.condition.filtered_record',
+        tags: ['reason:inactive_clinical_status']
+      )
+      expect(StatsD).to have_received(:increment).with(
+        'unified_health_data.condition.filtered_record',
+        tags: ['reason:missing_clinical_status']
+      )
+    end
+
+    it 'does not log or increment for active conditions' do
+      expect(Rails.logger).not_to receive(:info).with(
+        hash_including(resource: 'conditions', action: 'filter')
+      )
+      expect(StatsD).not_to receive(:increment).with(
+        'unified_health_data.condition.filtered_record', anything
+      )
+
+      adapter_with_user.parse([active_condition])
+    end
+  end
 end

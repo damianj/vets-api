@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'medical_records/medical_records_log'
 require_relative '../models/allergy'
 require_relative 'date_normalizer'
 
@@ -16,6 +17,10 @@ module UnifiedHealthData
         ORGANIZATION: 'Organization',
         PRACTITIONER: 'Practitioner'
       }.freeze
+
+      def initialize(user: nil)
+        @mr_log = MedicalRecords::MedicalRecordsLog.new(user:)
+      end
 
       # Parses allergy records from FHIR AllergyIntolerance resources
       #
@@ -34,7 +39,11 @@ module UnifiedHealthData
           next false unless resource && resource['resourceType'] == 'AllergyIntolerance'
           next true unless filter_by_status
 
-          active_status?(resource)
+          unless active_status?(resource)
+            log_filtered_allergy(resource)
+            next false
+          end
+          true
         end
         parsed = filtered.map { |record| parse_single_allergy(record, filter_by_status: false) }
         parsed.compact
@@ -87,6 +96,22 @@ module UnifiedHealthData
       def active_status?(resource)
         clinical_status = resource.dig('clinicalStatus', 'coding', 0, 'code')
         clinical_status == 'active'
+      end
+
+      def log_filtered_allergy(resource)
+        clinical_status = resource.dig('clinicalStatus', 'coding', 0, 'code')
+        reason = clinical_status.blank? ? 'missing_clinical_status' : 'inactive_clinical_status'
+
+        @mr_log.diagnostic(
+          resource: MedicalRecords::MedicalRecordsLog::ALLERGIES,
+          action: 'filter',
+          record_id: resource['id'],
+          clinical_status:,
+          reason:
+        )
+
+        StatsD.increment('unified_health_data.allergy.filtered_record',
+                         tags: ["reason:#{reason}"])
       end
 
       # Extracts the allergy name from code.coding[0].display or code.text

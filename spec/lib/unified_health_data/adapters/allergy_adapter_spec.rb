@@ -289,4 +289,103 @@ RSpec.describe 'AllergyAdapter' do
       )
     end
   end
+
+  describe 'filter diagnostic logging' do
+    let(:user) { build(:user, :loa3, icn: '1000123456V123456') }
+    let(:adapter_with_user) { UnifiedHealthData::Adapters::AllergyAdapter.new(user:) }
+
+    let(:active_allergy) do
+      {
+        'resource' => {
+          'resourceType' => 'AllergyIntolerance',
+          'id' => 'active-allergy',
+          'clinicalStatus' => { 'coding' => [{ 'code' => 'active' }] },
+          'code' => { 'coding' => [{ 'display' => 'Peanut' }] }
+        }
+      }
+    end
+
+    let(:resolved_allergy) do
+      {
+        'resource' => {
+          'resourceType' => 'AllergyIntolerance',
+          'id' => 'resolved-allergy',
+          'clinicalStatus' => { 'coding' => [{ 'code' => 'resolved' }] },
+          'code' => { 'coding' => [{ 'display' => 'Penicillin' }] }
+        }
+      }
+    end
+
+    let(:missing_status_allergy) do
+      {
+        'resource' => {
+          'resourceType' => 'AllergyIntolerance',
+          'id' => 'no-status-allergy',
+          'code' => { 'coding' => [{ 'display' => 'Aspirin' }] }
+        }
+      }
+    end
+
+    before do
+      allow(Flipper).to receive(:enabled?).and_return(false)
+      allow(Flipper).to receive(:enabled?)
+        .with(:mhv_medical_records_allergies_diagnostic, user)
+        .and_return(true)
+      allow(StatsD).to receive(:increment)
+    end
+
+    it 'logs diagnostic with inactive_clinical_status reason for resolved allergies' do
+      expect(Rails.logger).to receive(:info).with(
+        hash_including(
+          service: 'medical_records',
+          resource: 'allergies',
+          action: 'filter',
+          record_id: 'resolved-allergy',
+          reason: 'inactive_clinical_status',
+          log_level_context: 'diagnostic'
+        )
+      )
+
+      adapter_with_user.parse([resolved_allergy])
+    end
+
+    it 'logs diagnostic with missing_clinical_status reason for allergies without status' do
+      expect(Rails.logger).to receive(:info).with(
+        hash_including(
+          service: 'medical_records',
+          resource: 'allergies',
+          action: 'filter',
+          record_id: 'no-status-allergy',
+          reason: 'missing_clinical_status',
+          log_level_context: 'diagnostic'
+        )
+      )
+
+      adapter_with_user.parse([missing_status_allergy])
+    end
+
+    it 'increments StatsD counter with correct reason tag' do
+      adapter_with_user.parse([resolved_allergy, missing_status_allergy])
+
+      expect(StatsD).to have_received(:increment).with(
+        'unified_health_data.allergy.filtered_record',
+        tags: ['reason:inactive_clinical_status']
+      )
+      expect(StatsD).to have_received(:increment).with(
+        'unified_health_data.allergy.filtered_record',
+        tags: ['reason:missing_clinical_status']
+      )
+    end
+
+    it 'does not log or increment for active allergies' do
+      expect(Rails.logger).not_to receive(:info).with(
+        hash_including(resource: 'allergies', action: 'filter')
+      )
+      expect(StatsD).not_to receive(:increment).with(
+        'unified_health_data.allergy.filtered_record', anything
+      )
+
+      adapter_with_user.parse([active_allergy])
+    end
+  end
 end
