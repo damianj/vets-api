@@ -92,18 +92,11 @@ RSpec.describe 'import-va-certs' do # rubocop:disable RSpec/DescribeClass
   end
 
   describe 'VA certificate download' do
-    it 'uses wget for VA certificates' do
+    it 'uses curl for VA certificates' do
       script_content = File.read(script_path)
 
       # Verify wget command with proper options
-      expect(script_content).to include('wget')
-      expect(script_content).to include('--level=1')
-      expect(script_content).to include('--quiet')
-      expect(script_content).to include('--recursive')
-      expect(script_content).to include('--no-parent')
-      expect(script_content).to include('--no-host-directories')
-      expect(script_content).to include('--no-directories')
-      expect(script_content).to include('--accept="VA*.cer"')
+      expect(script_content).to include('curl')
       expect(script_content).to include('http://aia.pki.va.gov/PKI/AIA/VA/')
     end
 
