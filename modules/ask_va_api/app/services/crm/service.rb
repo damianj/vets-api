@@ -17,12 +17,16 @@ module Crm
     def crm_env
       env = {
         'test' => 'iris-dev',
-        'development' => 'iris-dev',
+        'development' => 'ava-qa',
         'staging' => 'ava-qa',
         'production' => 'veft'
       }
 
       env['production'] = 'ava' if Flipper.enabled?(:ask_va_api_patsr_separation)
+      env['staging'] = 'ava-int' if Flipper.enabled?(:ask_va_api_ava_int_for_staging)
+      # DTC controls preprod now, but we are doubtful that they are testing through va.gov,
+      # leaving this in so that it can be brought back quickly if needed, but should reevaluate
+      # if we still need this long term
       env['staging'] = 'ava-preprod' if Flipper.enabled?(:ask_va_api_preprod_for_end_to_end_testing)
 
       env

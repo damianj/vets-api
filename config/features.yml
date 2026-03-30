@@ -109,6 +109,13 @@ features:
       We need to remove this feature from the codebase ASAP.
       Mocks shouldn't live in the app logic. If needed, add at the API/middleware level.
     enable_in_development: true
+  ask_va_api_ava_int_for_staging:
+    actor_type: user
+    description: >
+      Use the AVA integration CRM environment for staging. When this is disabled,
+      use the AVA QA CRM environment for staging. This is used for testing purposes only
+      and should not be enabled in production.
+    enable_in_development: false
   ask_va_api_maintenance_mode:
     actor_type: user
     description: >

@@ -27,12 +27,12 @@ RSpec.describe Crm::Service do
     instance_double(Faraday::Response, status:, body: body.to_json)
   end
 
-  shared_examples 'crm request with header' do |env, flag_state, expected_org|
+  shared_examples 'crm request with header' do |env, flag_name, flag_state, expected_org|
     let(:response) { mock_response(status: 200, body: mock_data) }
 
     before do
       allow(Settings).to receive(:vsp_environment).and_return(env)
-      allow(Flipper).to receive(:enabled?).with(:ask_va_api_patsr_separation).and_return(flag_state)
+      allow(Flipper).to receive(:enabled?).with(flag_name).and_return(flag_state)
       allow_any_instance_of(Crm::CrmToken).to receive(:call).and_return('token')
 
       allow_any_instance_of(Faraday::Connection).to receive(:get).with(
@@ -53,16 +53,26 @@ RSpec.describe Crm::Service do
   end
 
   # Legacy endpoints (flag disabled)
-  include_examples 'crm request with header', 'development', false, 'iris-dev'
-  include_examples 'crm request with header', 'test', false, 'iris-dev'
-  include_examples 'crm request with header', 'staging', false, 'ava-qa'
-  include_examples 'crm request with header', 'production', false, 'veft'
+  flag_name = :ask_va_api_patsr_separation
+  flag_state = false
+  include_examples 'crm request with header', 'development', flag_name, flag_state, 'ava-qa'
+  include_examples 'crm request with header', 'test', flag_name, flag_state, 'iris-dev'
+  include_examples 'crm request with header', 'staging', flag_name, flag_state, 'ava-qa'
+  include_examples 'crm request with header', 'production', flag_name, flag_state, 'veft'
 
   # New endpoints (flag enabled)
-  include_examples 'crm request with header', 'development', true, 'iris-dev'
-  include_examples 'crm request with header', 'test', true, 'iris-dev'
-  include_examples 'crm request with header', 'staging', true, 'ava-preprod'
-  include_examples 'crm request with header', 'production', true, 'ava'
+  flag_state = true
+  include_examples 'crm request with header', 'development', flag_name, flag_state, 'ava-qa'
+  include_examples 'crm request with header', 'test', flag_name, flag_state, 'iris-dev'
+  include_examples 'crm request with header', 'staging', flag_name, flag_state, 'ava-preprod'
+  include_examples 'crm request with header', 'production', flag_name, flag_state, 'ava'
+
+  flag_name = :ask_va_api_ava_int_for_staging
+  flag_state = true
+  include_examples 'crm request with header', 'staging', flag_name, flag_state, 'ava-int'
+
+  flag_state = false
+  include_examples 'crm request with header', 'staging', flag_name, flag_state, 'ava-qa'
 
   describe 'api_end_to_end_testing' do
     let(:response) { mock_response(status: 200, body: mock_data) }
@@ -114,7 +124,7 @@ RSpec.describe Crm::Service do
 
         allow_any_instance_of(Faraday::Connection).to receive(:get).with(
           'eis/vagov.lob.ava/api/inquiries',
-          { organizationName: 'iris-dev' }
+          { organizationName: 'ava-qa' }
         ).and_raise(exception)
       end
 
