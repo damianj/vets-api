@@ -176,51 +176,27 @@ RSpec.describe 'Veteran::V0::VSOAccreditedRepresentatives', type: :request do
       end
     end
 
-    context 'when the :find_a_representative_enabled flag is enabled' do
-      before do
-        allow(Flipper).to receive(:enabled?).with(:find_a_representative_enabled).and_return(true)
-      end
+    context 'when an organization name with representative matches is provided' do
+      let(:org_name) { 'Alabama Department of Veterans Affairs' }
 
-      context 'and an organization name with representative matches is provided' do
-        let(:org_name) { 'Alabama Department of Veterans Affairs' }
+      it 'returns the representatives belonging to that organization' do
+        get path, params: { type:, lat:, long:, distance:, org_name: }
 
-        it 'returns the representatives belonging to that organization' do
-          get path, params: { type:, lat:, long:, distance:, org_name: }
+        parsed_response = JSON.parse(response.body)
 
-          parsed_response = JSON.parse(response.body)
-
-          expect(parsed_response['data'].pluck('id')).to eq(%w[111 113 114])
-        end
-      end
-
-      context 'and an organization name with no representative matches is provided' do
-        let(:org_name) { 'An Organization' }
-
-        it 'returns no representatives' do
-          get path, params: { type:, lat:, long:, distance:, org_name: }
-
-          parsed_response = JSON.parse(response.body)
-
-          expect(parsed_response['data']).to be_empty
-        end
+        expect(parsed_response['data'].pluck('id')).to eq(%w[111 113 114])
       end
     end
 
-    context 'when the :find_a_representative_enabled flag is disabled' do
-      before do
-        allow(Flipper).to receive(:enabled?).with(:find_a_representative_enabled).and_return(false)
-      end
+    context 'when an organization name with no representative matches is provided' do
+      let(:org_name) { 'An Organization' }
 
-      context 'and an organization name is provided' do
-        let(:org_name) { 'An Organization' }
+      it 'returns no representatives' do
+        get path, params: { type:, lat:, long:, distance:, org_name: }
 
-        it 'ignores the org_name param and returns all matching representative results' do
-          get path, params: { type:, lat:, long:, distance:, org_name: }
+        parsed_response = JSON.parse(response.body)
 
-          parsed_response = JSON.parse(response.body)
-
-          expect(parsed_response['data'].pluck('id')).to eq(%w[111 113 114 115])
-        end
+        expect(parsed_response['data']).to be_empty
       end
     end
   end

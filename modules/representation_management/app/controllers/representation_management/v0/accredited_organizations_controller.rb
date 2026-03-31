@@ -5,7 +5,6 @@ module RepresentationManagement
     class AccreditedOrganizationsController < ApplicationController
       service_tag 'representation-management'
       skip_before_action :authenticate
-      before_action :feature_enabled
 
       INVALID_ORG_PREFIX = 'zzz'
 
@@ -27,10 +26,6 @@ module RepresentationManagement
       end
 
       private
-
-      def feature_enabled
-        routing_error unless Flipper.enabled?(:find_a_representative_enabled)
-      end
 
       def use_accredited_model?
         Flipper.enabled?(:find_a_representative_use_accredited_models)
