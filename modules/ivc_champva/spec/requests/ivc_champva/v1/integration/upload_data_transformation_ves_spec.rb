@@ -72,16 +72,16 @@ RSpec.describe 'TransformationVES', type: :request do
                 va_file_number: '123456789',
                 date_of_birth: '1987-02-02',
                 date_of_marriage: '2005-04-06',
-                is_deceased: 'true',
+                is_deceased: true,
                 date_of_death: '2021-01-08',
                 is_death_on_active_service: 'true',
                 phone_number: '9876543213',
                 address: an_instance_of(IvcChampva::VesRequest::Address).and(
                   have_attributes(
-                    street_address: '1 First Ln',
-                    city: 'Place',
-                    state: 'AL',
-                    zip_code: '12345'
+                    street_address: 'NA',
+                    city: 'NA',
+                    state: 'NA',
+                    zip_code: 'NA'
                   )
                 )
               )

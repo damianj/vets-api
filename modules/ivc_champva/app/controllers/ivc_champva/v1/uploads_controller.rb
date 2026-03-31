@@ -47,6 +47,9 @@ module IvcChampva
 
           render json: response[:json], status: response[:status]
         end
+      rescue ArgumentError => e
+        Rails.logger.error "Validation error in IVC ChampVA submission: #{e.message}"
+        render json: { error_message: e.message }, status: :unprocessable_entity
       rescue => e
         Rails.logger.error "Error: #{e.message}"
         Rails.logger.error e.backtrace.join("\n")

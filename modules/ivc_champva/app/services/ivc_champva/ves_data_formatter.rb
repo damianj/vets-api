@@ -128,8 +128,8 @@ module IvcChampva
         ssn: veteran_data['ssn_or_tin'],
         va_file_number: veteran_data['va_claim_number'] || veteran_data['va_file_number'] || '',
         date_of_birth: veteran_data['date_of_birth'],
-        date_of_marriage: veteran_data['date_of_marriage'] || '',
-        is_deceased: veteran_data['sponsor_is_deceased'] || veteran_data['is_deceased'] || false,
+        date_of_marriage: veteran_data['date_of_marriage'].presence,
+        is_deceased: normalize_yes_no(veteran_data['sponsor_is_deceased'] || veteran_data['is_deceased']) || false,
         date_of_death: veteran_data['date_of_death'],
         is_death_on_active_service: veteran_data['is_active_service_death'] || false,
         phone_number: format_phone_number(veteran_data['phone_number']),
@@ -176,6 +176,10 @@ module IvcChampva
 
     def self.map_address(address_data)
       return nil unless address_data.is_a?(Hash)
+
+      if address_data['country'].nil? && address_data.any? { |_, v| v.present? }
+        Rails.logger.warn('country absent from non-empty address data, defaulting to USA.')
+      end
 
       country = address_data['country']&.upcase || 'USA'
 

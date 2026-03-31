@@ -92,6 +92,16 @@ RSpec.describe 'IvcChampva::V1::Forms::VesUploads', type: :request do
         expect(response).to have_http_status(:ok)
       end
 
+      it 'returns 422 when VES formatter raises ArgumentError (invalid form data)' do
+        allow(IvcChampva::VesDataFormatter).to receive(:format_for_request)
+          .and_raise(ArgumentError.new('sponsor state is missing'))
+
+        post '/ivc_champva/v1/forms', params: form_data
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['error_message']).to eq('sponsor state is missing')
+      end
+
       it 'handles VES formatter errors gracefully' do
         allow(IvcChampva::VesDataFormatter).to receive(:format_for_request)
           .and_raise(StandardError.new('formatting error'))
