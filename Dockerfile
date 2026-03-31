@@ -1,6 +1,7 @@
 ARG IMAGEMAGICK_IMAGE=008577686731.dkr.ecr.us-gov-west-1.amazonaws.com/dpokidov/imagemagick:7.1.1-47-bookworm
+ARG RUBY_IMAGE=008577686731.dkr.ecr.us-gov-west-1.amazonaws.com/ruby:3.3.6-slim-bookworm
 
-FROM public.ecr.aws/docker/library/ruby:3.3.6-slim-bookworm AS rubyimg
+FROM ${RUBY_IMAGE} AS rubyimg
 FROM rubyimg AS modules
 
 WORKDIR /tmp
