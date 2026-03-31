@@ -58,7 +58,7 @@ module SignIn
 
     def set_cerner_eligibility_cookie
       cookies.permanent[CERNER_ELIGIBLE_COOKIE_NAME] = {
-        value: current_user.cerner_cookie_eligibility,
+        value: current_user.cerner_full?,
         domain: IdentitySettings.sign_in.info_cookie_domain
       }
     end

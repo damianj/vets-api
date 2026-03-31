@@ -15,7 +15,7 @@ RSpec.describe SignIn::UserLoader do
 
     let!(:user) do
       create(:user, :loa3, uuid: user_uuid, loa: user_loa, icn: user_icn, session_handle: user_session_handle,
-                           needs_accepted_terms_of_use:)
+                           needs_accepted_terms_of_use:, cerner_id: 'some-cerner-id')
     end
     let(:user_uuid) { user_account.id }
     let(:user_account) { create(:user_account) }
@@ -201,20 +201,60 @@ RSpec.describe SignIn::UserLoader do
         end
 
         context 'when the user can provision cerner' do
+          let(:stub_cerner_facility_ids) { '123, 456' }
+
           before do
             allow(Identity::CernerProvisionerJob).to receive(:perform_async)
+            allow(Settings.mhv.oh_facility_checks)
+              .to receive(:pretransitioned_oh_facilities)
+              .and_return(stub_cerner_facility_ids)
           end
 
-          it 'enqueues a Cerner::ProvisionerJob' do
-            subject
-            expect(Identity::CernerProvisionerJob).to have_received(:perform_async).with(user_icn, :sis)
+          context 'fully eligible user' do
+            let(:live_facility_id) { stub_cerner_facility_ids.split(', ').first }
+
+            let(:cerner_facility_ids) { [live_facility_id] }
+
+            before do
+              stub_mpi(
+                build(:mpi_profile,
+                      icn: user_icn,
+                      cerner_facility_ids:)
+              )
+            end
+
+            it 'enqueues a CernerProvisionerJob with messaging_only: false' do
+              subject
+
+              expect(Identity::CernerProvisionerJob).to have_received(:perform_async)
+                .with(user_icn, false, :sis)
+            end
+          end
+
+          context 'messaging-only user' do
+            let(:cerner_facility_ids) { ['non-pretransitioned-facility'] }
+
+            before do
+              stub_mpi(
+                build(:mpi_profile,
+                      icn: user_icn,
+                      cerner_facility_ids: ['non-pretransitioned-facility'])
+              )
+            end
+
+            it 'enqueues a CernerProvisionerJob with messaging_only: true' do
+              subject
+
+              expect(Identity::CernerProvisionerJob).to have_received(:perform_async)
+                .with(user_icn, true, :sis)
+            end
           end
         end
 
         it 'sets the cerner eligibility cookie correctly' do
           user = subject
           expect(cookies['CERNER_ELIGIBLE']).to eq(
-            { value: user.cerner_cookie_eligibility, domain: IdentitySettings.sign_in.info_cookie_domain }
+            { value: user.cerner_full?, domain: IdentitySettings.sign_in.info_cookie_domain }
           )
         end
       end

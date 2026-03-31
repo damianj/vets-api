@@ -142,17 +142,39 @@ RSpec.describe Login::AfterLoginActions do
       end
     end
 
-    context 'when the user can provision cerner' do
-      let(:user) { create(:user, :loa3, cerner_id:) }
-      let(:cerner_id) { 'some-cerner-id' }
+    context 'when the user can provision Cerner' do
+      let(:user) { create(:user, :loa3, cerner_id: 'some-cerner-id', cerner_facility_ids:) }
+      let(:stub_cerner_facility_ids) { '123, 456' }
 
       before do
         allow(Identity::CernerProvisionerJob).to receive(:perform_async)
+        allow(Settings.mhv.oh_facility_checks)
+          .to receive(:pretransitioned_oh_facilities)
+          .and_return(stub_cerner_facility_ids)
       end
 
-      it 'enqueues a Cerner::ProvisionerJob' do
-        after_login_actions.perform
-        expect(Identity::CernerProvisionerJob).to have_received(:perform_async).with(user.icn, :ssoe)
+      context 'fully eligible user' do
+        let(:live_facility_id) { stub_cerner_facility_ids.split(', ').first }
+
+        let(:cerner_facility_ids) { [live_facility_id] }
+
+        it 'enqueues CernerProvisionerJob with messaging_only: false' do
+          after_login_actions.perform
+
+          expect(Identity::CernerProvisionerJob).to have_received(:perform_async)
+            .with(user.icn, false, :ssoe)
+        end
+      end
+
+      context 'messaging-only user' do
+        let(:cerner_facility_ids) { ['some-non-pretransitioned-facility'] }
+
+        it 'enqueues CernerProvisionerJob with messaging_only: true' do
+          after_login_actions.perform
+
+          expect(Identity::CernerProvisionerJob).to have_received(:perform_async)
+            .with(user.icn, true, :ssoe)
+        end
       end
     end
   end

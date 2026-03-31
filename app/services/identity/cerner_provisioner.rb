@@ -12,12 +12,14 @@ module Identity
     COOKIE_EXPIRATION = 2.minutes
     COOKIE_DOMAIN = '.va.gov'
 
-    attr_reader :icn, :source
+    attr_reader :icn, :source, :messaging_only
 
+    validates :messaging_only, inclusion: { in: [true, false] }
     validates :icn, presence: true
 
-    def initialize(icn:, source: nil)
+    def initialize(icn:, messaging_only:, source: nil)
       @icn = icn
+      @messaging_only = messaging_only
       @source = source
 
       validate!
@@ -38,7 +40,8 @@ module Identity
         raise(Errors::CernerProvisionerError, 'Account not Provisioned')
       end
 
-      Rails.logger.info('[Identity] [CernerProvisioner] update_provisioning success', { icn:, source: })
+      Rails.logger.info('[Identity] [CernerProvisioner] update_provisioning success',
+                        { icn:, messaging_only:, source: })
     rescue Common::Client::Errors::ClientError => e
       log_provisioner_error(e)
       raise Errors::CernerProvisionerError, e.message
@@ -47,7 +50,7 @@ module Identity
     private
 
     def update_provisioning
-      MAP::SignUp::Service.new.update_provisioning(icn:, first_name:, last_name:, mpi_gcids:)
+      MAP::SignUp::Service.new.update_provisioning(icn:, first_name:, last_name:, mpi_gcids:, messaging_only:)
     end
 
     def log_provisioner_error(error)

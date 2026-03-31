@@ -8,14 +8,13 @@ module Identity
 
     # remove 'source' argument from unique check
     def self.sidekiq_unique_context(job)
-      args = job['args'].dup
-      args.pop if args.size == 2
+      icn, messaging_only = job['args']
 
-      [job['class'], job['queue'], args]
+      [job['class'], job['queue'], [icn, messaging_only]]
     end
 
-    def perform(icn, source = nil)
-      CernerProvisioner.new(icn:, source:).perform
+    def perform(icn, messaging_only, source = nil)
+      CernerProvisioner.new(icn:, messaging_only:, source:).perform
     rescue Errors::CernerProvisionerError => e
       Rails.logger.error('[Identity] [CernerProvisionerJob] error', { icn:, error_message: e.message, source: })
       raise if source.to_s == 'tou'

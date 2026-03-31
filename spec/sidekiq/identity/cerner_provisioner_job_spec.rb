@@ -7,6 +7,7 @@ RSpec.describe Identity::CernerProvisionerJob, type: :job do
 
   let(:icn) { '123456789' }
   let(:source) { :some_source }
+  let(:messaging_only) { false }
   let(:cerner_provisioner) { instance_double(Identity::CernerProvisioner) }
 
   before do
@@ -24,14 +25,14 @@ RSpec.describe Identity::CernerProvisionerJob, type: :job do
 
   describe '.sidekiq_unique_context' do
     let(:icn) { '123456789' }
-    let(:sidekiq_job1) { { 'class' => described_class.name, 'queue' => 'default', 'args' => [icn, :foo] } }
-    let(:sidekiq_job2) { { 'class' => described_class.name, 'queue' => 'default', 'args' => [icn, :bar] } }
+    let(:sidekiq_job1) { { 'class' => described_class.name, 'queue' => 'default', 'args' => [icn, false, :foo] } }
+    let(:sidekiq_job2) { { 'class' => described_class.name, 'queue' => 'default', 'args' => [icn, false, :bar] } }
 
-    it 'treats jobs with same ICN but different source as having the same uniqueness key' do
+    it 'treats jobs with same ICN and messaging_only but different source as having the same uniqueness key' do
       job_key1 = described_class.sidekiq_unique_context(sidekiq_job1)
       job_key2 = described_class.sidekiq_unique_context(sidekiq_job2)
       expect(job_key1).to eq(job_key2)
-      expect(job_key1).to eq([described_class.name, 'default', [icn]])
+      expect(job_key1).to eq([described_class.name, 'default', [icn, false]])
     end
 
     context 'when a job is already enqueued for the same ICN' do
@@ -41,8 +42,8 @@ RSpec.describe Identity::CernerProvisionerJob, type: :job do
       end
 
       it 'does not run an inline job' do
-        described_class.perform_async(icn, :foo)
-        described_class.perform_inline(icn, :bar)
+        described_class.perform_async(icn, false, :foo)
+        described_class.perform_inline(icn, false, :bar)
         expect(cerner_provisioner).not_to have_received(:perform)
       end
     end
@@ -51,7 +52,7 @@ RSpec.describe Identity::CernerProvisionerJob, type: :job do
   describe '#perform' do
     it 'calls the CernerProvisioner service class' do
       expect(cerner_provisioner).to receive(:perform)
-      job.perform(icn, source)
+      job.perform(icn, messaging_only, source)
     end
 
     context 'when an error occurs' do
@@ -66,14 +67,16 @@ RSpec.describe Identity::CernerProvisionerJob, type: :job do
       it 'logs the error message' do
         expect(Rails.logger).to receive(:error).with('[Identity] [CernerProvisionerJob] error',
                                                      { icn:, error_message:, source: })
-        job.perform(icn, source)
+        job.perform(icn, messaging_only, source)
       end
 
       context 'when source is :tou' do
         let(:source) { :tou }
 
         it 'raises the error' do
-          expect { job.perform(icn, source) }.to raise_error(Identity::Errors::CernerProvisionerError, error_message)
+          expect do
+            job.perform(icn, messaging_only, source)
+          end.to raise_error(Identity::Errors::CernerProvisionerError, error_message)
         end
       end
 
@@ -81,7 +84,7 @@ RSpec.describe Identity::CernerProvisionerJob, type: :job do
         let(:source) { :sis }
 
         it 'does not raise the error' do
-          expect { job.perform(icn, source) }.not_to raise_error
+          expect { job.perform(icn, messaging_only, source) }.not_to raise_error
         end
       end
 
@@ -89,7 +92,7 @@ RSpec.describe Identity::CernerProvisionerJob, type: :job do
         let(:source) { nil }
 
         it 'does not raise the error' do
-          expect { job.perform(icn, source) }.not_to raise_error
+          expect { job.perform(icn, messaging_only, source) }.not_to raise_error
         end
       end
     end

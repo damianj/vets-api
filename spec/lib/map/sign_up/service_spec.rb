@@ -72,7 +72,8 @@ describe MAP::SignUp::Service do
           agreement_signed: true,
           opt_out: false,
           cerner_provisioned: false,
-          bypass_eligible: false
+          bypass_eligible: false,
+          messaging_only: false
         }
       end
 
@@ -193,8 +194,9 @@ describe MAP::SignUp::Service do
   end
 
   describe '#update_provisioning' do
-    subject { described_class.new.update_provisioning(icn:, first_name:, last_name:, mpi_gcids:) }
+    subject { described_class.new.update_provisioning(icn:, first_name:, last_name:, mpi_gcids:, messaging_only:) }
 
+    let(:messaging_only) { false }
     let(:icn) { '1012667145V762142' }
     let(:first_name) { 'Tamara' }
     let(:last_name) { 'Ellis' }
@@ -224,7 +226,8 @@ describe MAP::SignUp::Service do
           agreement_signed: true,
           opt_out: false,
           cerner_provisioned: false,
-          bypass_eligible: false
+          bypass_eligible: false,
+          messaging_only: false
         }
       end
 
@@ -249,7 +252,8 @@ describe MAP::SignUp::Service do
           agreement_signed: true,
           opt_out: false,
           cerner_provisioned: false,
-          bypass_eligible: false
+          bypass_eligible: false,
+          messaging_only: false
         }
       end
 
@@ -274,7 +278,8 @@ describe MAP::SignUp::Service do
           agreement_signed: true,
           opt_out: false,
           cerner_provisioned: false,
-          bypass_eligible: false
+          bypass_eligible: false,
+          messaging_only: false
         }
       end
 

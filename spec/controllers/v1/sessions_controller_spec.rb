@@ -962,7 +962,7 @@ RSpec.describe V1::SessionsController, type: :controller do
 
         context 'when the cerner eligible cookie is not present' do
           before do
-            allow_any_instance_of(User).to receive(:cerner_cookie_eligibility).and_return(eligible)
+            allow_any_instance_of(User).to receive(:cerner_full?).and_return(eligible)
           end
 
           context 'when the user is cerner eligible' do
@@ -994,7 +994,7 @@ RSpec.describe V1::SessionsController, type: :controller do
           let(:previous_value) { true }
 
           before do
-            allow_any_instance_of(User).to receive(:cerner_cookie_eligibility).and_return(eligible)
+            allow_any_instance_of(User).to receive(:cerner_full?).and_return(eligible)
             cookies[cerner_eligible_cookie] = true
           end
 

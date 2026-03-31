@@ -3,11 +3,12 @@
 require 'rails_helper'
 
 RSpec.describe Identity::CernerProvisioner do
-  subject(:provisioner) { described_class.new(icn:, source:) }
+  subject(:provisioner) { described_class.new(icn:, messaging_only:, source:) }
 
   let(:icn) { '123456789' }
   let(:first_name) { 'John' }
   let(:last_name) { 'Doe' }
+  let(:messaging_only) { true }
   let(:source) { nil }
 
   before do
@@ -77,7 +78,10 @@ RSpec.describe Identity::CernerProvisioner do
 
         it 'logs success message' do
           provisioner.perform
-          expect(Rails.logger).to have_received(:info).with(expected_log, { icn:, source: })
+          expect(Rails.logger).to have_received(:info).with(
+            expected_log,
+            { icn:, messaging_only:, source: }
+          )
         end
       end
     end
