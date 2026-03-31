@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_03_29_193215) do
+ActiveRecord::Schema[7.2].define(version: 2026_03_30_223111) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gin"
   enable_extension "fuzzystrmatch"
@@ -539,6 +539,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_29_193215) do
     t.text "encrypted_kms_key"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "needs_kms_rotation", default: false, null: false
     t.index ["saved_claim_id"], name: "index_cave_submissions_on_saved_claim_id"
   end
 
