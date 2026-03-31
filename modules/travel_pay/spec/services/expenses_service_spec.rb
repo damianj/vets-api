@@ -19,7 +19,7 @@ describe TravelPay::ExpensesService do
     )
   end
 
-  let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
+  let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
 
   describe 'create_expense' do
     before do

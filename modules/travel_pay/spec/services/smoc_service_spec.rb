@@ -45,7 +45,7 @@ describe TravelPay::SmocService do
       }
     end
 
-    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
 
     before do
       auth_manager = object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session)
@@ -189,7 +189,7 @@ describe TravelPay::SmocService do
       }
     end
 
-    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
 
     before do
       @auth_manager = object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session)

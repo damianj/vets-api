@@ -29,7 +29,7 @@ describe TravelPay::TokenClient do
       allow_any_instance_of(TravelPay::TokenClient)
         .to receive(:request_btsss_token)
         .with('fake_veis_token', user)
-        .and_return('fake_btsss_token')
+        .and_return({ token: 'fake_btsss_token', contact_id: 'fake_contact_id' })
 
       token_client = TravelPay::TokenClient.new(123)
       auth_session = token_client.authorized_user_session(user)
@@ -37,6 +37,7 @@ describe TravelPay::TokenClient do
       expect(auth_session).to be_a(TravelPay::AuthSession)
       expect(auth_session.veis_token).to eq('fake_veis_token')
       expect(auth_session.btsss_token).to eq('fake_btsss_token')
+      expect(auth_session.contact_id).to eq('fake_contact_id')
     end
   end
 
@@ -69,23 +70,24 @@ describe TravelPay::TokenClient do
         .and_return('sts_token')
     end
 
-    it 'returns btsss token from proper endpoint' do
+    it 'returns btsss token and contact_id from proper endpoint' do
       @stubs.post('api/v2/Auth/access-token') do
         [
           200,
           { 'Content-Type': 'application/json' },
-          '{"data": {"accessToken": "fake_btsss_token"}}'
+          '{"data": {"accessToken": "fake_btsss_token", "contactId": "fake_contact_id"}}'
         ]
       end
 
       token_client = TravelPay::TokenClient.new(123)
-      token = token_client.request_btsss_token('veis_token', user)
+      result = token_client.request_btsss_token('veis_token', user)
 
       expect(StatsD).to have_received(:measure)
         .with(expected_log_prefix,
               kind_of(Numeric),
               tags: ['travel_pay:btsss'])
-      expect(token).to eq('fake_btsss_token')
+      expect(result[:token]).to eq('fake_btsss_token')
+      expect(result[:contact_id]).to eq('fake_contact_id')
       @stubs.verify_stubbed_calls
     end
 

@@ -7,5 +7,6 @@ module TravelPay
 
     attribute :veis_token, :string
     attribute :btsss_token, :string
+    attribute :contact_id, :string
   end
 end

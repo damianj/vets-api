@@ -116,7 +116,7 @@ describe TravelPay::ClaimAssociationService do
 
     let(:expected_uuids) { %w[uuid1] }
 
-    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
 
     before do
       allow_any_instance_of(TravelPay::AuthManager)
@@ -341,7 +341,7 @@ describe TravelPay::ClaimAssociationService do
       }
     end
 
-    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
 
     before do
       allow(TravelPay::AuthManager)
@@ -502,7 +502,7 @@ describe TravelPay::ClaimAssociationService do
       )
     end
 
-    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
 
     before do
       allow_any_instance_of(TravelPay::AuthManager)

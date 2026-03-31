@@ -9,7 +9,7 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
 
   before do
     allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-      .and_return(TravelPay::AuthSession.new(veis_token: 'vt', btsss_token: 'bt'))
+      .and_return(TravelPay::AuthSession.new(veis_token: 'vt', btsss_token: 'bt', contact_id: 'ct'))
   end
 
   describe '#index' do
