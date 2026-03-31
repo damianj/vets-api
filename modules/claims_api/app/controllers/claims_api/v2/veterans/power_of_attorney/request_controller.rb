@@ -117,6 +117,7 @@ module ClaimsApi
 
         def create # rubocop:disable Metrics/MethodLength
           validate_country_code
+          validate_phone_country_code
           # validate target veteran exists
           target_veteran
 
@@ -309,6 +310,44 @@ module ClaimsApi
           if claimant_cc.present? && ClaimsApi::BRD::COUNTRY_CODES[claimant_cc.to_s.upcase].blank?
             raise ::Common::Exceptions::UnprocessableEntity.new(
               detail: 'The country provided is not valid.'
+            )
+          end
+        end
+
+        def validate_phone_country_code
+          %w[veteran claimant].each do |key|
+            phone = form_attributes.dig(key, 'phone')
+            next if phone.blank?
+
+            validate_phone_details(phone, key)
+          end
+        end
+
+        def validate_phone_details(phone, key)
+          return if phone['phoneNumber'].blank?
+
+          validate_phone_and_country_code_combination_not_valid!(phone, key)
+          validate_domestic_country_code_on_international_number!(phone, key)
+        end
+
+        def validate_phone_and_country_code_combination_not_valid!(phone_data, key)
+          phone_number = phone_data['phoneNumber']&.gsub(/\D/, '')
+          country_code = phone_data['countryCode']
+
+          if phone_number.length > 7 && country_code.blank?
+            raise ::Common::Exceptions::UnprocessableEntity.new(
+              detail: "The #{key}'s international phone number requires a countryCode."
+            )
+          end
+        end
+
+        def validate_domestic_country_code_on_international_number!(phone_data, key)
+          phone_number = phone_data['phoneNumber']&.gsub(/\D/, '')
+          country_code = phone_data['countryCode']&.gsub(/\D/, '')
+
+          if phone_number.length > 7 && country_code == '1'
+            raise ::Common::Exceptions::UnprocessableEntity.new(
+              detail: "The #{key}'s countryCode is for a domestic phone number."
             )
           end
         end
