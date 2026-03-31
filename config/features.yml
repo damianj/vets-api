@@ -1852,10 +1852,6 @@ features:
     actor_type: user
     description: when this flag is on the count will not be incremented for ipe
     enable_in_development: true
-  mhv_medications_enable_krames_html_sanitization:
-    actor_type: user
-    description: Enables sanitizeKramesHtmlStr function for Krames API prescription documentation
-    enable_in_development: false
   mhv_medications_oh_transition_refill_block:
     actor_type: user
     description: Blocks prescription refills for facilities transitioning to Oracle Health during phases p4-p5 (T-3 to T+2)
