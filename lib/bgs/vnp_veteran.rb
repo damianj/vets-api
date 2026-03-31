@@ -33,7 +33,7 @@ module BGS
           claim_type_end_product: @claim_type_end_product,
           regional_office_number:,
           location_id:,
-          net_worth_over_limit_ind: veteran.formatted_boolean(@payload['dependents_application']['household_income'])
+          net_worth_over_limit_ind:
         }
       )
     end
@@ -49,6 +49,22 @@ module BGS
 
       person_params = veteran.create_person_params(@proc_id, participant[:vnp_ptcpnt_id], @veteran_info)
       bgs_service.create_person(person_params)
+    end
+
+    # Pass correct value for net_worth_over_limit_ind based on household_income boolean
+    # @return [Boolean, nil] true if household income is over limit, false if not, nil if data is missing
+    def net_worth_over_limit_ind
+      household_income = @payload['dependents_application']['household_income']
+
+      # Value can be undefined ('Does not apply'), so check for nil explicitly
+      # Using .blank? would treat false as blank and incorrectly return nil
+      return nil if household_income.nil?
+
+      # RBPS expects a flipped value for net_worth_over_limit_ind
+      # Veteran can answer as follows:
+      # 'Yes' (true in payload) to the less than limit question, their net worth is under the limit, send false
+      # 'No' (false in payload) to the less than limit question, their net worth is over the limit, send true
+      veteran.formatted_boolean(!household_income)
     end
 
     # Replaces invalid veteran SSN with user's SSN as fallback
