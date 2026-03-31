@@ -58,8 +58,23 @@ jobs:
         with:
           bundler-cache: true
 
+      - name: Check for Gemfile changes
+        id: gemfile_changes
+        if: github.event_name == 'pull_request'
+        uses: tj-actions/changed-files@v47.0.4
+        with:
+          files: |
+            Gemfile
+            Gemfile.lock
+            modules/*/Gemfile
+
       - name: Run bundle-audit (checks gems for CVE issues)
         id: bundle_audit
+        if: |
+          (
+            github.ref == 'refs/heads/master' ||
+            (github.event_name == 'pull_request' && steps.gemfile_changes.outputs.any_changed == 'true')
+          )
         continue-on-error: true
         run: bundle exec bundle-audit check --update
 
@@ -99,7 +114,12 @@ jobs:
           env_variable_name: SLACK_BOT_TOKEN
 
       - name: Slack notify - bundle-audit CVE failure
-        if: steps.bundle_audit.outcome == 'failure'
+        if: |
+          steps.bundle_audit.outcome == 'failure' &&
+          (
+            github.ref == 'refs/heads/master' ||
+            (github.event_name == 'pull_request' && steps.gemfile_changes.outputs.any_changed == 'true')
+          )
         uses: ./.github/actions/vsp-github-actions/slack-socket
         with:
           slack_app_token: ${{ env.SLACK_APP_TOKEN }}
