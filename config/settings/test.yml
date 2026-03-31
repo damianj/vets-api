@@ -634,17 +634,6 @@ github_stats:
 google_analytics:
   tracking_id: ~
   url: https://fwdproxy-staging.vfs.va.gov:4473
-google_analytics_cvu:
-  auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs
-  auth_uri: https://accounts.google.com/o/oauth2/auth
-  client_email: va-gov-top-user-viewports@vsp-analytics-and-insights.iam.gserviceaccount.com
-  client_id: ~
-  client_x509_cert_url: https://www.googleapis.com/robot/v1/metadata/x509/va-gov-top-user-viewports%40vsp-analytics-and-insights.iam.gserviceaccount.com
-  private_key: ~
-  private_key_id: ~
-  project_id: vsp-analytics-and-insights
-  token_uri: https://oauth2.googleapis.com/token
-  type: service_account
 govdelivery:
   server: stage-tms.govdelivery.com
   staging_service: true
