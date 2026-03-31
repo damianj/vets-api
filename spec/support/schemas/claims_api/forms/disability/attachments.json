@@ -135,6 +135,11 @@
                     "nullable": true,
                     "description": "Hashed representation of document"
                   },
+                  "header_hash": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Hashed representation of document header"
+                  },
                   "filename": {
                   "type": "string",
                   "nullable": true,
