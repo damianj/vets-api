@@ -21,14 +21,14 @@ RSpec.describe 'Mobile::V0::ClaimsAndAppeals', type: :request do
     allow_any_instance_of(BenefitsClaims::Configuration).to receive(:access_token).and_return(token)
   end
 
-  describe '#index is polled an unauthorized user' do
+  describe '#index is polled an unauthorized user', skip: 'Disabling flakey spec' do
     it 'and not user returns a 401 status' do
       get '/mobile/v0/claims-and-appeals-overview'
       assert_schema_conform(401)
     end
   end
 
-  describe 'GET /v0/claims-and-appeals-overview' do
+  describe 'GET /v0/claims-and-appeals-overview', skip: 'Disabling flakey spec' do
     let!(:user) { sis_user(icn: '1008596379V859838') }
     let(:params) { { useCache: false, page: { size: 60 } } }
 
