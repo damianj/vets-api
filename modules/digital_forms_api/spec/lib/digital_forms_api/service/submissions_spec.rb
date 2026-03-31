@@ -45,4 +45,11 @@ RSpec.describe DigitalFormsApi::Service::Submissions do
       service.retrieve(uuid)
     end
   end
+
+  describe 'by-document-id' do
+    it 'performs a GET' do
+      expect(service).to receive(:perform).with(:get, "submissions/by-document-id/#{uuid}", {}, {})
+      service.by_document_id(uuid)
+    end
+  end
 end
