@@ -20,6 +20,16 @@ module EventBusGateway
     # Controls the maximum number of sms attempts to VA notify (application level).
     MAX_SMS_ATTEMPTS = 5
 
+    # SMS blackout window: 9:00 PM – 9:00 AM Eastern (handles EST/EDT automatically)
+    SMS_BLACKOUT_ZONE = ActiveSupport::TimeZone['Eastern Time (US & Canada)']
+    SMS_BLACKOUT_START_HOUR = 21 # 9:00 PM Eastern
+    SMS_BLACKOUT_END_HOUR = 9 # 9:00 AM Eastern
+
+    def self.sms_blackout_period?
+      current_hour = Time.current.in_time_zone(SMS_BLACKOUT_ZONE).hour
+      current_hour >= SMS_BLACKOUT_START_HOUR || current_hour < SMS_BLACKOUT_END_HOUR
+    end
+
     # Controls the sidekiq (infrastructure level) retry when the letter ready push job fails.
     SIDEKIQ_RETRY_COUNT_FIRST_PUSH = 5
 

@@ -1065,6 +1065,14 @@ features:
     actor_type: user
     description: When enabled, vets-api retries event bus gateway sms that VA Notify marks temporary-failure
     enable_in_development: true
+  event_bus_gateway_sms_blackout:
+    actor_type: user
+    description: When enabled, blocks SMS notifications from being sent during the blackout period (21:00-09:00 Eastern)
+    enable_in_development: true
+  event_bus_gateway_sms_dry_run:
+    actor_type: user
+    description: When enabled, logs SMS notifications instead of sending them via VA Notify
+    enable_in_development: true
   facilities_autosuggest_vamc_services_enabled:
     actor_type: user
     description: Allow use of the VA health facilities auto-suggest feature (versus static dropdown)

@@ -34,16 +34,9 @@ module EventBusGateway
     end
 
     def perform(participant_id, template_id, cache_key = nil)
-      icn = nil
+      return if sms_blocked?(template_id)
 
-      # Retrieve PII from Redis if cache_key provided (avoids PII exposure in logs)
-      if cache_key
-        attributes = Sidekiq::AttrPackage.find(cache_key)
-        icn = attributes[:icn] if attributes
-      end
-
-      # Fallback to fetching if cache_key not provided or failed
-      icn ||= get_icn(participant_id)
+      icn = resolve_icn(participant_id, cache_key)
 
       return unless validate_sms_prerequisites(template_id, icn)
 
@@ -62,6 +55,53 @@ module EventBusGateway
     end
 
     private
+
+    def sms_blocked?(template_id)
+      if Flipper.enabled?(:event_bus_gateway_sms_blackout) && Constants.sms_blackout_period?
+        log_sms_blackout_blocked('LetterReadySmsJob', template_id)
+        return true
+      end
+
+      if Flipper.enabled?(:event_bus_gateway_sms_dry_run)
+        log_sms_dry_run(template_id)
+        return true
+      end
+
+      false
+    end
+
+    def resolve_icn(participant_id, cache_key)
+      icn = nil
+
+      if cache_key
+        attributes = Sidekiq::AttrPackage.find(cache_key)
+        icn = attributes[:icn] if attributes
+      end
+
+      icn || get_icn(participant_id)
+    end
+
+    def log_sms_dry_run(template_id)
+      ::Rails.logger.info(
+        'LetterReadySmsJob dry run - SMS not sent',
+        { notification_type: 'sms', template_id: }
+      )
+      StatsD.increment("#{STATSD_METRIC_PREFIX}.dry_run", tags: Constants::DD_TAGS)
+    end
+
+    def log_sms_blackout_blocked(job_name, template_id)
+      ::Rails.logger.info(
+        "#{job_name} blocked during SMS blackout period",
+        {
+          notification_type: 'sms',
+          reason: 'blackout_period',
+          template_id:,
+          current_time_utc: Time.current.utc.iso8601
+        }
+      )
+      tags = Constants::DD_TAGS + ['notification_type:sms', 'reason:blackout_period']
+      StatsD.increment("#{STATSD_METRIC_PREFIX}.blocked", tags:)
+    end
 
     def validate_sms_prerequisites(template_id, icn)
       if icn.blank?
