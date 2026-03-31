@@ -5,7 +5,6 @@ RepresentationManagement::Engine.routes.draw do
     resources :accredited_entities_for_appoint, only: %i[index]
     resources :accredited_individuals, only: %i[index]
     resources :accredited_organizations, only: %i[index]
-    resources :flag_accredited_representatives, only: %i[create]
     resources :next_steps_email, only: %i[create]
     resources :original_entities, only: %i[index]
     resources :pdf_generator2122, only: %i[create]

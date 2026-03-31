@@ -7,8 +7,7 @@ require 'va_profile/address_validation/v3/service'
 module Representatives
   # Processes updates for representative records based on provided JSON data.
   # This class is designed to parse representative data, validate addresses using an external service,
-  # and update records in the database accordingly. It also handles updating flagging records when a representative's
-  # address, email, or phone number is updated.
+  # and update records in the database accordingly.
   class Update
     include Sidekiq::Job
 
@@ -58,15 +57,10 @@ module Representatives
           end
         end
 
-        updated_flags = update_rep_record(rep_data, address_validation_api_response)
+        update_rep_record(rep_data, address_validation_api_response)
       rescue => e
-        log_error("Update failed for Rep id: #{rep_data}: #{e.message}")
-        return
+        log_error("Update failed for Rep id: #{rep_data['id']}: #{e.message}")
       end
-
-      # Update flagged records only for fields that were actually updated
-      updated_flags['representative_id'] = rep_data['id'] if updated_flags.is_a?(Hash)
-      update_flagged_records(updated_flags || {})
     end
 
     def record_can_be_updated?(rep_data)
@@ -113,69 +107,37 @@ module Representatives
     # If the record cannot be found, logs an error to Datadog.
     # @param rep_data [Hash] Original rep_data containing the address and other details.
     # @param api_response [Hash] The response from the address validation service.
+    # @return [Boolean] True if the update was successful, false if unsuccessful.
     def update_rep_record(rep_data, api_response)
       record = Veteran::Service::Representative.find_by(representative_id: rep_data['id'])
       raise StandardError, 'Representative not found.' if record.nil?
 
-      attributes, flags = build_rep_update_payload(rep_data, api_response)
+      attributes = build_rep_update_payload(rep_data, api_response)
       record.update(attributes)
-      flags
     end
 
-    # Build attributes hash and flags indicating which fields changed
-    # @return [Array<Hash, Hash>] first element is attributes, second is flags
+    # Builds the attributes hash for the record update.
+    # @return [Hash] The attributes to update the record with.
     def build_rep_update_payload(rep_data, api_response)
-      flags = {}
-
       address_attrs = if rep_data['address_changed'] && api_response.present?
-                        flags['address'] = true
                         build_address_attributes(rep_data, api_response)
                       else
                         {}
                       end
 
       email_attrs = if rep_data['email_changed']
-                      flags['email'] = true
                       build_email_attributes(rep_data)
                     else
                       {}
                     end
 
       phone_attrs = if rep_data['phone_number_changed']
-                      flags['phone_number'] = true
                       build_phone_attributes(rep_data)
                     else
                       {}
                     end
 
-      [merge_attributes(address_attrs, email_attrs, phone_attrs), flags]
-    end
-
-    # Updates flags for the representative's records based on which fields were actually updated.
-    # @param updated_flags [Hash] Hash with keys 'address', 'email', 'phone_number' set to true when updated.
-    def update_flagged_records(updated_flags)
-      return unless updated_flags.is_a?(Hash)
-
-      representative_id = updated_flags['representative_id']
-
-      # If representative_id is missing, we can't update flags
-      return if representative_id.blank?
-
-      update_flags(representative_id, 'address') if updated_flags['address']
-      update_flags(representative_id, 'email') if updated_flags['email']
-      update_flags(representative_id, 'phone_number') if updated_flags['phone_number']
-    end
-
-    # Updates the flags for a representative's contact data indicating a change.
-    # @param representative_id [String] The ID of the representative.
-    # @param flag_type [String] The type of change (address, email, or phone number).
-    def update_flags(representative_id, flag_type)
-      RepresentationManagement::FlaggedVeteranRepresentativeContactData
-        .where(representative_id:, flag_type:,
-               flagged_value_updated_at: nil)
-        .update_all(flagged_value_updated_at: Time.zone.now) # rubocop:disable Rails/SkipsModelValidations
-    rescue => e
-      log_error("Error updating flagged records. Representative id: #{representative_id}. Flag type: #{flag_type}. Error message: #{e.message}") # rubocop:disable Layout/LineLength
+      merge_attributes(address_attrs, email_attrs, phone_attrs)
     end
 
     # Updates the given record with the new address and other relevant attributes.

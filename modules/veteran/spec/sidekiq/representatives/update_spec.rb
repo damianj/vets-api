@@ -2,49 +2,6 @@
 
 require 'rails_helper'
 
-RSpec.shared_examples 'a representative email or phone update process' do |flag_type, attribute, valid_value, _invalid_value| # rubocop:disable Layout/LineLength
-  let(:id) { '123abc' }
-  let(:address_changed) { flag_type == 'address' }
-  let(:email_changed) { flag_type == 'email' }
-  let(:phone_number_changed) { flag_type == 'phone_number' }
-  let!(:representative) { create_representative }
-
-  context 'when address_exists is true' do
-    let(:address_exists) { true }
-
-    before do
-      create_flagged_records(flag_type)
-      allow(VAProfile::AddressValidation::V3::Service).to receive(:new).and_return(double('VAProfile::AddressValidation::V3::Service', candidate: nil)) # rubocop:disable Layout/LineLength
-    end
-
-    it "updates the #{flag_type} and the associated flagged records" do
-      flagged_records =
-        RepresentationManagement::FlaggedVeteranRepresentativeContactData
-        .where(representative_id: id, flag_type:)
-
-      flagged_records.each do |record|
-        expect(record.flagged_value_updated_at).to be_nil
-      end
-
-      subject.perform(json_data)
-      representative.reload
-
-      expect(representative.send(attribute)).to eq(valid_value)
-
-      flagged_records.each do |record|
-        record.reload
-        expect(record.flagged_value_updated_at).not_to be_nil
-      end
-    end
-
-    it 'does not call validate_address or VAProfile::AddressValidation::V3::Service.new' do
-      subject.perform(json_data)
-
-      expect(VAProfile::AddressValidation::V3::Service).not_to have_received(:new)
-    end
-  end
-end
-
 RSpec.describe Representatives::Update do
   # rubocop:disable Metrics/MethodLength
   def create_representative
@@ -71,17 +28,6 @@ RSpec.describe Representatives::Update do
            phone_number: '111-111-1111')
   end
   # rubocop:enable Metrics/MethodLength
-
-  def create_flagged_records(flag_type)
-    2.times do |n|
-      RepresentationManagement::FlaggedVeteranRepresentativeContactData.create(
-        ip_address: "192.168.1.#{n + 1}",
-        representative_id: '123abc',
-        flag_type:,
-        flagged_value: 'flagged_value'
-      )
-    end
-  end
 
   describe '#perform V3/AddressValidation' do
     let(:json_data) do
@@ -187,28 +133,11 @@ RSpec.describe Representatives::Update do
       let(:phone_number_changed) { false }
       let!(:representative) { create_representative }
 
-      before do
-        create_flagged_records('address')
-      end
-
-      it 'updates the address and the associated flagged records' do
-        flagged_records =
-          RepresentationManagement::FlaggedVeteranRepresentativeContactData
-          .where(representative_id: id, flag_type: 'address')
-
-        flagged_records.each do |record|
-          expect(record.flagged_value_updated_at).to be_nil
-        end
-
+      it 'updates the address' do
         subject.perform(json_data)
         representative.reload
 
         expect(representative.send('address_line1')).to eq('37N 1st St')
-
-        flagged_records.each do |record|
-          record.reload
-          expect(record.flagged_value_updated_at).not_to be_nil
-        end
       end
     end
 
@@ -220,28 +149,11 @@ RSpec.describe Representatives::Update do
       let(:phone_number_changed) { false }
       let!(:representative) { create_representative }
 
-      before do
-        create_flagged_records('address')
-      end
-
-      it 'updates the address and the associated flagged records' do
-        flagged_records =
-          RepresentationManagement::FlaggedVeteranRepresentativeContactData
-          .where(representative_id: id, flag_type: 'address')
-
-        flagged_records.each do |record|
-          expect(record.flagged_value_updated_at).to be_nil
-        end
-
+      it 'updates the address' do
         subject.perform(json_data)
         representative.reload
 
         expect(representative.send('address_line1')).to eq('37N 1st St')
-
-        flagged_records.each do |record|
-          record.reload
-          expect(record.flagged_value_updated_at).not_to be_nil
-        end
       end
     end
 
@@ -253,41 +165,12 @@ RSpec.describe Representatives::Update do
       let(:phone_number_changed) { false }
       let!(:representative) { create_representative }
 
-      before do
-        create_flagged_records('address')
-      end
-
-      it 'updates the address and email and the associated flagged records' do
-        flagged_address_records =
-          RepresentationManagement::FlaggedVeteranRepresentativeContactData
-          .where(representative_id: id, flag_type: 'address')
-        flagged_email_records =
-          RepresentationManagement::FlaggedVeteranRepresentativeContactData
-          .where(representative_id: id, flag_type: 'email')
-        flagged_email_records.each do |record|
-          expect(record.flagged_value_updated_at).to be_nil
-        end
-
+      it 'updates the address and email' do
         subject.perform(json_data)
         representative.reload
         expect(representative.send('address_line1')).to eq('37N 1st St')
         expect(representative.send('email')).to eq('test@example.com')
-
-        flagged_address_records + flagged_email_records.each do |record|
-          record.reload
-          expect(record.flagged_value_updated_at).not_to be_nil
-        end
       end
-    end
-
-    context "when updating a representative's email" do
-      it_behaves_like 'a representative email or phone update process', 'email', :email, 'test@example.com',
-                      'email@example.com'
-    end
-
-    context "when updating a representative's phone number" do
-      it_behaves_like 'a representative email or phone update process', 'phone_number', :phone_number, '999-999-9999',
-                      '111-111-1111'
     end
 
     context 'address validation retries' do
