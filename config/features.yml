@@ -184,7 +184,7 @@ features:
   caregiver_upload_pattern_enabled:
     actor_type: user
     description: Enables multiple file input (V3) upload pattern in the 10-10CG form.
-    enable_in_development: false   
+    enable_in_development: false
   cave_idp:
     actor_type: cookie_id
     description: Enables the CAVE (Common Attachment Validation Engine) IDP proxy endpoints
@@ -2278,8 +2278,12 @@ features:
     enable_in_development: true
   portal_notice_interstitial_enabled:
     actor_type: user
-    description: Enables the MHV portal notice interstital page
+    description: Enables the MHV portal notice interstitial page
     enable_in_development: true
+  portal_notice_interstitial_sunset:
+    actor_type: user
+    description: Enables the sunsetting message on the MHV portal notice interstitial page
+    enable_in_development: false
   sign_in_modal_v2:
     actor_type: user
     description: Enables new page design of Sign In modal and USiP
