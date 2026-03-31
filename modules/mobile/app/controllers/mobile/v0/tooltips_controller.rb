@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-module MyHealth
-  module V1
+module Mobile
+  module V0
     class TooltipsController < ApplicationController
       include Tooltips
-      service_tag 'mhv-medications'
+      service_tag 'mobile-app'
     end
   end
 end
