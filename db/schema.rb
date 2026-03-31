@@ -391,6 +391,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_30_223111) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["ask_va_inquiry_submission_id"], name: "idx_on_ask_va_inquiry_submission_id_532ebd2134"
+    t.index ["checkpoint_type"], name: "index_ask_va_inquiry_submission_checkpoints_on_checkpoint_type"
+    t.index ["needs_kms_rotation"], name: "idx_on_needs_kms_rotation_e1e0a40094"
   end
 
   create_table "ask_va_inquiry_submissions", force: :cascade do |t|
@@ -398,6 +400,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_30_223111) do
     t.string "inquiry_number"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["crm_message_id"], name: "index_ask_va_inquiry_submissions_on_crm_message_id"
+    t.index ["inquiry_number"], name: "index_ask_va_inquiry_submissions_on_inquiry_number"
   end
 
   create_table "async_transactions", id: :serial, force: :cascade do |t|
