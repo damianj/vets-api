@@ -198,6 +198,10 @@ RSpec.configure do |config|
     Sidekiq::Job.clear_all
   end
 
+  config.after do
+    RequestStore.clear!
+  end
+
   config.before do
     allow(Kernel).to receive(:sleep)
   end
