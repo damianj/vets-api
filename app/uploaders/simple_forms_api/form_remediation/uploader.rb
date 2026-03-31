@@ -96,7 +96,7 @@ module SimpleFormsApi
       def store_for_retry!(file)
         raise 'Invalid file object provided for upload. Skipping.' if file.nil? || !file.respond_to?(:filename)
 
-        super(file)
+        CarrierWave::Uploader::Base.instance_method(:store!).bind_call(self, file)
       end
 
       def get_s3_link(file_path, filename = nil)

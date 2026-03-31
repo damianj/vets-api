@@ -191,4 +191,54 @@ RSpec.describe SimpleFormsApi::FormRemediation::Uploader do
       end
     end
   end
+
+  describe '#store_for_retry!' do
+    subject(:store_for_retry!) { uploader_instance.store_for_retry!(file) }
+
+    let(:file) { instance_double(CarrierWave::SanitizedFile, filename: 'test_file.pdf', path: '/tmp/test_file.pdf') }
+
+    context 'when the file is nil' do
+      let(:file) { nil }
+
+      it 'raises a RuntimeError' do
+        expect { store_for_retry! }.to raise_error(RuntimeError, /Invalid file object/)
+      end
+    end
+
+    context 'when the file is valid and upload succeeds' do
+      before do
+        allow_any_instance_of(CarrierWave::Uploader::Base).to receive(:store!).and_return(true)
+      end
+
+      it 'does not enqueue a retry job' do
+        expect(SimpleFormsApi::FormRemediation::UploadRetryJob).not_to receive(:perform_async)
+        store_for_retry!
+      end
+    end
+
+    context 'when an S3 error occurs' do
+      let(:aws_service_error) { Aws::S3::Errors::ServiceError.new(nil, 'Service error') }
+
+      before do
+        allow_any_instance_of(CarrierWave::Uploader::Base).to receive(:store!).and_raise(aws_service_error)
+      end
+
+      it 'propagates the error rather than rescuing it' do
+        expect { store_for_retry! }.to raise_error(Aws::S3::Errors::ServiceError)
+      end
+
+      it 'does not enqueue a retry job' do
+        expect(SimpleFormsApi::FormRemediation::UploadRetryJob).not_to receive(:perform_async)
+        expect { store_for_retry! }.to raise_error(Aws::S3::Errors::ServiceError)
+      end
+    end
+
+    context 'when the file is a non-nil invalid object' do
+      let(:file) { 'not a file object' }
+
+      it 'raises a RuntimeError' do
+        expect { store_for_retry! }.to raise_error(RuntimeError, /Invalid file object/)
+      end
+    end
+  end
 end
