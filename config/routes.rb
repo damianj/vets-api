@@ -307,6 +307,7 @@ Rails.application.routes.draw do
       resource :vet_verification_status, only: :show
 
       # Vet360 Routes
+      resource :contact_information, only: :show
       resource :addresses, only: %i[create update destroy] do
         collection do
           post :create_or_update
