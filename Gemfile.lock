@@ -204,7 +204,7 @@ GEM
       erubi (~> 1.11)
       rails-dom-testing (~> 2.2)
       rails-html-sanitizer (~> 1.6)
-    active_storage_validations (3.0.4)
+    active_storage_validations (3.0.3)
       activejob (>= 6.1.4)
       activemodel (>= 6.1.4)
       activestorage (>= 6.1.4)
@@ -354,7 +354,7 @@ GEM
     config (5.6.1)
       deep_merge (~> 1.2, >= 1.2.1)
       ostruct
-    connection_pool (3.0.2)
+    connection_pool (2.5.5)
     console1984 (0.2.2)
       irb (~> 1.13)
       parser
@@ -708,7 +708,7 @@ GEM
       rake (~> 13.0)
     lockbox (2.1.0)
     logger (1.7.0)
-    loofah (2.25.1)
+    loofah (2.24.1)
       crass (~> 1.0.2)
       nokogiri (>= 1.12.0)
     lumberjack (1.2.10)
@@ -919,8 +919,8 @@ GEM
       activesupport (>= 5.0.0)
       minitest
       nokogiri (>= 1.6)
-    rails-html-sanitizer (1.7.0)
-      loofah (~> 2.25)
+    rails-html-sanitizer (1.6.2)
+      loofah (~> 2.21)
       nokogiri (>= 1.15.7, != 1.16.7, != 1.16.6, != 1.16.5, != 1.16.4, != 1.16.3, != 1.16.2, != 1.16.1, != 1.16.0.rc1, != 1.16.0)
     rails-session_cookie (0.3.0)
       rails (>= 4.0)
@@ -1160,8 +1160,7 @@ GEM
     thread_safe (0.3.6-java)
     tilt (2.3.0)
     timecop (0.9.10)
-    timeout (0.6.1)
-    trailblazer-option (0.1.2)
+    timeout (0.4.4)
     tsort (0.2.0)
     ttfunk (1.7.0)
     typhoeus (1.4.1)
@@ -1243,7 +1242,7 @@ PLATFORMS
 DEPENDENCIES
   aasm
   accredited_representative_portal!
-  active_storage_validations (~> 3.0.4)
+  active_storage_validations (~> 3.0.2)
   activerecord-import
   activerecord-postgis-adapter
   addressable
