@@ -3491,6 +3491,131 @@ describe UnifiedHealthData::Service, type: :service do
     end
   end
 
+  describe 'ICN validation' do
+    let(:user_without_icn) { build(:user, :loa3, icn: nil) }
+    let(:user_with_empty_icn) { build(:user, :loa3, icn: '') }
+
+    context 'when user has nil ICN' do
+      let(:service_without_icn) { described_class.new(user_without_icn) }
+
+      it 'allows initialization without error' do
+        expect { described_class.new(user_without_icn) }.not_to raise_error
+      end
+
+      it 'raises ParameterMissing when calling get_labs' do
+        expect { service_without_icn.get_labs(start_date: 1.year.ago.to_s, end_date: Time.zone.now.to_s) }
+          .to raise_error(Common::Exceptions::ParameterMissing) { |e|
+            expect(e.param).to eq('ICN')
+          }
+      end
+
+      it 'raises ParameterMissing when calling get_conditions' do
+        expect { service_without_icn.get_conditions }
+          .to raise_error(Common::Exceptions::ParameterMissing) { |e|
+            expect(e.param).to eq('ICN')
+          }
+      end
+
+      it 'raises ParameterMissing when calling get_prescriptions' do
+        expect { service_without_icn.get_prescriptions }
+          .to raise_error(Common::Exceptions::ParameterMissing) { |e|
+            expect(e.param).to eq('ICN')
+          }
+      end
+
+      it 'raises ParameterMissing when calling get_vitals' do
+        expect { service_without_icn.get_vitals }
+          .to raise_error(Common::Exceptions::ParameterMissing) { |e|
+            expect(e.param).to eq('ICN')
+          }
+      end
+
+      it 'raises ParameterMissing when calling get_allergies' do
+        expect { service_without_icn.get_allergies }
+          .to raise_error(Common::Exceptions::ParameterMissing) { |e|
+            expect(e.param).to eq('ICN')
+          }
+      end
+
+      it 'raises ParameterMissing when calling get_immunizations' do
+        expect { service_without_icn.get_immunizations }
+          .to raise_error(Common::Exceptions::ParameterMissing) { |e|
+            expect(e.param).to eq('ICN')
+          }
+      end
+
+      it 'raises ParameterMissing when calling initiate_ccd' do
+        expect { service_without_icn.initiate_ccd }
+          .to raise_error(Common::Exceptions::ParameterMissing) { |e|
+            expect(e.param).to eq('ICN')
+          }
+      end
+
+      it 'raises ParameterMissing when calling get_ccd_jobs' do
+        expect { service_without_icn.get_ccd_jobs }
+          .to raise_error(Common::Exceptions::ParameterMissing) { |e|
+            expect(e.param).to eq('ICN')
+          }
+      end
+    end
+
+    context 'when user has empty string ICN' do
+      let(:service_with_empty_icn) { described_class.new(user_with_empty_icn) }
+
+      it 'allows initialization without error' do
+        expect { described_class.new(user_with_empty_icn) }.not_to raise_error
+      end
+
+      it 'raises ParameterMissing when calling a method that requires ICN' do
+        expect { service_with_empty_icn.get_labs(start_date: 1.year.ago.to_s, end_date: Time.zone.now.to_s) }
+          .to raise_error(Common::Exceptions::ParameterMissing) { |e|
+            expect(e.param).to eq('ICN')
+          }
+      end
+    end
+
+    context 'when user is nil' do
+      let(:nil_user_service) { described_class.new(nil) }
+
+      it 'allows initialization without error' do
+        expect { described_class.new(nil) }.not_to raise_error
+      end
+
+      it 'raises ParameterMissing when calling a method that requires ICN' do
+        expect { nil_user_service.get_allergies }
+          .to raise_error(Common::Exceptions::ParameterMissing)
+      end
+    end
+
+    context 'when methods do not require ICN' do
+      let(:service_without_icn) { described_class.new(user_without_icn) }
+      let(:client_double) { instance_double(UnifiedHealthData::Client) }
+      let(:ccd_body) do
+        JSON.parse(Rails.root.join('spec', 'fixtures', 'unified_health_data', 'ccd_ready_success.json').read)
+      end
+      let(:ccd_response) { Faraday::Response.new(body: ccd_body, status: 200) }
+
+      before do
+        allow(UnifiedHealthData::Client).to receive(:new).and_return(client_double)
+        allow(client_double).to receive(:get_ccd).and_return(ccd_response)
+      end
+
+      it 'get_ccd_status works without ICN' do
+        expect { service_without_icn.get_ccd_status(job_id: '12043') }.not_to raise_error
+      end
+
+      it 'get_ccd_url works without ICN' do
+        expect { service_without_icn.get_ccd_url(job_id: '12043') }.not_to raise_error
+      end
+    end
+
+    context 'when user has valid ICN' do
+      it 'initializes successfully' do
+        expect { described_class.new(user) }.not_to raise_error
+      end
+    end
+  end
+
   describe '#initiate_ccd' do
     let(:client_double) { instance_double(UnifiedHealthData::Client) }
 
