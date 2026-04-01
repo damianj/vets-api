@@ -1362,6 +1362,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_30_223111) do
     t.text "encrypted_kms_key"
     t.boolean "needs_kms_rotation", default: false, null: false
     t.text "request_json_ciphertext"
+    t.string "submitted_by_icn", comment: "ICN of the authenticated user who submitted the form. Null for unauthenticated submissions or forms created before this column existed."
     t.index ["form_uuid"], name: "index_ivc_champva_forms_on_form_uuid"
     t.index ["needs_kms_rotation"], name: "index_ivc_champva_forms_on_needs_kms_rotation"
   end
