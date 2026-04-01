@@ -10,55 +10,47 @@ module Openapi
           veteranInformation: {
             type: :object,
             required: %i[fullName dateOfBirth],
-            # FE requires either ssn or vaFileNumber to be present
-            anyOf: [
-              { required: [:ssn] },
-              { required: [:vaFileNumber] }
-            ],
             properties: {
               fullName: { '$ref' => '#/components/schemas/FirstMiddleLastName' },
               ssn: {
                 type: :string,
-                pattern: '^\\d{9}$',
+                pattern: '^\d{9}$',
                 description: 'Social Security Number (9 digits)',
                 example: '123456789'
               },
-              vaFileNumber: { type: :string, pattern: '^\\d{8,9}$', example: '987654321' },
+              vaFileNumber: { type: :string, example: '987654321' },
               dateOfBirth: { type: :string, format: :date, example: '1980-01-01' },
               address: { '$ref' => '#/components/schemas/SimpleAddress' }
             }
           },
           employmentInformation: {
             type: :object,
-            required: %i[employerName employerAddress typeOfWorkPerformed amountEarnedLast12MonthsOfEmployment
-                         timeLostLast12MonthsOfEmployment hoursWorkedDaily hoursWorkedWeekly
-                         beginningDateOfEmployment concessions],
+            required: %i[employerName employerAddress typeOfWorkPerformed
+                         beginningDateOfEmployment],
             properties: {
-              employerName: { type: :string, maxLength: 100 },
+              employerName: { type: :string },
               employerAddress: { '$ref' => '#/components/schemas/SimpleAddress' },
-              typeOfWorkPerformed: { type: :string, maxLength: 1000 },
+              typeOfWorkPerformed: { type: :string },
               beginningDateOfEmployment: { type: :string, format: :date },
               endingDateOfEmployment: { type: :string, format: :date },
-              amountEarnedLast12MonthsOfEmployment: { type: :number, minimum: 0,
-                                                      maximum: 999_999_999 },
-              timeLostLast12MonthsOfEmployment: { type: :string, maxLength: 100 },
-              hoursWorkedDaily: { type: :number, minimum: 0 },
-              hoursWorkedWeekly: { type: :number, minimum: 0 },
-              concessions: { type: :string, maxLength: 1000 },
-              terminationReason: { type: :string, maxLength: 1000 },
+              amountEarnedLast12MonthsOfEmployment: { type: :number },
+              timeLostLast12MonthsOfEmployment: { type: :string },
+              hoursWorkedDaily: { type: :number },
+              hoursWorkedWeekly: { type: :number },
+              concessions: { type: :string },
+              terminationReason: { type: :string },
               dateLastWorked: { type: :string, format: :date },
               lastPaymentDate: { type: :string, format: :date },
-              lastPaymentGrossAmount: { type: :number, minimum: 0, maximum: 999_999_999 },
+              lastPaymentGrossAmount: { type: :number },
               lumpSumPaymentMade: { type: :boolean },
-              grossAmountPaid: { type: :number, minimum: 0, maximum: 999_999_999 },
+              grossAmountPaid: { type: :number },
               datePaid: { type: :string, format: :date }
             }
           },
           militaryDutyStatus: {
             type: :object,
-            required: %i[currentDutyStatus veteranDisabilitiesPreventMilitaryDuties],
             properties: {
-              currentDutyStatus: { type: :string, maxLength: 500 },
+              currentDutyStatus: { type: :string },
               veteranDisabilitiesPreventMilitaryDuties: { type: :boolean }
             }
           },
@@ -66,12 +58,12 @@ module Openapi
             type: :object,
             properties: {
               sickRetirementOtherBenefits: { type: :boolean },
-              typeOfBenefit: { type: :string, maxLength: 500 },
-              grossMonthlyAmountOfBenefit: { type: :number, minimum: 0, maximum: 999_999_999 },
+              typeOfBenefit: { type: :string },
+              grossMonthlyAmountOfBenefit: { type: :number },
               dateBenefitBegan: { type: :string, format: :date },
               dateFirstPaymentIssued: { type: :string, format: :date },
               dateBenefitWillStop: { type: :string, format: :date },
-              remarks: { type: :string, maxLength: 2000 }
+              remarks: { type: :string }
             }
           },
           certification: {
@@ -92,7 +84,7 @@ module Openapi
             }
           }
         },
-        required: %i[veteranInformation employmentInformation militaryDutyStatus certification]
+        required: %i[veteranInformation employmentInformation certification]
       }.freeze
     end
   end
