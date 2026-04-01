@@ -18,7 +18,7 @@ module TravelPay
     #
     # @return [TravelPay::Appointment]
     #
-    def get_all_appointments(veis_token, btsss_token, params = {})
+    def get_all_appointments(auth_session, params = {})
       btsss_url = Settings.travel_pay.base_url
       correlation_id = SecureRandom.uuid
       Rails.logger.info(message: 'Correlation ID', correlation_id:)
@@ -29,8 +29,8 @@ module TravelPay
                    end
       log_to_statsd('appointments', 'get_all') do
         connection(server_url: btsss_url).get(query_path) do |req|
-          req.headers['Authorization'] = "Bearer #{veis_token}"
-          req.headers['BTSSS-Access-Token'] = btsss_token
+          req.headers['Authorization'] = "Bearer #{auth_session.veis_token}"
+          req.headers['BTSSS-Access-Token'] = auth_session.btsss_token
           req.headers['X-Correlation-ID'] = correlation_id
           req.headers.merge!(claim_headers)
         end
@@ -52,7 +52,7 @@ module TravelPay
     #
     # @return [TravelPay::Appointment]
     #
-    def find_or_create(veis_token, btsss_token, params, use_v4_api: false)
+    def find_or_create(auth_session, params, use_v4_api: false)
       btsss_url = Settings.travel_pay.base_url
       correlation_id = SecureRandom.uuid
       Rails.logger.info(message: 'Correlation ID', correlation_id:)
@@ -64,8 +64,8 @@ module TravelPay
 
       log_to_statsd('appointments', 'find_or_create') do
         connection(server_url: btsss_url).post(endpoint) do |req|
-          req.headers['Authorization'] = "Bearer #{veis_token}"
-          req.headers['BTSSS-Access-Token'] = btsss_token
+          req.headers['Authorization'] = "Bearer #{auth_session.veis_token}"
+          req.headers['BTSSS-Access-Token'] = auth_session.btsss_token
           req.headers['X-Correlation-ID'] = correlation_id
           req.headers.merge!(claim_headers)
           req.body = url_params.to_json

@@ -16,6 +16,7 @@ class SupportingEvidenceAttachmentUploader < EVSSClaimDocumentUploaderBase
   # "_20240101-1234-1a2b3c4d5e"). Limiting the base filename to 100 characters keeps the final
   # temp path well under common 255-character filesystem limits, even if the pattern changes slightly.
   MAX_FILENAME_LENGTH = 100
+  STATSD_KEY_PREFIX = 'api.disability_compensation.upload_validation'
 
   # Override the inherited EVSS 99MB limit to match the Benefits Intake API's 100MB limit.
   # Without this, CarrierWave rejects PDFs between 99–100MB before Benefits Intake validation runs.
@@ -102,7 +103,9 @@ class SupportingEvidenceAttachmentUploader < EVSSClaimDocumentUploaderBase
     ).validate
     return if result.valid_pdf?
 
-    raise CarrierWave::IntegrityError, result.errors.join('. ')
+    error_message = result.errors.join('. ')
+    log_upload_rejection('benefits_intake_pdf_invalid', error_message, file_extension: File.extname(file.path))
+    raise CarrierWave::IntegrityError, error_message
   end
 
   # Override to gate virus scanning behind the feature toggle and convert VirusFoundError
@@ -112,7 +115,23 @@ class SupportingEvidenceAttachmentUploader < EVSSClaimDocumentUploaderBase
 
     super
   rescue UploaderVirusScan::VirusFoundError
+    log_upload_rejection('virus_detected', 'Virus or malware detected in uploaded file',
+                         file_extension: File.extname(file.path))
     raise CarrierWave::IntegrityError, 'We were unable to process your file. Please try again.'
+  end
+
+  def log_upload_rejection(reason, error_message, file_extension: nil)
+    StatsD.increment("#{STATSD_KEY_PREFIX}.rejected", tags: ["reason:#{reason}"])
+    Rails.logger.warn(
+      {
+        message: 'Form 526 upload validation rejected',
+        statsd_key: "#{STATSD_KEY_PREFIX}.rejected",
+        reason:,
+        error_detail: error_message,
+        file_extension:,
+        guid: @guid
+      }
+    )
   end
 
   # Shortens a filename to MAX_FILENAME_LENGTH while preserving the extension

@@ -75,7 +75,9 @@ module V0
     end
 
     def call_cerner_provisioner
-      Identity::CernerProvisionerJob.perform_inline(@user_account.icn, :tou)
+      messaging_only = current_user.cerner_limited?
+
+      Identity::CernerProvisionerJob.perform_inline(@user_account.icn, messaging_only, :tou)
     end
 
     def recache_user

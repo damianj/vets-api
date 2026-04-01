@@ -41,8 +41,8 @@ module TravelPay
     # @return [Hash] hash with :claims (array), :metadata (hash), and :error (boolean) keys
     def fetch_claims_by_date(start_date, end_date)
       client_params = build_claims_request_params(start_date, end_date)
-      auth_manager.authorize => { veis_token:, btsss_token: }
-      faraday_response = client.get_claims_by_date(veis_token, btsss_token, client_params)
+      auth_session = auth_manager.authorize
+      faraday_response = client.get_claims_by_date(auth_session, client_params)
 
       process_claims_response(faraday_response)
     rescue => e
@@ -91,8 +91,8 @@ module TravelPay
       date_range = DateUtils.try_parse_date_range(appt[:local_start_time], appt[:local_start_time])
       date_range = date_range.transform_values { |t| DateUtils.strip_timezone(t).iso8601 }
 
-      auth_manager.authorize => { veis_token:, btsss_token: }
-      faraday_response = client.get_claims_by_date(veis_token, btsss_token, date_range)
+      auth_session = auth_manager.authorize
+      faraday_response = client.get_claims_by_date(auth_session, date_range)
 
       claim_data = faraday_response.body['data']&.dig(0)
 

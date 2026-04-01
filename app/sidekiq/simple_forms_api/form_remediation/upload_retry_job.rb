@@ -8,8 +8,10 @@ module SimpleFormsApi
     # +Aws::S3::Errors::ServiceError+ occurs during the initial upload attempt.
     #
     # @example Enqueue a retry (typically called from Uploader, not directly)
-    #   UploadRetryJob.perform_async(file, directory, config)
-    #
+    # UploadRetryJob.perform_async(temp_file_path, directory, config_class_name)
+    # we now pass the temp file path instead of the original file object because the retry job needs to be able
+    # access the file even if the original file object
+    # has been cleaned up by the caller after the initial upload attempt
     # @see SimpleFormsApi::FormRemediation::Uploader
     class UploadRetryJob
       include Sidekiq::Job
@@ -22,11 +24,20 @@ module SimpleFormsApi
 
       STATSD_KEY_PREFIX = 'api.simple_forms_api.upload_retry_job'
 
-      sidekiq_retries_exhausted do |_msg, ex|
+      sidekiq_retries_exhausted do |msg, ex|
+        temp_path  = msg['args']&.first.to_s
+        s3_dir     = msg['args']&.[](1).to_s
         StatsD.increment("#{STATSD_KEY_PREFIX}.retries_exhausted")
+
         Rails.logger.error(
-          'SimpleFormsApi::FormRemediation::UploadRetryJob retries exhausted',
-          { exception: "#{ex.class} - #{ex.message}", backtrace: ex.backtrace&.join("\n").to_s }
+          'SimpleFormsApi::FormRemediation::UploadRetryJob retries exhausted - ' \
+          'manual remediation required. Temp file preserved for recovery.',
+          {
+            exception: "#{ex.class} - #{ex.message}",
+            backtrace: ex.backtrace&.first(10)&.join("\n").to_s,
+            temp_path:,
+            s3_directory: s3_dir
+          }
         )
       end
 
@@ -40,9 +51,10 @@ module SimpleFormsApi
       # (where arguments are JSON-serialized into strings/hashes). Each argument is
       # normalized to the expected type before use.
       #
-      # @param file [String, Hash, CarrierWave::SanitizedFile] file path, serialized hash, or file object
+      # @param file [String, Hash, CarrierWave::SanitizedFile] temp file path,
+      #   serialised hash, or file object
       # @param directory [String] the S3 target directory
-      # @param config [String, Configuration::Base] config class name or config instance
+      # @param config [String, Configuration::Base] config class name or instance
       def perform(file, directory, config)
         @file = file.respond_to?(:filename) ? file : CarrierWave::SanitizedFile.new(file)
         @directory = directory
@@ -52,31 +64,38 @@ module SimpleFormsApi
 
         uploader = @config.uploader_class.new(directory:, config: @config)
 
-        begin
-          StatsD.increment("#{STATSD_KEY_PREFIX}.total")
+        StatsD.increment("#{STATSD_KEY_PREFIX}.total")
 
-          uploader.store!(@file)
+        begin
+          uploader.store_for_retry!(@file)
         rescue Aws::S3::Errors::ServiceError
           raise if service_available?(@config.s3_settings.region)
 
           retry_later
+          return
         end
+
+        # Upload succeeded — remove the temp copy inside this job.
+        cleanup_temp_file!
+
+        StatsD.increment("#{STATSD_KEY_PREFIX}.success")
       end
 
       private
 
       attr_accessor :file, :directory, :config
 
-      # Raises if the file no longer exists on disk. Callers typically delete
-      # the source file after the initial upload attempt, so retries may arrive
-      # with a stale path. Failing fast avoids burning Sidekiq retries.
+      # Raises {FileNoLongerExistsError} if the temp file is missing.
+      # This kills the Sidekiq job immediately rather than burning retries on
+      # a file that will never reappear.
       def verify_file_exists!(sanitized_file)
         path = sanitized_file.respond_to?(:path) ? sanitized_file.path : sanitized_file.to_s
         return if path.blank? || File.exist?(path)
 
         StatsD.increment("#{STATSD_KEY_PREFIX}.file_missing")
         raise FileNoLongerExistsError,
-              "Retry file no longer exists at #{path}. Source was likely cleaned up after the initial upload failure."
+              "Retry file no longer exists at #{path}. " \
+              'The temp copy may have been removed by a previous successful attempt or manual cleanup.'
       end
 
       # Checks whether the S3 service is reachable in the given region.
@@ -91,12 +110,37 @@ module SimpleFormsApi
       end
 
       # Re-enqueues this job with a delay when S3 is completely unavailable.
-      # This avoids burning a Sidekiq retry on a known-down service.
+      # Uses the current +file.path+ (which already points to the temp copy)
+      # so the same file is available when the delayed job runs.
       #
-      # @param delay [Time] when to run the retry (default: 30 minutes from now)
+      # @param delay [ActiveSupport::Duration] when to run the retry
       def retry_later(delay: 30.minutes.from_now)
-        Rails.logger.info("S3 service unavailable. Retrying upload later for #{file.filename}.")
+        Rails.logger.info(
+          'SimpleFormsApi::FormRemediation::UploadRetryJob - S3 service unavailable, scheduling retry',
+          { temp_path: file.path, s3_directory: directory, retry_at: delay }
+        )
         self.class.perform_in(delay, file.path, directory, config.class.name)
+      end
+
+      # Deletes the temp copy that {Uploader#store!} created for this job.
+      # Logs a warning instead of raising if the file is already gone — a
+      # concurrent process may have cleaned it up, which is not an error.
+      def cleanup_temp_file!
+        path = file.respond_to?(:path) ? file.path : file.to_s
+        return if path.blank?
+
+        if File.exist?(path)
+          FileUtils.rm_f(path)
+          Rails.logger.info(
+            'SimpleFormsApi::FormRemediation::UploadRetryJob - temp file removed after successful upload',
+            { temp_path: path }
+          )
+        else
+          Rails.logger.warn(
+            'SimpleFormsApi::FormRemediation::UploadRetryJob - temp file already gone at cleanup; skipping',
+            { temp_path: path }
+          )
+        end
       end
     end
   end

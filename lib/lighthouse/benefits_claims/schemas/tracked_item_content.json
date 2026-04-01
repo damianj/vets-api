@@ -47,6 +47,10 @@
       "type": "boolean",
       "description": "True to skip 'provide' prefix in descriptions"
     },
+    "hideClaimLetterSection": {
+      "type": "boolean",
+      "description": "True to hide the claim letter section for this tracked item"
+    },
     "longDescription": {
       "$ref": "#/definitions/structuredContent",
       "description": "Detailed explanation rendered as paragraphs/lists"

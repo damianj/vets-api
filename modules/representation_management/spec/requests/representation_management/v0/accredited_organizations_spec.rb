@@ -71,10 +71,6 @@ RSpec.describe 'RepresentationManagement::V0::AccreditedOrganizations', type: :r
            can_accept_digital_poa_requests: false)
   end
 
-  before do
-    allow(Flipper).to receive(:enabled?).with(:find_a_representative_enabled).and_return(true)
-  end
-
   context 'when the :find_a_representative_use_accredited_models feature is enabled' do
     before do
       allow(Flipper).to receive(:enabled?).with(:find_a_representative_use_accredited_models).and_return(true)
@@ -104,18 +100,6 @@ RSpec.describe 'RepresentationManagement::V0::AccreditedOrganizations', type: :r
 
       expect(parsed_response[0]['data']['attributes']['name']).to eq('A Second Veteran Org')
       expect(parsed_response[1]['data']['attributes']['name']).to eq('My Veteran Org')
-    end
-  end
-
-  context 'when the :find_a_representative_enabled feature is disabled' do
-    before do
-      allow(Flipper).to receive(:enabled?).with(:find_a_representative_enabled).and_return(false)
-    end
-
-    it 'returns a 404' do
-      get path
-
-      expect(response).to have_http_status(:not_found)
     end
   end
 end

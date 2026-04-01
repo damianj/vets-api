@@ -35,6 +35,7 @@ module BenefitsClaims
       isProperNoun: false,
       isSensitive: false,
       noProvidePrefix: false,
+      hideClaimLetterSection: false,
       longDescription: nil,
       nextSteps: nil
     }.freeze

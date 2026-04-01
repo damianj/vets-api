@@ -26,18 +26,54 @@ shared_examples_for 'a DigitalFormsApi::Service class' do
       service.perform(*args)
     end
 
-    it 'tracks and raise exception on error response' do
-      # 'Authorization' is added to each request
-      args = [:get, 'test/path', { param: 1 }, { header: 'test', 'Authorization' => /Bearer/ }, { option: 'test' }]
-      error = build(:digital_forms_service_error, :error)
+    context 'tracks and raise exception on error response' do
+      it 'uses the error message' do
+        # 'Authorization' is added to each request
+        args = [:get, 'test/path', { param: 1 }, { header: 'test', 'Authorization' => /Bearer/ }, { option: 'test' }]
+        error = build(:digital_forms_service_error, :error)
+        message = 'Service unavailable.'
 
-      # 'request' is a method within the `super` chain
-      expect(service).to receive(:request).with(*args).and_raise error
-      # method, endpoint, code, reason, duration
-      expect(monitor).to receive(:track_api_request).with(:get, endpoint, 503, 'VEFSERR40009', anything,
-                                                          call_location: anything, error: error.body)
+        # 'request' is a method within the `super` chain
+        expect(service).to receive(:request).with(*args).and_raise error
+        # method, endpoint, code, reason, duration
+        expect(monitor).to receive(:track_api_request).with(:get, endpoint, 503, message, anything,
+                                                            call_location: anything, error: message)
 
-      expect { service.perform(*args) }.to raise_error error
+        expect { service.perform(*args) }.to raise_error error
+      end
+
+      it 'uses the only message' do
+        # 'Authorization' is added to each request
+        args = [:get, 'test/path', { param: 1 }, { header: 'test', 'Authorization' => /Bearer/ }, { option: 'test' }]
+        error = build(:digital_forms_service_error, :single)
+        message = 'I am a teapot.'
+
+        # 'request' is a method within the `super` chain
+        expect(service).to receive(:request).with(*args).and_raise error
+        # method, endpoint, code, reason, duration
+        expect(monitor).to receive(:track_api_request).with(:get, endpoint, 418, message, anything,
+                                                            call_location: anything, error: [message])
+
+        expect { service.perform(*args) }.to raise_error error
+      end
+
+      it 'uses the first message' do
+        # 'Authorization' is added to each request
+        args = [:get, 'test/path', { param: 1 }, { header: 'test', 'Authorization' => /Bearer/ }, { option: 'test' }]
+        error = build(:digital_forms_service_error, :multiple)
+        messages = [
+          'Access denied.',
+          'I am a teapot.'
+        ]
+
+        # 'request' is a method within the `super` chain
+        expect(service).to receive(:request).with(*args).and_raise error
+        # method, endpoint, code, reason, duration
+        expect(monitor).to receive(:track_api_request).with(:get, endpoint, 403, messages.first, anything,
+                                                            call_location: anything, error: messages)
+
+        expect { service.perform(*args) }.to raise_error error
+      end
     end
   end
 end

@@ -22,6 +22,12 @@ module MHV
         p9: 45
       }.freeze
 
+      # Dark deploy offsets: shift phase boundaries earlier for gradual re-enablement
+      # SM/Rx: p6 shifts from T+2 to T+1 (unblocks SM/Rx one day early)
+      DARK_DEPLOY_SM_RX_OFFSETS = { p6: 1 }.freeze
+      # Appointments: p7 shifts from T+7 to T+5 (unblocks appointments two days early)
+      DARK_DEPLOY_APPOINTMENTS_OFFSETS = { p7: 5 }.freeze
+
       MIGRATION_STATUS = {
         not_started: 'NOT_STARTED', # Before p0
         active: 'ACTIVE',           # Between p0 and pN (inclusive)
@@ -252,6 +258,19 @@ module MHV
         { current: }.merge(phase_dates)
       end
 
+      # Returns active phases with dark deploy offsets applied for the current user.
+      # Used by determine_current_phase to shift phase boundaries earlier for flagged users.
+      # @return [Hash] phases with any applicable dark deploy offsets merged in
+      def effective_phases
+        phases = active_phases
+        phases = phases.merge(DARK_DEPLOY_SM_RX_OFFSETS) if Flipper.enabled?(:mhv_oh_migration_dark_deploy_sm_rx,
+                                                                             @current_user)
+        phases = phases.merge(DARK_DEPLOY_APPOINTMENTS_OFFSETS) if Flipper.enabled?(
+          :mhv_oh_migration_dark_deploy_appointments, @current_user
+        )
+        phases
+      end
+
       # Returns the active set of phases based on feature toggle
       # @return [Hash] phases to use for calculations
       def active_phases
@@ -263,9 +282,10 @@ module MHV
       end
 
       # Calculates absolute dates for each phase based on migration date
+      # Uses effective_phases so dark deploy users see shifted boundaries
       # @return [Hash] Phase keys with formatted date strings
       def calculate_phase_dates(migration_date)
-        active_phases.transform_values do |day_offset|
+        effective_phases.transform_values do |day_offset|
           "#{format_phase_date(migration_date + day_offset)} at 12:00AM ET"
         end
       end
@@ -277,7 +297,7 @@ module MHV
         today = Time.use_zone('Eastern Time (US & Canada)') { Date.current }
         days_until_migration = (migration_date - today).to_i
 
-        phases = active_phases
+        phases = effective_phases
 
         # Find the current phase by checking from latest phase to earliest
         # Phase boundaries are inclusive - if today is day -45, we're in p1

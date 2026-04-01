@@ -5,6 +5,8 @@ x-app: &common
     args:
       BUNDLE_ENTERPRISE__CONTRIBSYS__COM: "${BUNDLE_ENTERPRISE__CONTRIBSYS__COM}"
       USER_ID: ${VETS_API_USER_ID}
+      IMAGEMAGICK_IMAGE: "${IMAGEMAGICK_IMAGE:-dpokidov/imagemagick:7.1.1-47-bookworm}"
+      RUBY_IMAGE: "${RUBY_IMAGE:-public.ecr.aws/docker/library/ruby:3.3.6-slim-bookworm}"
     context: .
   environment:
     RAILS_ENV: development
@@ -41,7 +43,7 @@ services:
     ports:
       - 3310:3310
     volumes:
-     - clamav-files:/vets-api
+      - clamav-files:/vets-api
   redis:
     image: redis:6.2-alpine
     restart: unless-stopped
@@ -68,4 +70,4 @@ services:
     command: bundle exec sidekiq -q critical,4 -q tasker,3 -q default,2 -q low,1
 
 volumes:
- clamav-files:
+  clamav-files:

@@ -101,6 +101,7 @@ class SourceAppMiddleware
     'enrollment-verification',
     'ezr',
     'facilities',
+    'facility-locator',
     'feedback-tool',
     'find-a-representative',
     'fmp-cover-sheet',

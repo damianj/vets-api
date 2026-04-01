@@ -88,7 +88,7 @@ module SimpleFormsApi
     end
 
     def notification_first_name
-      data.dig('full_name', 'first')
+      veteran_is_filing? ? data['first'] : data.dig('full_name', 'first')
     end
 
     def notification_email_address

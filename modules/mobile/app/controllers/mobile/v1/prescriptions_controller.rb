@@ -125,18 +125,18 @@ module Mobile
       end
 
       def status_meta(prescriptions)
-        {
-          prescription_status_count: prescriptions.each_with_object(Hash.new(0)) do |obj, hash|
-            hash['isRefillable'] += 1 if obj.is_refillable
+        counts = prescriptions.each_with_object(Hash.new(0)) do |obj, hash|
+          hash['isRefillable'] += 1 if obj.is_refillable
 
-            if obj.is_trackable || %w[active submitted providerHold activeParked
-                                      refillinprocess].include?(obj.refill_status)
-              hash['active'] += 1
-            else
-              hash[obj.refill_status] += 1
-            end
+          if obj.is_trackable || %w[active submitted providerHold activeParked
+                                    refillinprocess].include?(obj.refill_status)
+            hash['active'] += 1
+          else
+            hash[obj.refill_status] += 1
           end
-        }
+        end
+
+        { prescription_status_count: { 'isRefillable' => 0, 'active' => 0 }.merge(counts) }
       end
 
       def non_va_meds?(prescriptions)

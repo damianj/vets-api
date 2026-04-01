@@ -82,7 +82,7 @@ RSpec.describe 'va_notify:notify_affected_form_users', type: :task do
 
   describe 'collect_affected_users' do
     it 'includes forms with _is_valid in form_data' do
-      create_form(form_id: '21-2680')
+      create_form(form_id: '21-2680', updated_at: Time.zone.parse('2026-01-15'))
       expect(collect_affected_users.count).to eq(1)
     end
 
@@ -92,19 +92,19 @@ RSpec.describe 'va_notify:notify_affected_form_users', type: :task do
     end
 
     it 'excludes forms with a blank email' do
-      create_form(form_id: '21-2680', form_data: { '_is_valid' => true,
-                                                   'claimant_contact' => { 'claimant_email' => '' } })
+      create_form(form_id: '21-2680', updated_at: Time.zone.parse('2026-01-15'),
+                  form_data: { '_is_valid' => true, 'claimant_contact' => { 'claimant_email' => '' } })
       expect(collect_affected_users).to be_empty
     end
 
     it 'excludes forms outside the date range' do
-      create_form(form_id: '21-2680', updated_at: 61.days.ago)
+      create_form(form_id: '21-2680', updated_at: Time.zone.parse('2025-11-30'))
       create_form(form_id: '21-2680', updated_at: Time.zone.parse('2026-02-27'))
       expect(collect_affected_users).to be_empty
     end
 
     it 'skips forms that raise errors without raising' do
-      create_form(form_id: '21-2680')
+      create_form(form_id: '21-2680', updated_at: Time.zone.parse('2026-01-15'))
       allow_any_instance_of(InProgressForm).to receive(:form_data).and_raise(StandardError)
       expect { collect_affected_users }.not_to raise_error
     end

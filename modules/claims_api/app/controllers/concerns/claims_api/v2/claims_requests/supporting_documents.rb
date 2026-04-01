@@ -47,6 +47,7 @@ module ClaimsApi
 
             {
               document_id: doc['document_id'],
+              document_uuid: doc['document_uuid'],
               document_type_label: doc['document_type_label'],
               original_file_name: doc['original_file_name'],
               tracked_item_id: doc['tracked_item_id'],

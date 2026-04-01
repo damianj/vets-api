@@ -1643,7 +1643,7 @@ module VAOS
 
       def check_appointments_migration_override(appointments)
         if Flipper.enabled?(:va_online_scheduling_backend_oh_migration_check, user)
-          migrations = VAOS::OhMigrationsHelper.get_migrations
+          migrations = VAOS::OhMigrationsHelper.get_migrations(user:)
           appointments.each do |appt|
             if appt[:location_id]
               parent_facility_id = appt[:location_id][0, 3]

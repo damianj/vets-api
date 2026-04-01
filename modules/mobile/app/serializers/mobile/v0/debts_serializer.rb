@@ -20,7 +20,7 @@ module Mobile
                  :current_ar,
                  :debt_history,
                  :fiscal_transaction_data,
-                 :receivable_id
+                 :rcvbl_id
 
       def initialize(debts, id = nil)
         resource = if debts.is_a? Array
@@ -57,7 +57,7 @@ module Mobile
                  current_ar: debt['currentAR'],
                  debt_history:,
                  fiscal_transaction_data:,
-                 receivable_id: debt['receivableId'])
+                 rcvbl_id: debt['rcvblId'])
       end
 
       def serialize_debt_history(debt)

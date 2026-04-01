@@ -28,6 +28,8 @@ RSpec.describe EventBusGateway::LetterReadyNotificationJob, type: :job do
     allow(Flipper).to receive(:enabled?)
       .with(:event_bus_gateway_letter_ready_sms_notifications, instance_of(Flipper::Actor))
       .and_return(true)
+    allow(Flipper).to receive(:enabled?).with(:event_bus_gateway_sms_blackout).and_return(false)
+    allow(Flipper).to receive(:enabled?).with(:event_bus_gateway_sms_dry_run).and_return(false)
   end
 
   let(:participant_id) { '1234' }

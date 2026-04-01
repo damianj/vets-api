@@ -14,8 +14,9 @@ RSpec.describe TravelPay::V0::DocumentsController, type: :request do
   end
 
   before do
-    allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize).and_return({ veis_token: 'veis_token',
-                                                                                      btsss_token: 'btsss_token' })
+    allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
+      .and_return(TravelPay::AuthSession.new(veis_token: 'veis_token',
+                                             btsss_token: 'btsss_token'))
     sign_in(user)
   end
 

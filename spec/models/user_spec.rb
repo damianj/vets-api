@@ -1530,45 +1530,57 @@ RSpec.describe User, type: :model do
   describe '#provision_cerner_async' do
     let(:user) { build(:user, :loa3, cerner_id:, cerner_facility_ids:) }
     let(:cerner_id) { 'some-cerner-id' }
-    let(:cerner_facility_ids) { ['some-cerner-facility-id'] }
 
     before do
       allow(Identity::CernerProvisionerJob).to receive(:perform_async)
+      allow(Settings.mhv.oh_facility_checks)
+        .to receive(:pretransitioned_oh_facilities)
+        .and_return('123, 456')
     end
 
-    context 'when the user is loa3' do
-      context 'when the user has a cerner_id' do
-        it 'enqueues a job to provision the Cerner account' do
-          user.provision_cerner_async
+    context 'when the user is loa3 and has a cerner_id' do
+      context 'and cerner version is limited' do
+        let(:cerner_facility_ids) { %w[888 999] }
 
-          expect(Identity::CernerProvisionerJob).to have_received(:perform_async).with(user.icn, nil)
+        it 'enqueues the job with messaging_only = true' do
+          user.provision_cerner_async(source: :tou)
+          expect(Identity::CernerProvisionerJob).to have_received(:perform_async)
+            .with(user.icn, true, :tou)
         end
       end
 
-      context 'when the user does not have a cerner_id nor cerner_facility_ids' do
-        let(:cerner_id) { nil }
-        let(:cerner_facility_ids) { [] }
+      context 'and cerner version is full' do
+        let(:cerner_facility_ids) { %w[123 999] }
 
-        it 'does not enqueue a job to provision the Cerner account' do
-          user.provision_cerner_async
-
-          expect(Identity::CernerProvisionerJob).not_to have_received(:perform_async)
+        it 'enqueues the job with messaging_only = false' do
+          user.provision_cerner_async(source: :tou)
+          expect(Identity::CernerProvisionerJob).to have_received(:perform_async)
+            .with(user.icn, false, :tou)
         end
+      end
+    end
+
+    context 'when the user does not have a cerner_id or cerner_facility_ids' do
+      let(:cerner_id) { nil }
+      let(:cerner_facility_ids) { [] }
+
+      it 'does not enqueue a job' do
+        user.provision_cerner_async(source: :tou)
+        expect(Identity::CernerProvisionerJob).not_to have_received(:perform_async)
       end
     end
 
     context 'when the user is not loa3' do
-      let(:user) { build(:user, cerner_id:) }
+      let(:user) { build(:user, :loa1, cerner_id: 'some-cerner-id') }
 
-      it 'does not enqueue a job to provision the Cerner account' do
-        user.provision_cerner_async
-
+      it 'does not enqueue a job' do
+        user.provision_cerner_async(source: :tou)
         expect(Identity::CernerProvisionerJob).not_to have_received(:perform_async)
       end
     end
   end
 
-  describe '#cerner_cookie_eligibility' do
+  describe '#cerner_full?' do
     let(:user) { build(:user, :loa3, cerner_id:, cerner_facility_ids:) }
     let(:cerner_id) { 'some-cerner-id' }
     let(:cerner_facility_ids) { %w[123 456] }
@@ -1578,8 +1590,8 @@ RSpec.describe User, type: :model do
         context 'when the user has no cerner_facility_ids' do
           let(:cerner_facility_ids) { [] }
 
-          it 'returns false' do
-            expect(user.cerner_cookie_eligibility).to be false
+          it 'returns correct cerner flags' do
+            expect(user.cerner_full?).to be false
           end
         end
 
@@ -1587,21 +1599,21 @@ RSpec.describe User, type: :model do
           let(:cerner_facility_ids) { nil }
 
           it 'returns false' do
-            expect(user.cerner_cookie_eligibility).to be false
+            expect(user.cerner_full?).to be false
           end
         end
 
         context 'when no cerner_facility_ids are present on the pretransitioned_oh_facilities list' do
-          it 'returns false' do
-            expect(user.cerner_cookie_eligibility).to be false
+          it 'returns correct cerner flags' do
+            expect(user.cerner_full?).to be false
           end
         end
 
         context 'when one or more user cerner_facility_ids are present on the pretransitioned_oh_facilities list' do
           let(:cerner_facility_ids) { %w[123 456 357 555] }
 
-          it 'returns true' do
-            expect(user.cerner_cookie_eligibility).to be true
+          it 'returns correct cerner flags' do
+            expect(user.cerner_full?).to be true
           end
         end
       end
@@ -1609,8 +1621,8 @@ RSpec.describe User, type: :model do
       context 'when the user does not have a cerner_id' do
         let(:cerner_id) { nil }
 
-        it 'returns false' do
-          expect(user.cerner_cookie_eligibility).to be false
+        it 'returns false for both' do
+          expect(user.cerner_full?).to be false
         end
       end
     end
@@ -1618,8 +1630,54 @@ RSpec.describe User, type: :model do
     context 'when the user is not loa3' do
       let(:user) { build(:user, :loa1, cerner_id:) }
 
+      it 'returns false for both' do
+        expect(user.cerner_full?).to be false
+      end
+    end
+  end
+
+  describe '#cerner_limited?' do
+    context 'when the user is not loa3' do
+      let(:user) { build(:user, :loa1, cerner_id: '123') }
+
       it 'returns false' do
-        expect(user.cerner_cookie_eligibility).to be false
+        expect(user.cerner_limited?).to be false
+      end
+    end
+
+    context 'when the user does not have a cerner_id' do
+      let(:user) { build(:user, :loa3, cerner_id: nil) }
+
+      it 'returns false' do
+        expect(user.cerner_limited?).to be false
+      end
+    end
+
+    context 'when user is eligible but has no live cerner facilities' do
+      let(:user) { build(:user, :loa3, cerner_id: '123', cerner_facility_ids: ['fake_id']) }
+
+      before do
+        allow(Settings.mhv.oh_facility_checks)
+          .to receive(:pretransitioned_oh_facilities)
+          .and_return('real_id_1, real_id_2')
+      end
+
+      it 'returns true' do
+        expect(user.cerner_limited?).to be true
+      end
+    end
+
+    context 'when user has a live cerner facility' do
+      let(:user) { build(:user, :loa3, cerner_id: '123', cerner_facility_ids: ['real_id_1']) }
+
+      before do
+        allow(Settings.mhv.oh_facility_checks)
+          .to receive(:pretransitioned_oh_facilities)
+          .and_return('real_id_1, real_id_2')
+      end
+
+      it 'returns false' do
+        expect(user.cerner_limited?).to be false
       end
     end
   end

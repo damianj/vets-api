@@ -236,6 +236,19 @@ describe UnifiedHealthData::Adapters::OracleHealthPrescriptionAdapter do
         result = subject.parse(resource)
         expect(result.is_renewable).to be false
       end
+
+      it 'marks prescription as not renewable when most recent dispense is in-progress (Gate 7)' do
+        resource = fhir_resource(
+          status: 'active',
+          refills: 1,
+          expiration: 30.days.ago,
+          source: 'VA',
+          dispense_status: 'in-progress'
+        )
+
+        result = subject.parse(resource)
+        expect(result.is_renewable).to be false
+      end
     end
 
     context 'with status normalization' do
@@ -461,7 +474,8 @@ describe UnifiedHealthData::Adapters::OracleHealthPrescriptionAdapter do
             ]
           },
           'identifier' => [
-            { 'system' => 'http://example.com/prescription', 'value' => 'TEST-001' }
+            { 'system' => 'http://va.gov/identifier/rx-number', 'value' => '12345678' },
+            { 'system' => 'http://va.gov/identifier/station-prefix', 'value' => '3001' }
           ],
           'contained' => [
             {
@@ -484,8 +498,62 @@ describe UnifiedHealthData::Adapters::OracleHealthPrescriptionAdapter do
         tracking = result.tracking.first
         expect(tracking[:tracking_number]).to eq('9999888877776666')
         expect(tracking[:prescription_name]).to eq('Test Medication')
-        expect(tracking[:prescription_number]).to eq('TEST-001')
+        expect(tracking[:prescription_number]).to eq('3001-12345678')
         expect(tracking[:ndc_number]).to eq('11111-2222-33')
+      end
+    end
+
+    context 'with prescription number extraction' do
+      it 'logs a warning when rx-number identifier is missing but station-prefix is present' do
+        resource = base_fhir_resource.merge(
+          'id' => '20848999999',
+          'identifier' => [
+            { 'system' => 'http://va.gov/identifier/station-prefix', 'value' => '3001' }
+          ]
+        )
+        allow(Rails.logger).to receive(:warn)
+
+        result = subject.parse(resource)
+
+        expect(result.prescription_number).to be_nil
+        expect(Rails.logger).to have_received(:warn).with(
+          'Oracle Health prescription missing identifier',
+          hash_including(missing_rx_number: true, missing_station_prefix: false)
+        )
+      end
+
+      it 'logs a warning when station-prefix identifier is missing but rx-number is present' do
+        resource = base_fhir_resource.merge(
+          'id' => '20848999999',
+          'identifier' => [
+            { 'system' => 'http://va.gov/identifier/rx-number', 'value' => '12345678' }
+          ]
+        )
+        allow(Rails.logger).to receive(:warn)
+
+        result = subject.parse(resource)
+
+        expect(result.prescription_number).to be_nil
+        expect(Rails.logger).to have_received(:warn).with(
+          'Oracle Health prescription missing identifier',
+          hash_including(missing_rx_number: false, missing_station_prefix: true)
+        )
+      end
+
+      it 'logs at debug level when both identifiers are missing' do
+        resource = base_fhir_resource.merge(
+          'id' => '20848999999',
+          'identifier' => []
+        )
+        allow(Rails.logger).to receive(:debug)
+
+        result = subject.parse(resource)
+
+        expect(result.prescription_number).to be_nil
+        expect(Rails.logger).to have_received(:debug).with(
+          'Oracle Health prescription missing both identifiers',
+          hash_including(missing_rx_number: true, missing_station_prefix: true)
+        )
       end
     end
 
@@ -626,6 +694,78 @@ describe UnifiedHealthData::Adapters::OracleHealthPrescriptionAdapter do
       it 'sets is_trackable to false when no tracking exists' do
         result = subject.parse(base_fhir_resource)
         expect(result.is_trackable).to be false
+      end
+    end
+
+    context 'with sorted_dispensed_date extraction' do
+      it 'returns the most recent when_handed_over from dispenses' do
+        resource = fhir_resource(
+          dispense_date: '2025-07-20T10:00:00Z'
+        )
+        # Add a second dispense with an earlier date
+        resource['contained'] << {
+          'resourceType' => 'MedicationDispense',
+          'id' => 'dispense-2',
+          'status' => 'completed',
+          'whenHandedOver' => '2025-07-10T08:00:00Z',
+          'location' => { 'display' => '648' }
+        }
+
+        result = subject.parse(resource)
+        expect(result.sorted_dispensed_date).to eq('2025-07-20')
+      end
+
+      it 'falls back to when_prepared when when_handed_over is absent' do
+        resource = base_fhir_resource.merge(
+          'contained' => [
+            {
+              'resourceType' => 'MedicationDispense',
+              'id' => 'dispense-1',
+              'status' => 'completed',
+              'whenPrepared' => '2025-03-05T09:00:00Z',
+              'location' => { 'display' => '648' }
+            },
+            {
+              'resourceType' => 'MedicationDispense',
+              'id' => 'dispense-2',
+              'status' => 'completed',
+              'whenPrepared' => '2025-03-01T10:00:00Z',
+              'location' => { 'display' => '648' }
+            }
+          ]
+        )
+
+        result = subject.parse(resource)
+        expect(result.sorted_dispensed_date).to eq('2025-03-05')
+      end
+
+      it 'returns nil when no dispenses exist' do
+        result = subject.parse(base_fhir_resource)
+        expect(result.sorted_dispensed_date).to be_nil
+      end
+
+      it 'ignores invalid dispense dates and uses the most recent valid date' do
+        resource = base_fhir_resource.merge(
+          'contained' => [
+            {
+              'resourceType' => 'MedicationDispense',
+              'id' => 'dispense-invalid',
+              'status' => 'completed',
+              'whenHandedOver' => 'not-a-valid-datetime',
+              'location' => { 'display' => '648' }
+            },
+            {
+              'resourceType' => 'MedicationDispense',
+              'id' => 'dispense-valid',
+              'status' => 'completed',
+              'whenHandedOver' => '2025-03-06T12:00:00Z',
+              'location' => { 'display' => '648' }
+            }
+          ]
+        )
+
+        result = subject.parse(resource)
+        expect(result.sorted_dispensed_date).to eq('2025-03-06')
       end
     end
   end

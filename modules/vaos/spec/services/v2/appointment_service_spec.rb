@@ -767,7 +767,7 @@ describe VAOS::V2::AppointmentsService do
       end
 
       context 'includes travel claims' do
-        let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
+        let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
 
         before do
           allow(Flipper).to receive(:enabled?).with(:va_online_scheduling_use_vpg, user).and_return(false)
@@ -777,7 +777,7 @@ describe VAOS::V2::AppointmentsService do
           allow_any_instance_of(VAOS::V2::MobileFacilityService).to receive(:get_facility).and_return(mock_facility)
           allow(TravelPay::AuthManager)
             .to receive(:new)
-            .and_return(double('AuthManager', authorize: tokens))
+            .and_return(double('AuthManager', authorize: auth_session))
           allow(Settings.travel_pay).to receive_messages(client_number: '12345', mobile_client_number: '56789')
         end
 
@@ -801,7 +801,7 @@ describe VAOS::V2::AppointmentsService do
       end
 
       context 'with parallel travel claims fetch enabled' do
-        let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
+        let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
 
         before do
           allow(Flipper).to receive(:enabled?).with(:va_online_scheduling_use_vpg, user).and_return(false)
@@ -813,7 +813,7 @@ describe VAOS::V2::AppointmentsService do
           allow_any_instance_of(VAOS::V2::MobileFacilityService).to receive(:get_facility).and_return(mock_facility)
           allow(TravelPay::AuthManager)
             .to receive(:new)
-            .and_return(double('AuthManager', authorize: tokens))
+            .and_return(double('AuthManager', authorize: auth_session))
           allow(Settings.travel_pay).to receive_messages(client_number: '12345', mobile_client_number: '56789')
         end
 

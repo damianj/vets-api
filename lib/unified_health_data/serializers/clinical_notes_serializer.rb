@@ -19,6 +19,7 @@ module UnifiedHealthData
                :discharge_date,
                :location,
                :note, # base64 encoded
+               :addenda, # array of hashes for addendum notes, nil for standard notes
                :source
   end
 end

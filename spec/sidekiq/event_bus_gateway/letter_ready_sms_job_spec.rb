@@ -66,6 +66,9 @@ RSpec.describe EventBusGateway::LetterReadySmsJob, type: :job do
     allow(Rails.logger).to receive(:error)
     allow(Sidekiq::AttrPackage).to receive(:find).and_return(nil)
     allow(Sidekiq::AttrPackage).to receive(:delete)
+    allow(Flipper).to receive(:enabled?).and_return(false)
+    allow(Flipper).to receive(:enabled?).with(:event_bus_gateway_sms_blackout).and_return(false)
+    allow(Flipper).to receive(:enabled?).with(:event_bus_gateway_sms_dry_run).and_return(false)
   end
 
   describe 'successful sms notification' do
@@ -475,6 +478,110 @@ RSpec.describe EventBusGateway::LetterReadySmsJob, type: :job do
       retry_in_proc = EventBusGateway::LetterReadySmsJob.sidekiq_retry_in_block
       intervals = Array.new(10) { retry_in_proc.call(2, StandardError.new) }
       expect(intervals.uniq.size).to be > 1
+    end
+  end
+
+  describe 'SMS blackout period' do
+    context 'when the blackout feature flag is enabled and within the blackout window' do
+      before do
+        allow(Flipper).to receive(:enabled?).with(:event_bus_gateway_sms_blackout).and_return(true)
+        allow(EventBusGateway::Constants).to receive(:sms_blackout_period?).and_return(true)
+        allow(Rails.logger).to receive(:info)
+      end
+
+      it 'does not send an SMS' do
+        expect(va_notify_service).not_to receive(:send_sms)
+        subject.new.perform(participant_id, template_id)
+      end
+
+      it 'logs that the message was blocked' do
+        expect(Rails.logger).to receive(:info).with(
+          'LetterReadySmsJob blocked during SMS blackout period',
+          hash_including(reason: 'blackout_period', template_id:)
+        )
+        subject.new.perform(participant_id, template_id)
+      end
+
+      it 'increments the blocked metric' do
+        expect(StatsD).to receive(:increment).with(
+          "#{described_class::STATSD_METRIC_PREFIX}.blocked",
+          tags: array_including('reason:blackout_period')
+        )
+        subject.new.perform(participant_id, template_id)
+      end
+    end
+
+    context 'when the blackout feature flag is enabled but outside the blackout window' do
+      before do
+        allow(Flipper).to receive(:enabled?).with(:event_bus_gateway_sms_blackout).and_return(true)
+        allow(EventBusGateway::Constants).to receive(:sms_blackout_period?).and_return(false)
+      end
+
+      it 'sends the SMS normally' do
+        expect(va_notify_service).to receive(:send_sms).with(expected_sms_args)
+        subject.new.perform(participant_id, template_id)
+      end
+    end
+
+    context 'when the blackout feature flag is disabled and within the blackout window' do
+      before do
+        allow(Flipper).to receive(:enabled?).with(:event_bus_gateway_sms_blackout).and_return(false)
+        allow(EventBusGateway::Constants).to receive(:sms_blackout_period?).and_return(true)
+      end
+
+      it 'sends the SMS normally' do
+        expect(va_notify_service).to receive(:send_sms).with(expected_sms_args)
+        subject.new.perform(participant_id, template_id)
+      end
+    end
+  end
+
+  describe 'SMS dry run' do
+    context 'when the dry run feature flag is enabled' do
+      before do
+        allow(Flipper).to receive(:enabled?).with(:event_bus_gateway_sms_blackout).and_return(false)
+        allow(Flipper).to receive(:enabled?).with(:event_bus_gateway_sms_dry_run).and_return(true)
+        allow(Rails.logger).to receive(:info)
+      end
+
+      it 'does not send an SMS' do
+        expect(va_notify_service).not_to receive(:send_sms)
+        subject.new.perform(participant_id, template_id)
+      end
+
+      it 'logs the dry run' do
+        expect(Rails.logger).to receive(:info).with(
+          'LetterReadySmsJob dry run - SMS not sent',
+          hash_including(notification_type: 'sms', template_id:)
+        )
+        subject.new.perform(participant_id, template_id)
+      end
+
+      it 'increments the dry_run metric' do
+        expect(StatsD).to receive(:increment).with(
+          "#{described_class::STATSD_METRIC_PREFIX}.dry_run",
+          tags: EventBusGateway::Constants::DD_TAGS
+        )
+        subject.new.perform(participant_id, template_id)
+      end
+
+      it 'does not create a notification record' do
+        expect do
+          subject.new.perform(participant_id, template_id)
+        end.not_to change(EventBusGatewayNotification, :count)
+      end
+    end
+
+    context 'when the dry run feature flag is disabled' do
+      before do
+        allow(Flipper).to receive(:enabled?).with(:event_bus_gateway_sms_blackout).and_return(false)
+        allow(Flipper).to receive(:enabled?).with(:event_bus_gateway_sms_dry_run).and_return(false)
+      end
+
+      it 'sends the SMS normally' do
+        expect(va_notify_service).to receive(:send_sms).with(expected_sms_args)
+        subject.new.perform(participant_id, template_id)
+      end
     end
   end
 end

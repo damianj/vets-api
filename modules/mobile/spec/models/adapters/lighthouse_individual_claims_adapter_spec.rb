@@ -93,6 +93,7 @@ describe Mobile::V0::Adapters::LighthouseIndividualClaims, :aggregate_failures d
                                      activity_description: nil,
                                      can_upload_file: nil,
                                      friendly_name: nil,
+                                     hide_claim_letter_section: nil,
                                      is_dbq: nil,
                                      is_proper_noun: nil,
                                      is_sensitive: nil,
@@ -277,6 +278,7 @@ describe Mobile::V0::Adapters::LighthouseIndividualClaims, :aggregate_failures d
         isProperNoun: true,
         isSensitive: true,
         noProvidePrefix: true,
+        hideClaimLetterSection: true,
         longDescription: { blocks: [{ type: 'paragraph', content: 'Test long description' }] },
         nextSteps: { blocks: [{ type: 'paragraph', content: 'Test next steps' }] }
       }
@@ -306,6 +308,7 @@ describe Mobile::V0::Adapters::LighthouseIndividualClaims, :aggregate_failures d
         expect(tracked_item.is_proper_noun).to eq(content_override_mock[:isProperNoun])
         expect(tracked_item.is_sensitive).to eq(content_override_mock[:isSensitive])
         expect(tracked_item.no_provide_prefix).to eq(content_override_mock[:noProvidePrefix])
+        expect(tracked_item.hide_claim_letter_section).to eq(content_override_mock[:hideClaimLetterSection])
         expect(tracked_item.long_description).to eq(content_override_mock[:longDescription])
         expect(tracked_item.next_steps).to eq(content_override_mock[:nextSteps])
       end
@@ -333,6 +336,7 @@ describe Mobile::V0::Adapters::LighthouseIndividualClaims, :aggregate_failures d
         expect(tracked_item.is_proper_noun).to be_nil
         expect(tracked_item.is_sensitive).to be_nil
         expect(tracked_item.no_provide_prefix).to be_nil
+        expect(tracked_item.hide_claim_letter_section).to be_nil
         expect(tracked_item.long_description).to be_nil
         expect(tracked_item.next_steps).to be_nil
       end

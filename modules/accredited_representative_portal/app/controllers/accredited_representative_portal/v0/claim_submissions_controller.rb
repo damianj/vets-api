@@ -21,9 +21,7 @@ module AccreditedRepresentativePortal
         serializer = SavedClaimClaimantRepresentativeSerializer.new(claim_submissions)
         render json: ({
           data: serializer.serializable_hash, meta: pagination_meta(claim_submissions)
-        }.tap do |json|
-          include_claimant(json) if params[:id].present?
-        end)
+        })
         monitoring.track_count(SUCCESS_METRIC, tags: default_tags)
       rescue ActiveRecord::RecordNotFound, NotFound
         monitoring&.track_count(ERROR_METRIC, tags: default_tags + ['reason:not_found'])
@@ -35,13 +33,6 @@ module AccreditedRepresentativePortal
       end
 
       private
-
-      def include_claimant(json)
-        json[:claimant] = {
-          'firstName' => claimant_profile.given_names.first,
-          'lastName' => claimant_profile.family_name
-        }
-      end
 
       def pagination_meta(submissions)
         {
@@ -75,24 +66,11 @@ module AccreditedRepresentativePortal
       end
 
       def claim_submissions
-        scope = policy_scope(SavedClaimClaimantRepresentative).preload(scope_includes)
-
-        if params[:id].present?
-          raise NotFound unless claimant_profile
-
-          scope = scope.where(claimant_id: params[:id])
-        end
-
-        scope
+        policy_scope(SavedClaimClaimantRepresentative)
+          .where(accredited_individual_registration_number: current_user.registration_numbers)
+          .preload(scope_includes)
           .then { |it| sort_params.present? ? it.sorted_by(sort_params[:by], sort_params[:order]) : it }
           .paginate(page:, per_page:)
-      end
-
-      def claimant_profile
-        @claimant_profile ||= MPI::Service.new.find_profile_by_identifier(
-          identifier: IcnTemporaryIdentifier.lookup_icn(params[:id]),
-          identifier_type: MPI::Constants::ICN
-        )&.profile
       end
 
       def scope_includes

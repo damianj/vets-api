@@ -29,6 +29,7 @@ module UnifiedHealthData
           .merge(build_tracking_attributes(tracking_data, medication))
           .merge(build_contact_and_source_attributes(medication))
           .merge(dispenses: dispenses_data)
+          .merge(sorted_dispensed_date: extract_sorted_dispensed_date(medication, dispenses_data))
           .merge(source_ehr: UnifiedHealthData::Prescription::SOURCE_EHR_VISTA)
       end
 
@@ -149,6 +150,26 @@ module UnifiedHealthData
       rescue ArgumentError => e
         Rails.logger.warn("Failed to parse #{field_name} '#{date_string}': #{e.message}")
         date_string
+      end
+
+      # Returns the most recent dispensed date across all refill records,
+      # falling back to the top-level dispensed_date.
+      # Uses safe date coercion so one bad date string doesn't drop the entire prescription.
+      def extract_sorted_dispensed_date(medication, dispenses_data)
+        dates = dispenses_data.filter_map do |d|
+          d[:dispensed_date]&.to_date
+        rescue ArgumentError, TypeError
+          nil
+        end
+        max_date = dates.max
+        return max_date.to_s if max_date
+
+        raw = medication['dispensedDate']
+        return nil if raw.blank?
+
+        convert_to_iso8601(raw, field_name: 'dispensed_date')&.to_date&.to_s
+      rescue ArgumentError, TypeError
+        nil
       end
 
       def build_provider_name(medication)

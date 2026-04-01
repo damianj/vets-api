@@ -92,7 +92,7 @@ RSpec.describe 'import-va-certs' do # rubocop:disable RSpec/DescribeClass
   end
 
   describe 'VA certificate download' do
-    it 'uses wget for VA certificates' do
+    it 'uses curl for VA certificates' do
       script_content = File.read(script_path)
 
       # Verify wget command with proper options

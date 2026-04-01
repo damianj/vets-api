@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'datadog'
 require 'pdf_utilities/datestamp_pdf'
 require 'ivc_champva/monitor'
 
@@ -24,18 +25,20 @@ module IvcChampva
     # @param current_loa [Integer, nil] Current level of access
     # @return [void]
     def self.stamp_pdf(stamped_template_path, form, current_loa) # rubocop:disable Metrics/MethodLength
-      if File.exist? stamped_template_path
-        Rails.logger.info 'IVC Champva Forms - PdfStamper: stamping signature'
-        stamp_signature(stamped_template_path, form)
+      Datadog::Tracing.trace('IVC Champva Forms - Stamp PDF') do
+        if File.exist? stamped_template_path
+          Rails.logger.info 'IVC Champva Forms - PdfStamper: stamping signature'
+          stamp_signature(stamped_template_path, form)
 
-        Rails.logger.info 'IVC Champva Forms - PdfStamper: stamping auth text'
-        stamp_auth_text(stamped_template_path, current_loa)
+          Rails.logger.info 'IVC Champva Forms - PdfStamper: stamping auth text'
+          stamp_auth_text(stamped_template_path, current_loa)
 
-        Rails.logger.info 'IVC Champva Forms - PdfStamper: stamping submission date'
-        stamp_submission_date(stamped_template_path, form.submission_date_stamps)
-      else
-        Rails.logger.info 'IVC Champva Forms - PdfStamper: stamped_template_path does not exist, aborting'
-        raise "stamped template file does not exist: #{stamped_template_path}"
+          Rails.logger.info 'IVC Champva Forms - PdfStamper: stamping submission date'
+          stamp_submission_date(stamped_template_path, form.submission_date_stamps)
+        else
+          Rails.logger.info 'IVC Champva Forms - PdfStamper: stamped_template_path does not exist, aborting'
+          raise "stamped template file does not exist: #{stamped_template_path}"
+        end
       end
     rescue PdfForms::PdftkError => e
       file_regex = %r{/(?:\w+/)*[\w-]+\.pdf\b}

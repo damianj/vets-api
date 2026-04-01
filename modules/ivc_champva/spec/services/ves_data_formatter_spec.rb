@@ -204,7 +204,7 @@ describe IvcChampva::VesDataFormatter do
 
   describe 'sponsor address' do
     it 'raises an error when address is missing' do
-      @parsed_form_data_copy['veteran']['address'] = nil
+      @parsed_form_data_copy['veteran'].delete('address')
 
       expect do
         IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
@@ -356,6 +356,30 @@ describe IvcChampva::VesDataFormatter do
       res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
 
       expect(res.sponsor.date_of_marriage).to eq('2020-01-01')
+    end
+
+    it 'treats an empty string as absent and sets nil without raising' do
+      @parsed_form_data_copy['veteran']['date_of_marriage'] = ''
+
+      res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
+
+      expect(res.sponsor.date_of_marriage).to be_nil
+    end
+
+    it 'treats a nil value as absent and sets nil without raising' do
+      @parsed_form_data_copy['veteran']['date_of_marriage'] = nil
+
+      res = IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
+
+      expect(res.sponsor.date_of_marriage).to be_nil
+    end
+
+    it 'raises when the date is a corrupted non-blank string' do
+      @parsed_form_data_copy['veteran']['date_of_marriage'] = '-'
+
+      expect do
+        IvcChampva::VesDataFormatter.format_for_request(@parsed_form_data_copy, form_uuid:)
+      end.to raise_error(ArgumentError, /date of marriage is invalid/)
     end
   end
 

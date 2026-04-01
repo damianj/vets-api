@@ -50,7 +50,7 @@ path 'modules' do
   gem 'vye'
 end
 
-gem 'rails', '~> 7.2.3'
+gem 'rails', '~> 7.2.3.1'
 
 gem 'aasm'
 gem 'activerecord-import'
@@ -98,10 +98,6 @@ gem 'flipper-active_support_cache_store'
 gem 'flipper-ui'
 gem 'foreman'
 gem 'geocoder', '~> 1.8', '>= 1.8.6'
-gem 'google-api-client'
-gem 'google-apis-core'
-gem 'google-apis-generator'
-gem 'googleauth'
 gem 'google-protobuf' # For Datadog Profiling
 gem 'govdelivery-tms', git: 'https://github.com/department-of-veterans-affairs/govdelivery-tms-ruby.git', tag: 'v4.2.0', require: 'govdelivery/tms/mail/delivery_method'
 gem 'gyoku'

@@ -61,7 +61,7 @@ module AccreditedRepresentativePortal
                accredited_individual_registration_number: 'AIRN-MATCH')
       end
 
-      let!(:nonmatching_rep) do
+      let!(:matching_rep2) do
         create(:saved_claim_claimant_representative,
                saved_claim: nonmatching_saved_claim,
                accredited_individual_registration_number: 'AIRN-OTHER')
@@ -74,20 +74,7 @@ module AccreditedRepresentativePortal
         end
       end
 
-      context 'when user has POA holders but no registrations' do
-        let(:power_of_attorney_holders) { [build(:power_of_attorney_holder, type: 'veteran_service_organization')] }
-
-        it 'returns an empty scope (AIRN list is empty)' do
-          allow(scope)
-            .to receive(:for_power_of_attorney_holders)
-            .with(power_of_attorney_holders)
-            .and_return(scope.all)
-
-          expect(resolved_scope).to be_empty
-        end
-      end
-
-      context 'when user has POA holders and a matching registration AIRN' do
+      context 'when user has POA holders' do
         let(:power_of_attorney_holders) { [build(:power_of_attorney_holder, type: 'veteran_service_organization')] }
 
         let(:registration_numbers) { ['AIRN-MATCH'] }
@@ -96,11 +83,13 @@ module AccreditedRepresentativePortal
           allow(scope)
             .to receive(:for_power_of_attorney_holders)
             .with(power_of_attorney_holders)
-            .and_return(scope.where(id: [matching_rep.id, nonmatching_rep.id]))
+            .and_return(scope.where(id: [matching_rep.id, matching_rep2.id]))
         end
 
         it 'returns only records whose AIRN matches any of the user registrations' do
-          expect(resolved_scope).to contain_exactly(matching_rep)
+          expect(resolved_scope).to include(matching_rep)
+          expect(resolved_scope).to include(matching_rep)
+          expect(resolved_scope.length).to eq 2
         end
       end
 

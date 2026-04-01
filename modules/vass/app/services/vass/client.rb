@@ -76,7 +76,8 @@ module Vass
       with_auth do
         with_monitoring do
           headers = default_headers.merge('EDIPI' => edipi)
-          perform(:post, 'api/AppointmentAvailability', availability_request, headers)
+          body = availability_request.merge(correlationId: @correlation_id, edipi:)
+          perform(:post, 'api/AppointmentAvailability', body, headers)
         end
       end
     end
@@ -92,8 +93,8 @@ module Vass
       with_auth do
         with_monitoring do
           headers = default_headers.merge('EDIPI' => edipi)
-          cancel_request = { appointmentId: appointment_id }
-          perform(:post, 'api/CancelAppointment', cancel_request, headers)
+          body = { appointmentId: appointment_id, correlationId: @correlation_id, edipi: }
+          perform(:post, 'api/CancelAppointment', body, headers)
         end
       end
     end
@@ -157,8 +158,9 @@ module Vass
         with_monitoring do
           headers = default_headers.merge('EDIPI' => edipi)
           body = {
-            'correlationId' => @correlation_id,
-            'veteranId' => veteran_id
+            correlationId: @correlation_id,
+            veteranId: veteran_id,
+            edipi:
           }
           perform(:post, 'api/GetVeteranAppointments', body, headers)
         end
@@ -176,7 +178,8 @@ module Vass
       with_auth do
         with_monitoring do
           headers = default_headers.merge('EDIPI' => edipi)
-          perform(:post, 'api/SaveAppointment', appointment_data, headers)
+          body = appointment_data.merge(correlationId: @correlation_id, edipi:)
+          perform(:post, 'api/SaveAppointment', body, headers)
         end
       end
     end

@@ -41,7 +41,8 @@ RSpec.describe BenefitsClaims::Responses::ClaimResponse do
         is_dbq: false,
         is_proper_noun: false,
         is_sensitive: false,
-        no_provide_prefix: false
+        no_provide_prefix: false,
+        hide_claim_letter_section: false
       )
     ]
   end
@@ -263,6 +264,7 @@ RSpec.describe BenefitsClaims::Responses::ClaimResponse do
       expect(claim.tracked_items.first.is_proper_noun).to be(false)
       expect(claim.tracked_items.first.is_sensitive).to be(false)
       expect(claim.tracked_items.first.no_provide_prefix).to be(false)
+      expect(claim.tracked_items.first.hide_claim_letter_section).to be(false)
     end
 
     it 'defaults type to "claim" if not provided' do

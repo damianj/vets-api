@@ -65,6 +65,7 @@ RSpec.describe 'MyHealth::V2::ClinicalNotesController', :skip_json_api_validatio
           'dischargeDate',
           'location',
           'note',
+          'addenda',
           'source'
         )
         valid_sources = [UnifiedHealthData::SourceConstants::VISTA,
@@ -72,6 +73,18 @@ RSpec.describe 'MyHealth::V2::ClinicalNotesController', :skip_json_api_validatio
         json_response['data'].each do |note|
           expect(valid_sources).to include(note['attributes']['source'])
         end
+
+        # Verify nested notes entries are returned for an appended note
+        notes_with_entries = json_response['data'].find { |n| n['id'] == 'F253-7227761-1833586' }
+        expect(notes_with_entries['attributes']['addenda']).not_to be_empty
+        sample_entry = notes_with_entries['attributes']['addenda'].first
+        expect(sample_entry).to include(
+          'date',
+          'dateSigned',
+          'writtenBy',
+          'signedBy',
+          'note'
+        )
 
         # Verify event logging was called
         expect(UniqueUserEvents).to have_received(:log_events).with(
@@ -162,6 +175,8 @@ RSpec.describe 'MyHealth::V2::ClinicalNotesController', :skip_json_api_validatio
   describe 'GET /my_health/v2/medical_records/notes#show' do
     context 'happy path' do
       it 'returns a successful response for a single note' do
+        # This is currently only in place for OH notes
+        # TODO: get an OH note sample response that has an appended note
         expect_any_instance_of(UnifiedHealthData::Service)
           .to receive(:get_single_summary_or_note)
           .with('15249697279', source: UnifiedHealthData::SourceConstants::ORACLE_HEALTH)

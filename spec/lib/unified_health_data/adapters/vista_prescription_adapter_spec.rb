@@ -363,6 +363,63 @@ describe UnifiedHealthData::Adapters::VistaPrescriptionAdapter do
         expect(result.cmop_ndc_number).to eq('00093721410')
       end
     end
+
+    context 'with sorted_dispensed_date extraction' do
+      it 'returns the most recent dispensed_date from dispenses' do
+        medication = base_vista_medication.merge(
+          'rxRFRecords' => {
+            'rfRecord' => [
+              { 'dispensedDate' => 'Thu, 10 Jul 2025 00:00:00 EDT' },
+              { 'dispensedDate' => 'Sun, 20 Jul 2025 00:00:00 EDT' },
+              { 'dispensedDate' => 'Tue, 15 Jul 2025 00:00:00 EDT' }
+            ]
+          }
+        )
+        result = subject.parse(medication)
+        expect(result.sorted_dispensed_date).to eq('2025-07-20')
+      end
+
+      it 'falls back to top-level dispensedDate when no dispenses exist' do
+        medication = base_vista_medication.merge(
+          'dispensedDate' => 'Wed, 01 Jun 2025 00:00:00 EDT'
+        )
+        result = subject.parse(medication)
+        expect(result.sorted_dispensed_date).to eq('2025-06-01')
+      end
+
+      it 'returns nil when no dispenses and no dispensedDate' do
+        result = subject.parse(base_vista_medication)
+        expect(result.sorted_dispensed_date).to be_nil
+      end
+
+      it 'ignores invalid dispensedDate strings and returns the max valid date' do
+        medication = base_vista_medication.merge(
+          'rxRFRecords' => {
+            'rfRecord' => [
+              { 'dispensedDate' => 'Thu, 10 Jul 2025 00:00:00 EDT' },
+              { 'dispensedDate' => 'not-a-valid-date' },
+              { 'dispensedDate' => 'Sun, 20 Jul 2025 00:00:00 EDT' }
+            ]
+          }
+        )
+        result = subject.parse(medication)
+        expect(result.sorted_dispensed_date).to eq('2025-07-20')
+      end
+
+      it 'returns nil when all dispensedDate strings are invalid' do
+        medication = base_vista_medication.merge(
+          'rxRFRecords' => {
+            'rfRecord' => [
+              { 'dispensedDate' => 'not-a-valid-date' },
+              { 'dispensedDate' => 'also-not-a-valid-date' }
+            ]
+          },
+          'dispensedDate' => 'still-not-a-valid-date'
+        )
+        result = subject.parse(medication)
+        expect(result.sorted_dispensed_date).to be_nil
+      end
+    end
   end
 
   describe '#build_tracking_information' do

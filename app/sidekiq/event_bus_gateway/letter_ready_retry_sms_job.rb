@@ -25,6 +25,16 @@ module EventBusGateway
     end
 
     def perform(participant_id, template_id, personalisation, notification_id)
+      if Flipper.enabled?(:event_bus_gateway_sms_blackout) && Constants.sms_blackout_period?
+        log_sms_blackout_blocked(template_id)
+        return
+      end
+
+      if Flipper.enabled?(:event_bus_gateway_sms_dry_run)
+        log_sms_dry_run(template_id, notification_id)
+        return
+      end
+
       original_notification = EventBusGatewayNotification.find_by(id: notification_id)
       raise EventBusGatewayNotificationNotFoundError if original_notification.nil?
 
@@ -42,6 +52,28 @@ module EventBusGateway
     end
 
     private
+
+    def log_sms_dry_run(template_id, notification_id)
+      ::Rails.logger.info(
+        'LetterReadyRetrySmsJob dry run - SMS not sent',
+        { notification_type: 'sms', template_id:, notification_id: }
+      )
+      StatsD.increment("#{STATSD_METRIC_PREFIX}.dry_run", tags: Constants::DD_TAGS)
+    end
+
+    def log_sms_blackout_blocked(template_id)
+      ::Rails.logger.info(
+        'LetterReadyRetrySmsJob blocked during SMS blackout period',
+        {
+          notification_type: 'sms',
+          reason: 'blackout_period',
+          template_id:,
+          current_time_utc: Time.current.utc.iso8601
+        }
+      )
+      tags = Constants::DD_TAGS + ['notification_type:sms', 'reason:blackout_period']
+      StatsD.increment("#{STATSD_METRIC_PREFIX}.blocked", tags:)
+    end
 
     def notify_client
       @notify_client ||= VaNotify::Service.new(Constants::NOTIFY_SETTINGS.api_key,

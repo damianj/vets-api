@@ -1,0 +1,160 @@
+{
+  "type": "object",
+  "required": ["data"],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": ["type", "attributes"],
+      "properties": {
+        "id": {
+          "type": ["string", "null"],
+          "format": "uuid"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["power-of-attorney-request"]
+        },
+        "attributes": {
+          "type": "object",
+          "required": ["veteran", "claimant", "representative"],
+          "properties": {
+            "veteran": {
+              "type": "object",
+              "properties": {
+                "serviceNumber": {
+                  "type": ["string", "null"]
+                },
+                "serviceBranch": {
+                  "type": ["string", "null"]
+                },
+                "phone": {
+                  "type": "object",
+                  "properties": {
+                    "countryCode": {
+                      "type": ["string", "null"]
+                    },
+                    "areaCode": {
+                      "type": ["string", "null"]
+                    },
+                    "phoneNumber": {
+                      "type": ["string", "null"]
+                    }
+                  }
+                },
+                "address": {
+                  "type": "object",
+                  "properties": {
+                    "addressLine1": {
+                      "type": "string"
+                    },
+                    "addressLine2": {
+                      "type": ["string", "null"]
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "stateCode": {
+                      "type": "string"
+                    },
+                    "countryCode": {
+                      "type": "string"
+                    },
+                    "zipCode": {
+                      "type": "string"
+                    },
+                    "zipCodeSuffix": {
+                      "type": ["string", "null"]
+                    }
+                  }
+                },
+                "email":{
+                  "type": ["string", "null"]
+                },
+                "insuranceNumber": {
+                  "type": ["string", "null"]  
+                }
+              }
+            },
+            "claimant": {
+              "type": "object",
+              "properties": {
+                "claimantId": {
+                  "type": ["string", "null"]
+                },
+                "phone": {
+                  "type": "object",
+                  "properties": {
+                    "countryCode": {
+                      "type": ["string", "null"]
+                    },
+                    "areaCode": {
+                      "type": ["string", "null"]
+                    },
+                    "phoneNumber": {
+                      "type": ["string", "null"]
+                    }
+                  }
+                },
+                "address": {
+                  "type": "object",
+                  "properties": {
+                    "addressLine1": {
+                      "type": ["string", "null"]
+                    },
+                    "addressLine2": {
+                      "type": ["string", "null"]
+                    },
+                    "city": {
+                      "type": ["string", "null"]
+                    },
+                    "stateCode": {
+                      "type": ["string", "null"]
+                    },
+                    "countryCode": {
+                      "type": ["string", "null"]
+                    },
+                    "zipCode": {
+                      "type": ["string", "null"]
+                    },
+                    "zipCodeSuffix": {
+                      "type": ["string", "null"]
+                    }
+                  }
+                },
+                "email":{
+                  "type": ["string", "null"]
+                },
+                "relationship": {
+                  "type": ["string", "null"]  
+                }
+              }
+            },
+            "representative": {
+              "type": "object",
+              "properties": {
+                "poaCode": {
+                  "type": "string"
+                }
+              }
+            },
+            "consentLimits": {
+              "type": ["array", "null"],
+              "items": {
+                "type": "string",
+                "enum": ["DRUG_ABUSE", "ALCOHOLISM", "HIV", "SICKLE_CELL"]
+              }
+            },
+            "consentAddressChange": {
+              "description": "Authorization for Representative to Act on Claimant's Behalf to Change Claimant's Address.",
+              "type": ["boolean", "null"]
+            },
+            "recordConsent": {
+              "description": "Authorization for Representative's Access to Records Protected by Section 7332, Title 38, U.S.C.",
+              "type": ["boolean", "null"]
+            }
+          }
+        }
+      }
+    }
+  }
+}

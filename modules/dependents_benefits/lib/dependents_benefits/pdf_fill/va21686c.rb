@@ -2152,17 +2152,9 @@ module DependentsBenefits
       def add_household_income
         net_worth = @form_data.dig('dependents_application', 'household_income')
 
-        # If va_dependents_net_worth_and_pension FF is off, show "greater than" wording
-        # If on, show "less than" wording (reversed logic for UI versus RBPS value)
-        # Question will only be asked if va_dependents_net_worth_and_pension FF is off
-        # OR if FF is on and veteran receives pension benefits
-        if Flipper.enabled?(:va_dependents_net_worth_and_pension)
-          return '' unless @form_data['dependents_application']&.key?('household_income')
+        return '' unless @form_data['dependents_application']&.key?('household_income')
 
-          "Did the household have a net worth less than $163,699 in the last tax year? #{format_boolean(!net_worth)}"
-        else
-          "Did the household have a net worth greater than $163,699 in the last tax year? #{format_boolean(net_worth)}"
-        end
+        "Did the household have a net worth less than $163,699 in the last tax year? #{format_boolean(net_worth)}"
       end
 
       ##

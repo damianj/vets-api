@@ -208,6 +208,10 @@
                     "type": "string",
                     "description": "Hashed representation of document"
                   },
+                  "header_hash": {
+                    "type": "string",
+                    "description": "Hashed representation of document header"
+                  },
                   "filename": {
                     "type": "string",
                     "description": "Name of document"

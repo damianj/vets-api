@@ -45,10 +45,10 @@ module MAP
         parse_and_raise_error(e, icn, 'agreements decline')
       end
 
-      def update_provisioning(icn:, first_name:, last_name:, mpi_gcids:)
+      def update_provisioning(icn:, first_name:, last_name:, mpi_gcids:, messaging_only:)
         response = perform(:put,
                            config.patients_provisioning_path(icn),
-                           update_provisioning_params(first_name, last_name, mpi_gcids).to_json,
+                           update_provisioning_params(first_name, last_name, mpi_gcids, messaging_only).to_json,
                            config.authenticated_provisioning_header)
         successful_update_provisioning_response(response, icn)
       rescue Common::Client::Errors::ParsingError => e
@@ -80,12 +80,13 @@ module MAP
         }.to_json
       end
 
-      def update_provisioning_params(first_name, last_name, mpi_gcids)
+      def update_provisioning_params(first_name, last_name, mpi_gcids, messaging_only)
         {
           provisionUser: true,
           gcids: mpi_gcids,
           firstName: first_name,
-          lastName: last_name
+          lastName: last_name,
+          messagingOnly: messaging_only
         }
       end
 
@@ -117,7 +118,8 @@ module MAP
           agreement_signed: response_body['agreementSigned'],
           opt_out: response_body['optOut'],
           cerner_provisioned: response_body['cernerProvisioned'],
-          bypass_eligible: response_body['bypassEligible']
+          bypass_eligible: response_body['bypassEligible'],
+          messaging_only: response_body['messagingOnly']
         }
       end
 

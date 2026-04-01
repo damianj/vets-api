@@ -11,5 +11,6 @@ module TravelPay
     attribute :user_account_id, String
     attribute :veis_token, String
     attribute :btsss_token, String
+    attribute :contact_id, String
   end
 end

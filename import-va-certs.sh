@@ -51,7 +51,7 @@ set -euo pipefail
     shopt -s nullglob
     cert_files=(*.cer *.pem)
     shopt -u nullglob
-    
+
     if [ ${#cert_files[@]} -eq 0 ]; then
         echo "Warning: No certificate files found to process"
     else
@@ -62,7 +62,7 @@ set -euo pipefail
     do
         # Process certificate file
         [ ! -f "$cert" ] && continue
-        
+
         if file "${cert}" | grep -q 'PEM'
         then
             cp "${cert}" "${cert}.crt"

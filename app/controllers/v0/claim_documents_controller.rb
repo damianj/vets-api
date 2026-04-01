@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'lgy/tag_sentry'
 require 'claim_documents/monitor'
 require 'lighthouse/benefits_intake/service'
 require 'pdf_utilities/datestamp_pdf'
@@ -51,7 +50,6 @@ module V0
       when '21-686C', '686C-674', '686C-674-V2'
         PersistentAttachments::DependencyClaim
       when '26-1880'
-        LGY::TagSentry.tag_sentry
         PersistentAttachments::LgyClaim
       else
         PersistentAttachments::ClaimEvidence

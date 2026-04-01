@@ -3,7 +3,7 @@
 require 'rails_helper'
 
 RSpec.describe RepresentationManagement::GCLAWS::XlsxConfiguration do
-  subject(:configuration) { described_class.new }
+  subject(:xlsx_config) { described_class.new }
 
   let(:test_url) { 'https://ssrs.example.com/reports/accreditation.xlsx' }
   let(:test_username) { 'test_user' }
@@ -21,25 +21,25 @@ RSpec.describe RepresentationManagement::GCLAWS::XlsxConfiguration do
 
   describe '#url' do
     it 'returns the configured URL from settings' do
-      expect(configuration.url).to eq(test_url)
+      expect(xlsx_config.url).to eq(test_url)
     end
   end
 
   describe '#username' do
     it 'returns the configured username from settings' do
-      expect(configuration.username).to eq(test_username)
+      expect(xlsx_config.username).to eq(test_username)
     end
   end
 
   describe '#password' do
     it 'returns the configured password from settings' do
-      expect(configuration.password).to eq(test_password)
+      expect(xlsx_config.password).to eq(test_password)
     end
   end
 
   describe '#hostname' do
     it 'extracts the hostname from the URL' do
-      expect(configuration.hostname).to eq('ssrs.example.com')
+      expect(xlsx_config.hostname).to eq('ssrs.example.com')
     end
 
     it 'handles URL with path' do
@@ -51,7 +51,7 @@ RSpec.describe RepresentationManagement::GCLAWS::XlsxConfiguration do
         )
       )
 
-      expect(configuration.hostname).to eq('server.va.gov')
+      expect(xlsx_config.hostname).to eq('server.va.gov')
     end
 
     it 'handles URL with port' do
@@ -63,7 +63,7 @@ RSpec.describe RepresentationManagement::GCLAWS::XlsxConfiguration do
         )
       )
 
-      expect(configuration.hostname).to eq('ssrs.example.com')
+      expect(xlsx_config.hostname).to eq('ssrs.example.com')
     end
   end
 

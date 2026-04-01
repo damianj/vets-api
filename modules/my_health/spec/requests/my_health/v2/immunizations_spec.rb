@@ -252,6 +252,7 @@ RSpec.describe 'MyHealth::V2::ImmunizationsController', :skip_json_api_validatio
           actual_count = json_response['data'].length
 
           # Now test that StatsD receives that exact count
+          allow(StatsD).to receive(:gauge)
           expect(StatsD).to receive(:gauge).with('api.my_health.immunizations.count', actual_count)
 
           # Make the request again with the mock in place
@@ -280,6 +281,7 @@ RSpec.describe 'MyHealth::V2::ImmunizationsController', :skip_json_api_validatio
       context 'when response has no entries' do
         before do
           # Expect StatsD to receive count of 0
+          allow(StatsD).to receive(:gauge)
           expect(StatsD).to receive(:gauge).with('api.my_health.immunizations.count', 0)
 
           VCR.use_cassette('unified_health_data/get_immunizations_no_records') do

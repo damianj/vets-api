@@ -120,8 +120,8 @@
             }
           }
         },
-        "receivableId": {
-          "type": ["string", "null"]
+        "rcvblId": {
+          "type": ["integer", "null"]
         }
       }
     }

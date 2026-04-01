@@ -109,6 +109,7 @@ RSpec.describe FormIntake::Mappers::VBA21p601Mapper do
     it 'includes form type with StructuredData prefix' do
       expect(payload['FORM_TYPE']).to eq('StructuredData:21P-601')
       expect(payload['FORM_TYPE_1']).to eq('StructuredData:21P-601')
+      expect(payload['FORM_TYPE_2']).to eq('StructuredData:21P-601')
     end
 
     it 'maps veteran name fields' do
@@ -175,9 +176,29 @@ RSpec.describe FormIntake::Mappers::VBA21p601Mapper do
       expect(payload['DOB_RELATIVE_2']).to eq('11/22/1998')
     end
 
-    it 'fills empty relative slots with nil' do
-      expect(payload['NAME_OF_RELATIVE_3']).to be_nil
-      expect(payload['NAME_OF_RELATIVE_4']).to be_nil
+    it 'fills empty relative slots with empty string' do
+      expect(payload['NAME_OF_RELATIVE_3']).to eq('')
+      expect(payload['NAME_OF_RELATIVE_4']).to eq('')
+    end
+
+    it 'does not contain nil values in the payload' do
+      stack = [payload]
+      leaf_values = []
+
+      until stack.empty?
+        current = stack.pop
+
+        case current
+        when Hash
+          stack.concat(current.values)
+        when Array
+          stack.concat(current)
+        else
+          leaf_values << current
+        end
+      end
+
+      expect(leaf_values).not_to include(nil)
     end
 
     it 'maps first expense' do
@@ -197,8 +218,8 @@ RSpec.describe FormIntake::Mappers::VBA21p601Mapper do
     end
 
     it 'fills empty expense slots' do
-      expect(payload['EXPENSE_PAID_TO_3']).to be_nil
-      expect(payload['EXPENSE_PAID_TO_4']).to be_nil
+      expect(payload['EXPENSE_PAID_TO_3']).to eq('')
+      expect(payload['EXPENSE_PAID_TO_4']).to eq('')
       expect(payload['PAID_3']).to be false
       expect(payload['UNPAID_3']).to be false
     end
@@ -214,9 +235,9 @@ RSpec.describe FormIntake::Mappers::VBA21p601Mapper do
     end
 
     it 'fills empty debt slots' do
-      expect(payload['OTHER_DEBT_2']).to be_nil
-      expect(payload['OTHER_DEBT_3']).to be_nil
-      expect(payload['OTHER_DEBT_4']).to be_nil
+      expect(payload['OTHER_DEBT_2']).to eq('')
+      expect(payload['OTHER_DEBT_3']).to eq('')
+      expect(payload['OTHER_DEBT_4']).to eq('')
     end
 
     it 'maps signature fields' do
@@ -228,17 +249,15 @@ RSpec.describe FormIntake::Mappers::VBA21p601Mapper do
       expect(payload['REMARKS']).to eq('Additional information about the claim')
     end
 
-    it 'includes required nil fields for unsupported features' do
-      # MMS requires these keys even though frontend doesn't provide them
+    it 'includes required empty string fields for unsupported features' do
       expect(payload).to have_key('ESTATE_ADMIN_YES')
       expect(payload).to have_key('ESTATE_ADMIN_NO')
       expect(payload).to have_key('OTHER_DEBT_CREDITOR_1')
       expect(payload).to have_key('WITNESS_1_SIGNATURE')
       expect(payload).to have_key('WITNESS_2_SIGNATURE')
 
-      # All should be nil
-      expect(payload['ESTATE_ADMIN_YES']).to be_nil
-      expect(payload['WITNESS_1_SIGNATURE']).to be_nil
+      expect(payload['ESTATE_ADMIN_YES']).to eq('')
+      expect(payload['WITNESS_1_SIGNATURE']).to eq('')
     end
 
     context 'with no expenses' do
@@ -250,8 +269,8 @@ RSpec.describe FormIntake::Mappers::VBA21p601Mapper do
 
       let(:form_submission) { create(:form_submission, form_type: '21P-601', form_data: no_expenses_data) }
 
-      it 'fills all expense slots with nil/false' do
-        expect(payload['EXPENSE_PAID_TO_1']).to be_nil
+      it 'fills all expense slots with empty string/false' do
+        expect(payload['EXPENSE_PAID_TO_1']).to eq('')
         expect(payload['PAID_1']).to be false
         expect(payload['OTHER_DEBTS_YES']).to be false
         expect(payload['OTHER_DEBTS_NO']).to be true

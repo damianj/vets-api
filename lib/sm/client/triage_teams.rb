@@ -33,15 +33,20 @@ module SM
         path = append_requires_oh_messages_query('alltriageteams', 'requiresOHTriageGroup')
         json = perform(:get, path, nil, token_headers).body
 
-        # Instantiate teams and update their migration status
+        # Instantiate teams and filter out those migrating to OH
         teams = json[:data].map { |data| AllTriageTeams.new(data) }
-        update_teams_migration_status(teams)
+        filtered_teams = exclude_migrating_teams(teams)
 
-        # Compute metadata with blocked teams count
-        metadata = json[:metadata].merge(associated_blocked_triage_groups: teams.count(&:blocked_status))
+        # Compute metadata with excluded teams count
+        associated_blocked_triage_groups = filtered_teams.count(&:blocked_status)
+        associated_triage_groups = filtered_teams.length
+        metadata = json[:metadata].merge(
+          associated_triage_groups:,
+          associated_blocked_triage_groups:
+        )
 
         # Create collection once with all data ready
-        collection = Vets::Collection.new(teams, AllTriageTeams, metadata:, errors: json[:errors])
+        collection = Vets::Collection.new(filtered_teams, AllTriageTeams, metadata:, errors: json[:errors])
         cache_triage_team_station_numbers(user_uuid, collection.data)
 
         collection
@@ -76,20 +81,16 @@ module SM
 
       private
 
-      # Updates blocked_status and migrating_to_oh for teams in p3-p5 migration phases
-      def update_teams_migration_status(teams)
+      # Filters out teams in p3-p5 migration phases (returns only non-migrating teams)
+      def exclude_migrating_teams(teams)
         oh_service = MHV::OhFacilitiesHelper::Service.new(current_user)
         station_numbers = teams.map(&:station_number).compact.uniq
         phases_map = oh_service.get_phases_for_station_numbers(station_numbers)
 
-        teams.each do |team|
+        # Exclude teams whose station is in p3-p5 migration phases
+        teams.reject do |team|
           phase = phases_map[team.station_number.to_s]
-          if %w[p3 p4 p5].include?(phase)
-            team.blocked_status = true
-            team.migrating_to_oh = true
-          else
-            team.migrating_to_oh = false
-          end
+          %w[p3 p4 p5].include?(phase)
         end
       end
 

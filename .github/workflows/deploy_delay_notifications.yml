@@ -151,7 +151,7 @@ jobs:
               },
               { "type": "divider" }
             ]
-          channel_id: "C039HRTHXDH"
+          channel_id: "C0APA867M0V"
 
       - name: Notify for other failure
         if: ${{ env.dev_summary == '' && env.staging_summary == '' }}
@@ -172,4 +172,4 @@ jobs:
               },
               { "type": "divider" }
             ]
-          channel_id: "C039HRTHXDH"
+          channel_id: "C0APA867M0V"

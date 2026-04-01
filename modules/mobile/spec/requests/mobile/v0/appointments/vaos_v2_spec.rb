@@ -220,12 +220,12 @@ RSpec.describe 'Mobile::V0::Appointments::VAOSV2', type: :request do
         let(:start_date) { 4.months.ago.iso8601 }
         let(:end_date) { Time.zone.now.iso8601 } # 2022-01-01T19:25:00Z
         let(:params) { { startDate: start_date, endDate: end_date, include: ['travel_pay_claims'] } }
-        let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
+        let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
 
         before do
           allow(TravelPay::AuthManager)
             .to receive(:new)
-            .and_return(double('AuthManager', authorize: tokens))
+            .and_return(double('AuthManager', authorize: auth_session))
           allow(Settings.travel_pay).to receive_messages(client_number: '12345', mobile_client_number: '56789')
         end
 

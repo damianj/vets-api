@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'digital_forms_api/service/forms'
 require 'digital_forms_api/service/submissions'
+require 'digital_forms_api/service/templates'
 
 module DigitalFormsApi
   # The Fully Digital Forms controller that handles fetching form submissions and templates
@@ -17,8 +17,9 @@ module DigitalFormsApi
         return render json: { error: 'Forbidden' }, status: :forbidden
       end
 
-      template = forms_service.template('21-686c')
-      render json: { submission: submission.body['envelope']['payload'], template: template['formTemplate'] }
+      template = templates_service.template('21-686c')
+      render json: { submission: submission.body['envelope']['payload'],
+                     template: template['formTemplate']['formTemplate']['21-686c'] }
     rescue Common::Client::Errors::ClientError => e
       if e.status == 404
         render json: { error: 'Not found' }, status: :not_found
@@ -26,9 +27,6 @@ module DigitalFormsApi
         Rails.logger.error('Digital Forms API - error status from BIP Forms API', { status: e.status })
         render json: { error: 'Internal server error' }, status: :internal_server_error
       end
-    rescue => e
-      Rails.logger.error('Digital Forms API - unexpected error', { message: e.message })
-      render json: { error: 'Internal server error' }, status: :internal_server_error
     end
 
     private
@@ -39,8 +37,8 @@ module DigitalFormsApi
     end
 
     # Instantiate service for interacting with the /forms endpoints
-    def forms_service
-      DigitalFormsApi::Service::Forms.new
+    def templates_service
+      DigitalFormsApi::Service::Templates.new
     end
 
     # Instantiate service for interacting with the /submissions endpoints

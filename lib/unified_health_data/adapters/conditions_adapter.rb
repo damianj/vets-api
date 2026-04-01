@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'medical_records/medical_records_log'
 require_relative '../models/condition'
 require_relative 'date_normalizer'
 
@@ -7,6 +8,11 @@ module UnifiedHealthData
   module Adapters
     class ConditionsAdapter
       include DateNormalizer
+
+      def initialize(user: nil)
+        @mr_log = MedicalRecords::MedicalRecordsLog.new(user:)
+      end
+
       def parse(records, filter_by_status: true)
         return [] if records.blank?
 
@@ -15,7 +21,11 @@ module UnifiedHealthData
           next false unless resource && resource['resourceType'] == 'Condition'
           next true unless filter_by_status
 
-          should_include_condition?(resource)
+          unless should_include_condition?(resource)
+            log_filtered_condition(resource)
+            next false
+          end
+          true
         end
         parsed = filtered.map { |record| parse_single_condition(record, filter_by_status:) }
         parsed.compact
@@ -55,6 +65,22 @@ module UnifiedHealthData
         # Only include conditions with 'active' clinical status
         # This excludes conditions with nil/missing clinicalStatus or non-active statuses like 'resolved'
         clinical_status == 'active'
+      end
+
+      def log_filtered_condition(resource)
+        clinical_status = resource.dig('clinicalStatus', 'coding', 0, 'code')
+        reason = clinical_status.blank? ? 'missing_clinical_status' : 'inactive_clinical_status'
+
+        @mr_log.diagnostic(
+          resource: MedicalRecords::MedicalRecordsLog::CONDITIONS,
+          action: 'filter',
+          record_id: resource['id'],
+          clinical_status:,
+          reason:
+        )
+
+        StatsD.increment('unified_health_data.condition.filtered_record',
+                         tags: ["reason:#{reason}"])
       end
 
       def extract_condition_comments(resource)

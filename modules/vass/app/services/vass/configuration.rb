@@ -16,9 +16,9 @@ module Vass
   class Configuration < Common::Client::Configuration::REST
     include Singleton
 
-    # Override default timeouts to handle external VASS API calls
-    self.open_timeout = 30  # Connection establishment timeout
-    self.read_timeout = 30  # Response timeout for external API calls
+    # Override default timeouts to handle external VASS API calls (D365 can exceed 30s).
+    self.open_timeout = Settings.vass.open_timeout
+    self.read_timeout = Settings.vass.read_timeout
 
     ##
     # Returns the base URL for VASS API requests.
@@ -64,15 +64,28 @@ module Vass
     # @return [Faraday::Connection]
     #
     def oauth_connection(server_url:)
-      build_pooled_connection(:__oauth_conn_pool__, server_url)
+      build_pooled_connection(:__oauth_conn_pool__, server_url, request_opts: oauth_request_options)
     end
 
     private
 
-    def build_pooled_connection(pool_name, server_url)
+    ##
+    # Request timeouts for Microsoft OAuth token requests (separate from D365 API).
+    #
+    # @return [Hash] Faraday request options
+    #
+    def oauth_request_options
+      {
+        open_timeout: Settings.vass.oauth_open_timeout,
+        timeout: Settings.vass.oauth_read_timeout
+      }
+    end
+
+    def build_pooled_connection(pool_name, server_url, request_opts: nil)
+      opts = request_opts || request_options
       pool = instance_variable_get("@#{pool_name}") || instance_variable_set("@#{pool_name}", {})
       pool[server_url] ||= Faraday.new(url: server_url, headers: base_request_headers,
-                                       request: request_options) do |conn|
+                                       request: opts) do |conn|
         conn.use(:breakers, service_name:)
         yield conn if block_given?
         conn.response :raise_custom_error, error_prefix: service_name, include_request: true

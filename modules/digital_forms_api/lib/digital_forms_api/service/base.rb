@@ -33,9 +33,8 @@ module DigitalFormsApi
         response
       rescue => e
         code = e.try(:status) || 500
-        reason = e.message
-        @context = context
-        @context[:error] = e.try(:body) || reason
+        reason = parse_error(e)
+
         raise e
       ensure
         duration = (Time.current - start_time) * 1000.0 # milliseconds
@@ -70,6 +69,18 @@ module DigitalFormsApi
       # @see DigitalFormsApi::Monitor::Service#track_api_request
       def context
         @context.is_a?(Hash) ? @context : {}
+      end
+
+      # parse the request error
+      def parse_error(error)
+        body = error.try(:body)
+        messages = body&.dig('messages')&.pluck('text')
+        reason = messages&.first || body&.dig('message') || error.message
+
+        @context = context
+        @context[:error] = messages || reason
+
+        reason
       end
     end
 

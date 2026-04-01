@@ -44,6 +44,12 @@ module DigitalFormsApi
         perform :get, "submissions/#{submission_id}", {}, {}
       end
 
+      # GET get a form submission by document id
+      # Retrieve details for a previously submitted form using the associated CE document ID
+      def by_document_id(document_id)
+        perform :get, "submissions/by-document-id/#{document_id}", {}, {}
+      end
+
       private
 
       # @see DigitalFormsApi::Service::Base#endpoint

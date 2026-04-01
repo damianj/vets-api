@@ -83,7 +83,7 @@ RSpec.describe AskVAApi::Inquiries::Retriever do
       before do
         stub_faraday(
           endpoint: 'eis/vagov.lob.ava/api/inquiries',
-          payload: { organizationName: 'iris-dev' },
+          payload: { organizationName: 'ava-qa' },
           response: response_body([inquiry_data]).to_json
         )
       end
@@ -104,7 +104,7 @@ RSpec.describe AskVAApi::Inquiries::Retriever do
       before do
         stub_faraday(
           endpoint: 'eis/vagov.lob.ava/api/inquiries',
-          payload: { inquiryNumber: id, organizationName: 'iris-dev' },
+          payload: { inquiryNumber: id, organizationName: 'ava-qa' },
           response: response_body([inquiry_data]).to_json
         )
       end

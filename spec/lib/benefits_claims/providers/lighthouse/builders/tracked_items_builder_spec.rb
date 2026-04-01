@@ -28,7 +28,8 @@ RSpec.describe BenefitsClaims::Providers::Lighthouse::Builders::TrackedItemsBuil
         'isDBQ' => true,
         'isProperNoun' => false,
         'isSensitive' => true,
-        'noProvidePrefix' => false
+        'noProvidePrefix' => false,
+        'hideClaimLetterSection' => true
       }]
 
       item = described_class.build(data).first
@@ -44,6 +45,7 @@ RSpec.describe BenefitsClaims::Providers::Lighthouse::Builders::TrackedItemsBuil
       expect(item.is_proper_noun).to be(false)
       expect(item.is_sensitive).to be(true)
       expect(item.no_provide_prefix).to be(false)
+      expect(item.hide_claim_letter_section).to be(true)
     end
 
     it 'handles missing content override fields gracefully' do

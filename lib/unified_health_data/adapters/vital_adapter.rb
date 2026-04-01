@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'medical_records/medical_records_log'
 require_relative '../models/vital'
 require_relative 'date_normalizer'
 
@@ -7,6 +8,9 @@ module UnifiedHealthData
   module Adapters
     class VitalAdapter
       include DateNormalizer
+
+      FILTERED_STATUSES = %w[entered-in-error].freeze
+
       FHIR_RESOURCE_TYPES = {
         BUNDLE: 'Bundle',
         DIAGNOSTIC_REPORT: 'DiagnosticReport',
@@ -47,11 +51,22 @@ module UnifiedHealthData
         PAIN_SEVERITY: ''
       }.freeze
 
+      def initialize(user: nil)
+        @mr_log = MedicalRecords::MedicalRecordsLog.new(user:)
+      end
+
       def parse(records)
         return [] if records.blank?
 
         filtered = records.select do |record|
-          record['resource'] && record['resource']['resourceType'] == 'Observation'
+          resource = record['resource']
+          next false unless resource && resource['resourceType'] == 'Observation'
+
+          unless FILTERED_STATUSES.exclude?(resource['status'])
+            log_filtered_vital(resource)
+            next false
+          end
+          true
         end
         parsed = filtered.map { |record| parse_single_vital(record) }
         log_locations_found
@@ -219,6 +234,19 @@ module UnifiedHealthData
           return nil unless resource && (resource['resourceType'] == type_id.first || resource['resourceType'] == type)
         end
         resource
+      end
+
+      def log_filtered_vital(resource)
+        @mr_log.diagnostic(
+          resource: MedicalRecords::MedicalRecordsLog::VITALS,
+          action: 'filter',
+          record_id: resource['id'],
+          status: resource['status'],
+          reason: 'entered_in_error'
+        )
+
+        StatsD.increment('unified_health_data.vital.filtered_observation',
+                         tags: ['reason:entered_in_error'])
       end
     end
   end

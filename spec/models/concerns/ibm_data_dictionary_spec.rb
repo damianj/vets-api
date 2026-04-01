@@ -47,7 +47,7 @@ RSpec.describe IbmDataDictionary do
       vet_info['fullName'].delete('middle')
       result = subject.build_veteran_basic_fields(vet_info)
 
-      expect(result['VETERAN_MIDDLE_INITIAL']).to be_nil
+      expect(result['VETERAN_MIDDLE_INITIAL']).to eq('')
       expect(result).not_to include('VETERAN_NAME')
     end
   end
@@ -93,8 +93,8 @@ RSpec.describe IbmDataDictionary do
       expect(subject.build_full_name(name_hash)).to eq('John Doe')
     end
 
-    it 'returns nil for nil name_hash' do
-      expect(subject.build_full_name(nil)).to be_nil
+    it 'returns empty string for nil name_hash' do
+      expect(subject.build_full_name(nil)).to eq('')
     end
 
     it 'handles empty middle name' do
@@ -108,8 +108,8 @@ RSpec.describe IbmDataDictionary do
       expect(subject.extract_middle_initial('Michael')).to eq('M')
     end
 
-    it 'returns nil for nil middle name' do
-      expect(subject.extract_middle_initial(nil)).to be_nil
+    it 'returns empty string for nil middle name' do
+      expect(subject.extract_middle_initial(nil)).to eq('')
     end
 
     it 'returns single character for single-character middle name' do
@@ -139,8 +139,8 @@ RSpec.describe IbmDataDictionary do
       expect(result).to eq('123 Main St Springfield, IL 62701')
     end
 
-    it 'returns nil for nil address' do
-      expect(subject.build_full_address(nil)).to be_nil
+    it 'returns empty string for nil address' do
+      expect(subject.build_full_address(nil)).to eq('')
     end
   end
 
@@ -190,12 +190,12 @@ RSpec.describe IbmDataDictionary do
       end
     end
 
-    it 'returns nil for nil date' do
-      expect(subject.format_date_for_ibm(nil)).to be_nil
+    it 'returns empty string for nil date' do
+      expect(subject.format_date_for_ibm(nil)).to eq('')
     end
 
-    it 'returns nil for invalid date format' do
-      expect(subject.format_date_for_ibm('invalid')).to be_nil
+    it 'returns empty string for invalid date format' do
+      expect(subject.format_date_for_ibm('invalid')).to eq('')
     end
   end
 
@@ -208,8 +208,8 @@ RSpec.describe IbmDataDictionary do
       expect(subject.format_phone_for_ibm('  555-123-4567  ')).to eq('555-123-4567')
     end
 
-    it 'returns nil for nil phone' do
-      expect(subject.format_phone_for_ibm(nil)).to be_nil
+    it 'returns empty string for nil phone' do
+      expect(subject.format_phone_for_ibm(nil)).to eq('')
     end
   end
 

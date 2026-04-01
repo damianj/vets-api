@@ -452,10 +452,29 @@ module UnifiedHealthData
           value: format_observation_value(obs),
           reference_range: UnifiedHealthData::ReferenceRangeFormatter.format(obs),
           status: obs['status'],
+          interpretation: extract_interpretation(obs),
           comments: obs['note']&.map { |note| note['text'] }&.compact || [],
           sample_tested:,
           body_site:
         )
+      end
+
+      def extract_interpretation(obs)
+        interpretations = obs['interpretation']
+        return nil if interpretations.blank?
+
+        fallback_text = nil
+        interpretations.each do |interp|
+          if interp['coding'].present?
+            hl7_coding = interp['coding'].find do |coding|
+              coding['system']&.include?('v3-ObservationInterpretation') && coding['code'].present?
+            end
+            return hl7_coding['code'] if hl7_coding
+          end
+          fallback_text ||= interp['text'] if interp['text'].present?
+        end
+
+        fallback_text
       end
 
       def format_observation_value(obs)

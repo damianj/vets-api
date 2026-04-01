@@ -109,7 +109,7 @@ module AuthenticationAndSSOConcerns # rubocop:disable Metrics/ModuleLength
     cookie_name = V1::SessionsController::CERNER_ELIGIBLE_COOKIE_NAME
     previous_value = ActiveModel::Type::Boolean.new.cast(cookies.signed[cookie_name] || cookies[cookie_name])
 
-    eligible = @current_user.cerner_cookie_eligibility
+    eligible = @current_user.cerner_full?
 
     cookies.permanent[cookie_name] = {
       value: eligible,

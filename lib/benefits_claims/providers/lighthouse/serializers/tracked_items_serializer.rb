@@ -61,6 +61,7 @@ module BenefitsClaims
             add_content_field(fields, 'isProperNoun', item.is_proper_noun)
             add_content_field(fields, 'isSensitive', item.is_sensitive)
             add_content_field(fields, 'noProvidePrefix', item.no_provide_prefix)
+            add_content_field(fields, 'hideClaimLetterSection', item.hide_claim_letter_section)
 
             fields
           end

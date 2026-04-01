@@ -77,14 +77,14 @@ describe TravelPay::AppointmentsService do
       )
     end
 
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
-    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: tokens, user:) }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
+    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session, user:) }
     let(:service) { TravelPay::AppointmentsService.new(auth_manager) }
 
     before do
       allow_any_instance_of(TravelPay::AppointmentsClient)
         .to receive(:get_all_appointments)
-        .with(tokens[:veis_token], tokens[:btsss_token], { 'excludeWithClaims' => true })
+        .with(auth_session, { 'excludeWithClaims' => true })
         .and_return(appointments_response)
     end
 
@@ -139,8 +139,8 @@ describe TravelPay::AppointmentsService do
       )
     end
 
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
-    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: tokens, user:) }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
+    let(:auth_manager) { object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session, user:) }
     let(:service) { TravelPay::AppointmentsService.new(auth_manager) }
 
     context 'when travel_pay_appt_add_v4_upgrade feature flag is disabled' do
@@ -148,7 +148,7 @@ describe TravelPay::AppointmentsService do
         allow(Flipper).to receive(:enabled?).with(:travel_pay_appt_add_v4_upgrade, user).and_return(false)
         allow_any_instance_of(TravelPay::AppointmentsClient)
           .to receive(:find_or_create)
-          .with(tokens[:veis_token], tokens[:btsss_token],
+          .with(auth_session,
                 { 'appointment_date_time' => '2024-01-01T12:45:00',
                   'facility_station_number' => '123',
                   'appointment_type' => 'Other',
@@ -179,7 +179,7 @@ describe TravelPay::AppointmentsService do
 
         expect_any_instance_of(TravelPay::AppointmentsClient)
           .to receive(:find_or_create)
-          .with(tokens[:veis_token], tokens[:btsss_token],
+          .with(auth_session,
                 { 'appointment_date_time' => '2024-01-01T12:45:00',
                   'facility_station_number' => '123',
                   'appointment_type' => 'Other',
@@ -213,11 +213,13 @@ describe TravelPay::AppointmentsService do
         allow(Flipper).to receive(:enabled?).with(:travel_pay_appt_add_v4_upgrade, user).and_return(true)
         allow_any_instance_of(TravelPay::AppointmentsClient)
           .to receive(:find_or_create)
-          .with(tokens[:veis_token], tokens[:btsss_token],
+          .with(auth_session,
                 { 'appointment_date_time' => '2024-01-01T12:45:00',
                   'facility_station_number' => '123',
                   'appointment_type' => 'Other',
-                  'is_complete' => false }, use_v4_api: true)
+                  'is_complete' => false,
+                  'appointment_name' => 'Test Appointment Name',
+                  'facility_name' => 'Test facility' }, use_v4_api: true)
           .and_return(add_appointment_response)
       end
 
@@ -227,7 +229,9 @@ describe TravelPay::AppointmentsService do
         params = { 'appointment_date_time' => date_string,
                    'facility_station_number' => '123',
                    'appointment_type' => 'Other',
-                   'is_complete' => false }
+                   'is_complete' => false,
+                   'appointment_name' => 'Test Appointment Name',
+                   'facility_name' => 'Test facility' }
 
         appt = service.find_or_create_appointment(params)
 

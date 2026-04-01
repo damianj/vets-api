@@ -227,14 +227,15 @@ RSpec.describe 'MyHealth::V1::Tooltips', type: :request do
           end
 
           it 'does not increment counter if last_signed_in is same' do
-            # Since the controller compares objects directly, this test verifies that
-            # when no increment is requested, counter doesn't change
             patch "/my_health/v1/tooltips/#{tooltip.id}",
-                  params: { increment_counter: 'false' }, headers:, as: :json
+                  params: { increment_counter: 'true' }, headers:, as: :json
 
             expect(response).to be_successful
             tooltip.reload
-            expect(tooltip.counter).to eq(1) # unchanged
+            expect(tooltip.counter).to eq(2) # changed, tooltip.last_signed_in is updated to current_user.last_signed_in
+            patch "/my_health/v1/tooltips/#{tooltip.id}",
+                  params: { increment_counter: 'true' }, headers:, as: :json
+            expect(tooltip.counter).to eq(2) # unchanged
           end
 
           it 'sets hidden to true when counter reaches 3' do

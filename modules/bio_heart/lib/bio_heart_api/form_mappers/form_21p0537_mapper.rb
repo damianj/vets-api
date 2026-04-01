@@ -67,7 +67,7 @@ module BioHeartApi
 
           # Form Type
           'FORM_TYPE' => FORM_TYPE
-        }
+        }.transform_values { |v| v.nil? ? '' : v }
       end
       # rubocop:enable Metrics/MethodLength
 

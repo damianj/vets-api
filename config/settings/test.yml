@@ -376,6 +376,9 @@ dhp:
 digital_forms_api:
   base_url: https://digital-forms-api-fake.fake.bip.va.gov/api/v1/rest/
   breakers_error_threshold: 80
+  cache_ttl:
+    schema: 1
+    template: 1
   include_request: false
   jwt_secret: fake-secret
   mock: false
@@ -631,17 +634,6 @@ github_stats:
 google_analytics:
   tracking_id: ~
   url: https://fwdproxy-staging.vfs.va.gov:4473
-google_analytics_cvu:
-  auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs
-  auth_uri: https://accounts.google.com/o/oauth2/auth
-  client_email: va-gov-top-user-viewports@vsp-analytics-and-insights.iam.gserviceaccount.com
-  client_id: ~
-  client_x509_cert_url: https://www.googleapis.com/robot/v1/metadata/x509/va-gov-top-user-viewports%40vsp-analytics-and-insights.iam.gserviceaccount.com
-  private_key: ~
-  private_key_id: ~
-  project_id: vsp-analytics-and-insights
-  token_uri: https://oauth2.googleapis.com/token
-  type: service_account
 govdelivery:
   server: stage-tms.govdelivery.com
   staging_service: true
@@ -993,6 +985,8 @@ mdot:
   mock: false
   prefill: true
   url: https://fwdproxy-staging.vfs.va.gov:4466
+medical_expense_reports:
+  prefill: true
 memorials:
   prefill: true
 mhv:
@@ -1721,6 +1715,11 @@ vanotify:
         decision_letter_ready_email: fake_template_id
         decision_letter_ready_sms: fake_template_id
         evidence_submission_failure_email: fake_template_id
+    bio_aquia:
+      api_key: fake_secret
+      template_id:
+        form_0779_submission_email: fake_template_id
+        form_4192_submission_email: fake_template_id
     burials: *vanotify_services_burial
     check_in:
       api_key: check-in_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
@@ -1874,6 +1873,9 @@ vanotify:
         form21_4142_confirmation_email: form21_4142_confirmation_email_template_id
         form21_4142_error_email: form21_4142_error_email_template_id
         form21_4142_received_email: form21_4142_received_email_template_id
+        form21_4502_confirmation_email: form21_4502_confirmation_email_id
+        form21_4502_error_email: form21_4502_error_email_id
+        form21_4502_received_email: form21_4502_received_email_id
         form21_674_action_needed_email: form21_674_action_needed_email_template_id
         form21_686c_674_action_needed_email: form21_686c_674_action_needed_email_template_id
         form21_686c_action_needed_email: form21_686c_action_needed_email_template_id
@@ -1912,6 +1914,7 @@ vanotify:
         preneeds_burial_form_email: preneeds_burial_form_email_template_id
         reactivation_email_test_b: ~
         va_appointment_failure: fake_template_id
+        vass_otp_email: fake_vass_otp_email_template_id
     veteran_readiness_and_employment:
       api_key: 'fake'
       email:
@@ -1953,8 +1956,12 @@ vass:
   client_secret: <%= ENV['vass__client_secret'] %>
   jwt_secret: 'test-jwt-secret-key-not-for-production'
   mock: <%= ENV['vass__mock'] %>
+  oauth_open_timeout: 15
+  oauth_read_timeout: 30
+  open_timeout: 60
   rate_limit_expiry: <%= ENV['vass__rate_limit_expiry'] || 900 %>
   rate_limit_max_attempts: <%= ENV['vass__rate_limit_max_attempts'] || 5 %>
+  read_timeout: 60
   redis_otp_expiry: 600
   redis_session_expiry: 7200
   redis_token_expiry: 3540

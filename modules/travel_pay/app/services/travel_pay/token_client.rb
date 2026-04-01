@@ -10,6 +10,17 @@ module TravelPay
       @client_number = client_number
     end
 
+    def authorized_user_session(user)
+      veis_token = request_veis_token
+      btsss_result = request_btsss_token(veis_token, user)
+
+      TravelPay::AuthSession.new(
+        veis_token:,
+        btsss_token: btsss_result[:token],
+        contact_id: btsss_result[:contact_id]
+      )
+    end
+
     # HTTP POST call to the VEIS Auth endpoint to get the access token
     #
     # @return [Faraday::Response]
@@ -49,7 +60,8 @@ module TravelPay
           req.body = { authJwt: sts_token }
         end
 
-        response.body['data']['accessToken']
+        data = response.body['data']
+        { token: data['accessToken'], contact_id: data['contactId'] }
       end
     rescue Common::Exceptions::BackendServiceException => e
       # BTSSS auth 4xx errors indicate upstream service issues, not client errors

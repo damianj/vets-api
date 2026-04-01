@@ -66,15 +66,25 @@ describe ClaimsApi::BD do
     end
 
     # To re-record VCR cassettes: change :stub_bd_auth to stub_bd_auth: false
-    describe '#search', :stub_bd_auth, vcr: 'claims_api/v2/claims_show' do
+    describe '#search', :stub_bd_auth, vcr: 'claims_api/bd/search' do
       let(:claim_id) { '600397218' }
       let(:file_number) { '796378782' }
 
       it 'locates claim documents when provided a fileNumber and claimId' do
         result = subject.search(claim_id, file_number)
+        documents = result[:data][:documents]
 
         expect(result).to be_a Hash
-        expect(result[:data][:documents]).to be_truthy
+        expect(documents).to be_truthy
+        expect(documents).not_to be_empty
+
+        first_doc = documents.first
+        expect(first_doc).to have_key(:documentId)
+        expect(first_doc).to have_key(:documentUuid)
+        expect(first_doc).to have_key(:currentVersionUuid)
+        expect(first_doc).to have_key(:originalFileName)
+        expect(first_doc).to have_key(:documentTypeLabel)
+        expect(first_doc).to have_key(:uploadedDateTime)
       end
     end
 
@@ -99,15 +109,21 @@ describe ClaimsApi::BD do
         expect(documents).not_to be_empty
       end
 
-      it 'returns documents with documentUuid and trackedItemId', vcr: 'claims_api/bd/claim_letters_search_with_ids' do
+      it 'returns documents with all expected fields', vcr: 'claims_api/bd/claim_letters_search_with_ids' do
         result = subject.claim_letters_search(file_number, doc_type_ids)
         documents = result[:data][:documents]
 
         expect(documents).not_to be_empty
         first_doc = documents.first
+        expect(first_doc).to have_key(:docTypeId)
+        expect(first_doc).to have_key(:subject)
         expect(first_doc).to have_key(:documentUuid)
-        expect(first_doc).to have_key(:trackedItemId)
+        expect(first_doc).to have_key(:currentVersionUuid)
         expect(first_doc).to have_key(:originalFileName)
+        expect(first_doc).to have_key(:documentTypeLabel)
+        expect(first_doc).to have_key(:trackedItemId)
+        expect(first_doc).to have_key(:uploadedDateTime)
+        expect(first_doc).to have_key(:receivedAt)
       end
 
       it 'handles errors gracefully', vcr: 'claims_api/bd/claim_letters_search_with_ids' do

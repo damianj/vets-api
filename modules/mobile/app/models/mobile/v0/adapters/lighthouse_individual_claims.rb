@@ -210,6 +210,7 @@ module Mobile
             activity_description: content[:activityDescription],
             can_upload_file: content[:canUploadFile],
             friendly_name: content[:friendlyName],
+            hide_claim_letter_section: content[:hideClaimLetterSection],
             is_dbq: content[:isDBQ],
             is_proper_noun: content[:isProperNoun],
             is_sensitive: content[:isSensitive],

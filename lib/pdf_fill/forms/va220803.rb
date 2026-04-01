@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'active_support/number_helper'
+
 module PdfFill
   module Forms
     class Va220803 < FormBase
@@ -128,7 +130,7 @@ module PdfFill
       end
 
       def format_test_cost(form_data)
-        form_data['testCost'] = "$#{form_data['testCost']}"
+        form_data['testCost'] = "$#{ActiveSupport::NumberHelper.number_to_delimited(form_data['testCost'])}"
       end
 
       def format_test_date(form_data)

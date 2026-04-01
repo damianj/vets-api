@@ -136,19 +136,19 @@ describe LGY::Service do
     end
 
     context 'unexpected statuses' do
-      it 'logs error to Sentry' do
+      it 'logs error and increments StatsD' do
         VCR.use_cassette 'lgy/determination_pending' do
           VCR.use_cassette 'lgy/application_200_status_unexpected' do
-            expect_any_instance_of(LGY::Service).to receive(:log_message_to_sentry).with(
+            expect(Rails.logger).to receive(:error).with(
               'Unexpected COE statuses!',
-              :error,
               {
                 determination_status: 'PENDING',
                 application_status: 'UNEXPECTED',
                 get_application_status: 200
-              },
-              { team: 'vfs-ebenefits' }
+              }
             )
+            allow(StatsD).to receive(:increment)
+            expect(StatsD).to receive(:increment).with('api.lgy.coe_status.unexpected_status')
             expect(subject.coe_status).to be_nil
           end
         end
@@ -198,14 +198,15 @@ describe LGY::Service do
     end
 
     context 'LGY returns an error' do
-      it 'logs response body and headers to sentry' do
+      it 'logs response body and headers' do
         VCR.use_cassette 'lgy/application_put_500' do
-          expect_any_instance_of(LGY::Service).to receive(:log_message_to_sentry).with(
+          expect(Rails.logger).to receive(:error).with(
             'COE application submission failed with http status: 500',
-            :error,
-            { message: match(/the server responded with status 500/), status: 500,
-              body: { 'errors' => [{ 'message' => 'Fake error message' }] } },
-            { team: 'vfs-ebenefits' }
+            {
+              message: match(/the server responded with status 500/),
+              status: 500,
+              body: { 'errors' => [{ 'message' => 'Fake error message' }] }
+            }
           )
           expect do
             subject.put_application(payload: coe_claim)

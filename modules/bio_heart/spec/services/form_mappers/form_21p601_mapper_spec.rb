@@ -22,8 +22,13 @@ RSpec.describe BioHeartApi::FormMappers::Form21p601Mapper do
         'VETERAN_FIRST_NAME' => 'Robert',
         'VETERAN_LAST_NAME' => 'Thompson',
         'FORM_TYPE' => 'VA FORM 21P-601, SEP 2025',
-        'FORM_TYPE_1' => 'VA FORM 21P-601, SEP 2025'
+        'FORM_TYPE_1' => 'VA FORM 21P-601, SEP 2025',
+        'FORM_TYPE_2' => 'VA FORM 21P-601, SEP 2025'
       )
+    end
+
+    it 'does not contain any nil values in the payload' do
+      expect(result.values).not_to include(nil)
     end
 
     context 'with populated expenses array' do
@@ -146,7 +151,8 @@ RSpec.describe BioHeartApi::FormMappers::Form21p601Mapper do
            WITNESS_2_NAME_ADDRESS
            REMARKS
            FORM_TYPE_1
-           FORM_TYPE]
+           FORM_TYPE
+           FORM_TYPE_2]
       expect(result.keys).to match_array(expected_keys)
     end
 
@@ -160,21 +166,21 @@ RSpec.describe BioHeartApi::FormMappers::Form21p601Mapper do
 
       it 'handles missing middle name gracefully' do
         result = described_class.new(minimal_data).call
-        expect(result['VETERAN_MIDDLE_INITIAL']).to be_nil
+        expect(result['VETERAN_MIDDLE_INITIAL']).to eq('')
       end
 
       it 'handles missing address' do
         result = described_class.new(minimal_data).call
-        expect(result['CLAIMANT_ADDRESS_FULL_BLOCK']).to be_nil
+        expect(result['CLAIMANT_ADDRESS_FULL_BLOCK']).to eq('')
       end
     end
 
     context 'with empty arrays' do
       before { form_data['expenses']['expenses_list'] = [] }
 
-      it 'fills all expense slots with nil' do
+      it 'fills all expense slots with empty string' do
         (1..4).each do |num|
-          expect(result["EXPENSE_PAID_TO_#{num}"]).to be_nil
+          expect(result["EXPENSE_PAID_TO_#{num}"]).to eq('')
           expect(result["PAID_#{num}"]).to be(0)
         end
       end
@@ -202,11 +208,11 @@ RSpec.describe BioHeartApi::FormMappers::Form21p601Mapper do
 
     context 'Box 14A-D - Surviving Relatives' do
       context 'with 2 relatives' do
-        it 'maps first 2 slots and nils remaining slots' do
+        it 'maps first 2 slots and empties remaining slots' do
           expect(result['NAME_OF_RELATIVE_1']).to be_present
           expect(result['NAME_OF_RELATIVE_2']).to be_present
-          expect(result['NAME_OF_RELATIVE_3']).to be_nil
-          expect(result['NAME_OF_RELATIVE_4']).to be_nil
+          expect(result['NAME_OF_RELATIVE_3']).to eq('')
+          expect(result['NAME_OF_RELATIVE_4']).to eq('')
         end
       end
 

@@ -17,6 +17,10 @@ require_relative 'client'
 require_relative 'source_constants'
 require_relative 'concerns/clinical_notes_logging'
 require_relative 'concerns/labs_and_tests_logging'
+require_relative 'concerns/vaccines_logging'
+require_relative 'concerns/allergies_logging'
+require_relative 'concerns/conditions_logging'
+require_relative 'concerns/vitals_logging'
 require_relative 'concerns/facility_cache_warming'
 
 module UnifiedHealthData
@@ -25,6 +29,10 @@ module UnifiedHealthData
     include Common::Client::Concerns::Monitoring
     include Concerns::ClinicalNotesLogging
     include Concerns::LabsAndTestsLogging
+    include Concerns::VaccinesLogging
+    include Concerns::AllergiesLogging
+    include Concerns::ConditionsLogging
+    include Concerns::VitalsLogging
     include Concerns::FacilityCacheWarming
 
     def initialize(user)
@@ -33,6 +41,7 @@ module UnifiedHealthData
     end
 
     def get_labs(start_date:, end_date:, caller: nil)
+      validate_icn!
       @labs_caller = caller
       with_monitoring do
         response = uhd_client.get_labs_by_date(patient_id: @user.icn, start_date:, end_date:)
@@ -60,6 +69,7 @@ module UnifiedHealthData
     end
 
     def get_conditions
+      validate_icn!
       with_monitoring do
         start_date = default_start_date
         end_date = default_end_date
@@ -67,12 +77,21 @@ module UnifiedHealthData
         response = uhd_client.get_conditions_by_date(patient_id: @user.icn, start_date:, end_date:)
         body = response.body
 
+        log_conditions_raw_source_counts(body)
         combined_records = fetch_combined_records(body)
-        conditions_adapter.parse(combined_records)
+        parsed_conditions = conditions_adapter.parse(combined_records)
+        log_conditions_metrics(combined_records, parsed_conditions)
+        parsed_conditions
+      rescue Common::Exceptions::BackendServiceException,
+             Common::Client::Errors::ClientError,
+             Faraday::Error => e
+        log_conditions_error(e)
+        raise
       end
     end
 
     def get_single_condition(condition_id)
+      validate_icn!
       with_monitoring do
         start_date = default_start_date
         end_date = default_end_date
@@ -96,6 +115,7 @@ module UnifiedHealthData
     # @return [Hash] Hash with :prescriptions (Array<UnifiedHealthData::Prescription>) and
     #   :metadata (Hash including :has_failed_stations Boolean)
     def get_prescriptions(current_only: false)
+      validate_icn!
       with_monitoring do
         start_date = default_start_date
         end_date = default_end_date
@@ -117,6 +137,7 @@ module UnifiedHealthData
     end
 
     def refill_prescription(orders)
+      validate_icn!
       normalized_orders = normalize_orders(orders)
       with_monitoring do
         response = uhd_client.refill_prescription_orders(build_refill_request_body(normalized_orders))
@@ -132,17 +153,9 @@ module UnifiedHealthData
     end
 
     def get_care_summaries_and_notes(start_date: nil, end_date: nil)
+      validate_icn!
       with_monitoring do
-        # Treat blank as "use default" so filtering still runs with a valid range
-        start_date = nil if start_date.blank?
-        end_date = nil if end_date.blank?
-        # Validate user-provided dates BEFORE applying defaults
-        validate_date_param(start_date, 'start_date') if start_date
-        validate_date_param(end_date, 'end_date') if end_date
-
-        # Apply defaults after validation
-        start_date ||= default_start_date
-        end_date ||= default_end_date
+        start_date, end_date = normalize_date_range(start_date, end_date)
 
         response = uhd_client.get_notes_by_date(patient_id: @user.icn, start_date:, end_date:)
         body = response.body
@@ -166,6 +179,7 @@ module UnifiedHealthData
     end
 
     def get_single_summary_or_note(note_id, source: nil)
+      validate_icn!
       with_monitoring do
         result = fetch_oracle_health_note(note_id, source || SourceConstants::ORACLE_HEALTH)
         clinical_notes_logging_enabled? && log_notes_show_metrics(source, result)
@@ -174,6 +188,7 @@ module UnifiedHealthData
     end
 
     def get_vitals
+      validate_icn!
       with_monitoring do
         # NOTE: we must pass in a startDate and endDate to SCDF
         start_date = default_start_date
@@ -181,13 +196,23 @@ module UnifiedHealthData
 
         response = uhd_client.get_vitals_by_date(patient_id: @user.icn, start_date:, end_date:)
         body = response.body
+
+        log_vitals_raw_source_counts(body)
         combined_records = fetch_combined_records(body)
 
-        vitals_adapter.parse(combined_records)
+        parsed_vitals = vitals_adapter.parse(combined_records)
+        log_vitals_metrics(combined_records, parsed_vitals)
+        parsed_vitals
+      rescue Common::Exceptions::BackendServiceException,
+             Common::Client::Errors::ClientError,
+             Faraday::Error => e
+        log_vitals_error(e)
+        raise
       end
     end
 
     def get_allergies
+      validate_icn!
       with_monitoring do
         # NOTE: we must pass in a startDate and endDate to SCDF
         start_date = default_start_date
@@ -196,14 +221,23 @@ module UnifiedHealthData
         response = uhd_client.get_allergies_by_date(patient_id: @user.icn, start_date:, end_date:)
         body = response.body
 
+        log_allergies_raw_source_counts(body)
         remap_vista_identifier(body)
         combined_records = fetch_combined_records(body)
 
-        allergy_adapter.parse(combined_records)
+        parsed_allergies = allergy_adapter.parse(combined_records)
+        log_allergies_metrics(combined_records, parsed_allergies)
+        parsed_allergies
+      rescue Common::Exceptions::BackendServiceException,
+             Common::Client::Errors::ClientError,
+             Faraday::Error => e
+        log_allergies_error(e)
+        raise
       end
     end
 
     def get_single_allergy(allergy_id)
+      validate_icn!
       with_monitoring do
         # NOTE: we must pass in a startDate and endDate to SCDF
         start_date = default_start_date
@@ -223,6 +257,7 @@ module UnifiedHealthData
     end
 
     def get_immunizations
+      validate_icn!
       with_monitoring do
         # NOTE: we must pass in a startDate and endDate to SCDF
         start_date = default_start_date
@@ -230,9 +265,18 @@ module UnifiedHealthData
 
         response = uhd_client.get_immunizations_by_date(patient_id: @user.icn, start_date:, end_date:)
         body = response.body
+
+        log_vaccines_raw_source_counts(body)
         combined_records = fetch_combined_records(body)
 
-        immunization_adapter.parse(combined_records)
+        parsed_immunizations = immunization_adapter.parse(combined_records)
+        log_vaccines_metrics(combined_records, parsed_immunizations)
+        parsed_immunizations
+      rescue Common::Exceptions::BackendServiceException,
+             Common::Client::Errors::ClientError,
+             Faraday::Error => e
+        log_vaccines_error(e)
+        raise
       end
     end
 
@@ -248,6 +292,7 @@ module UnifiedHealthData
     # Because an appointment can have multiple documents associated with it
     # (e.g., AVS, discharge instructions, etc.), we return an array here
     def get_appt_avs(appt_id:, include_binary: false)
+      validate_icn!
       with_monitoring do
         response = uhd_client.get_avs(patient_id: @user.icn, appt_id:)
         body = response.body
@@ -261,6 +306,7 @@ module UnifiedHealthData
     end
 
     def get_avs_binary_data(doc_id:, appt_id:)
+      validate_icn!
       with_monitoring do
         response = uhd_client.get_avs(patient_id: @user.icn, appt_id:)
         body = response.body
@@ -276,6 +322,7 @@ module UnifiedHealthData
     #
     # @return [UnifiedHealthData::Ccd] Parsed initiation response with job metadata
     def initiate_ccd
+      validate_icn!
       with_monitoring do
         start_date = default_start_date
         end_date = default_end_date
@@ -316,6 +363,7 @@ module UnifiedHealthData
     #
     # @return [Array<UnifiedHealthData::Ccd>] Array of parsed CCD job objects, or empty array if no tasks found
     def get_ccd_jobs
+      validate_icn!
       with_monitoring do
         response = uhd_client.get_ccd_jobs_by_user(patient_id: @user.icn)
         body = response.body
@@ -548,8 +596,12 @@ module UnifiedHealthData
       @uhd_client ||= UnifiedHealthData::Client.new
     end
 
+    def validate_icn!
+      raise Common::Exceptions::ParameterMissing, 'ICN' if @user&.icn.blank?
+    end
+
     def allergy_adapter
-      @allergy_adapter ||= UnifiedHealthData::Adapters::AllergyAdapter.new
+      @allergy_adapter ||= UnifiedHealthData::Adapters::AllergyAdapter.new(user: @user)
     end
 
     def lab_or_test_adapter
@@ -565,15 +617,15 @@ module UnifiedHealthData
     end
 
     def conditions_adapter
-      @conditions_adapter ||= UnifiedHealthData::Adapters::ConditionsAdapter.new
+      @conditions_adapter ||= UnifiedHealthData::Adapters::ConditionsAdapter.new(user: @user)
     end
 
     def vitals_adapter
-      @vitals_adapter ||= UnifiedHealthData::Adapters::VitalAdapter.new
+      @vitals_adapter ||= UnifiedHealthData::Adapters::VitalAdapter.new(user: @user)
     end
 
     def immunization_adapter
-      @immunization_adapter ||= UnifiedHealthData::Adapters::ImmunizationAdapter.new(@user)
+      @immunization_adapter ||= UnifiedHealthData::Adapters::ImmunizationAdapter.new(user: @user)
     end
 
     def default_start_date
@@ -588,6 +640,14 @@ module UnifiedHealthData
       Date.parse(date_string)
     rescue ArgumentError, TypeError
       raise ArgumentError, "Invalid #{param_name}: '#{date_string}'. Expected format: YYYY-MM-DD"
+    end
+
+    def normalize_date_range(start_date, end_date)
+      start_date = nil if start_date.blank?
+      end_date = nil if end_date.blank?
+      validate_date_param(start_date, 'start_date') if start_date
+      validate_date_param(end_date, 'end_date') if end_date
+      [start_date || default_start_date, end_date || default_end_date]
     end
   end # rubocop:enable Metrics/ClassLength
 end

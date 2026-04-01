@@ -388,6 +388,7 @@ RSpec.describe V0::TermsOfUseAgreementsController, type: :controller do
       before do
         Timecop.freeze(Time.zone.now.floor)
         sign_in(user)
+
         allow(TermsOfUse::Acceptor).to receive(:new).and_return(acceptor)
         allow(Identity::CernerProvisionerJob).to receive(:perform_inline).and_call_original
         allow(Identity::CernerProvisioner).to receive(:new).and_return(provisioner)
@@ -395,9 +396,28 @@ RSpec.describe V0::TermsOfUseAgreementsController, type: :controller do
 
       after { Timecop.return }
 
-      it 'calls the provisioner job with the correct params' do
-        subject
-        expect(Identity::CernerProvisionerJob).to have_received(:perform_inline).with(user.icn, :tou)
+      context 'when user is cerner limited' do
+        before do
+          allow(user).to receive(:cerner_limited?).and_return(true)
+        end
+
+        it 'passes messaging_only = true to the job' do
+          subject
+          expect(Identity::CernerProvisionerJob).to have_received(:perform_inline).with(user.icn, true, :tou)
+        end
+      end
+
+      context 'when user is not cerner limited' do
+        before do
+          sign_in(user)
+          allow(controller).to receive(:current_user).and_return(user)
+          allow(user).to receive(:cerner_limited?).and_return(false)
+        end
+
+        it 'calls the provisioner job with the correct params' do
+          subject
+          expect(Identity::CernerProvisionerJob).to have_received(:perform_inline).with(user.icn, false, :tou)
+        end
       end
 
       context 'when the acceptance and provisioning is successful' do
@@ -482,6 +502,9 @@ RSpec.describe V0::TermsOfUseAgreementsController, type: :controller do
       before do
         Timecop.freeze(Time.zone.now.floor)
         sign_in(user)
+        allow(controller).to receive(:current_user).and_return(user)
+        allow(user).to receive(:cerner_limited?).and_return(false)
+
         allow(Identity::CernerProvisionerJob).to receive(:perform_inline).and_call_original
         allow(Identity::CernerProvisioner).to receive(:new).and_return(provisioner)
       end
@@ -490,7 +513,7 @@ RSpec.describe V0::TermsOfUseAgreementsController, type: :controller do
 
       it 'calls the provisioner job with the correct params' do
         subject
-        expect(Identity::CernerProvisionerJob).to have_received(:perform_inline).with(user.icn, :tou)
+        expect(Identity::CernerProvisionerJob).to have_received(:perform_inline).with(user.icn, false, :tou)
       end
 
       context 'when the provisioning is successful' do

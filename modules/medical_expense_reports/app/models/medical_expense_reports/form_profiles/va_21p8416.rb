@@ -13,7 +13,7 @@ module MedicalExpenseReports
       {
         version: 0,
         prefill: true,
-        returnUrl: '/claimant-information'
+        returnUrl: '/applicant'
       }
     end
 

@@ -2,15 +2,12 @@
 
 require 'lgy/configuration'
 require 'common/client/base'
-require 'vets/shared_logging'
 
 module LGY
   class Service < Common::Client::Base
     include Common::Client::Concerns::Monitoring
-    include Vets::SharedLogging
     configuration LGY::Configuration
     STATSD_KEY_PREFIX = 'api.lgy'
-    SENTRY_TAG = { team: 'vfs-ebenefits' }.freeze
 
     def initialize(edipi: nil, icn: nil)
       @edipi = edipi
@@ -40,16 +37,15 @@ module LGY
         { status: 'PENDING_UPLOAD', application_create_date: get_application.body['create_date'],
           reference_number: get_determination.body['reference_number'] }
       else
-        log_message_to_sentry(
+        Rails.logger.error(
           'Unexpected COE statuses!',
-          :error,
           {
             determination_status: get_determination.body['status'],
             application_status: get_application.body['status'],
             get_application_status: get_application.status
-          },
-          { team: 'vfs-ebenefits' }
+          }
         )
+        StatsD.increment("#{STATSD_KEY_PREFIX}.coe_status.unexpected_status")
         nil
       end
     end
@@ -93,13 +89,10 @@ module LGY
         response.body
       end
     rescue Common::Client::Errors::ClientError => e
-      log_message_to_sentry(
+      Rails.logger.error(
         "COE application submission failed with http status: #{e.status}",
-        :error,
-        { message: e.message, status: e.status, body: e.body },
-        { team: 'vfs-ebenefits' }
+        { message: e.message, status: e.status, body: e.body }
       )
-
       raise e
     end
 

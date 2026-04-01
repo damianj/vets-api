@@ -133,11 +133,23 @@ class User < Common::RedisStore
   end
 
   def mhv_user_account(from_cache_only: true)
+    @mhv_user_account_error = nil
     @mhv_user_account ||= MHV::UserAccount::Creator.new(user_verification:, from_cache_only:).perform
+  rescue MHV::UserAccount::Errors::ValidationError => e
+    @mhv_user_account_error = :validation
+    log_mhv_user_account_error(e.message)
+    nil
+  rescue MHV::UserAccount::Errors::MHVClientError => e
+    @mhv_user_account_error = :client
+    log_mhv_user_account_error(e.message)
+    nil
   rescue => e
+    @mhv_user_account_error = :unknown
     log_mhv_user_account_error(e.message)
     nil
   end
+
+  attr_reader :mhv_user_account_error
 
   def middle_name
     identity.middle_name.presence || middle_name_mpi
@@ -453,27 +465,39 @@ class User < Common::RedisStore
   def provision_cerner_async(source: nil)
     return unless cerner_eligible?
 
-    Identity::CernerProvisionerJob.perform_async(icn, source)
-  end
-
-  def cerner_cookie_eligibility
-    cerner_eligible? && cerner_facilities_eligible?
+    Identity::CernerProvisionerJob.perform_async(icn, cerner_limited?, source)
   end
 
   def can_create_mhv_account?
     loa3? && !needs_accepted_terms_of_use
   end
 
+  def cerner_full?
+    cerner_version == :full
+  end
+
+  def cerner_limited?
+    cerner_version == :limited
+  end
+
   private
+
+  def cerner_version
+    return unless cerner_eligible?
+
+    live_cerner_facilities? ? :full : :limited
+  end
 
   def cerner_eligible?
     loa3? && cerner_id.present?
   end
 
-  def cerner_facilities_eligible?
-    cerner_facility_ids.present? && cerner_facility_ids.any? do |id|
-      Settings.mhv.oh_facility_checks.pretransitioned_oh_facilities.include?(id)
-    end
+  def live_cerner_facilities?
+    return false if cerner_facility_ids.blank?
+
+    live_facilities = Settings.mhv.oh_facility_checks.pretransitioned_oh_facilities.split(', ')
+
+    cerner_facility_ids.intersect?(live_facilities)
   end
 
   def mpi_profile

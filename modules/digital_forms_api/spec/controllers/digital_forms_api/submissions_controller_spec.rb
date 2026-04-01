@@ -101,5 +101,16 @@ RSpec.describe DigitalFormsApi::SubmissionsController, type: :controller do
         expect(response).to have_http_status(:forbidden)
       end
     end
+
+    context 'when a non-FormsAPI error occurs' do
+      let(:cassette) { 'retrieve_686c' }
+
+      it 'returns a 500 error' do
+        expect_any_instance_of(DigitalFormsApi::SubmissionsController).to receive(:show).and_raise RuntimeError
+
+        retrieve_submission!
+        expect(response).to have_http_status(:internal_server_error)
+      end
+    end
   end
 end

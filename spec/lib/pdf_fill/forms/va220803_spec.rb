@@ -62,7 +62,7 @@ describe PdfFill::Forms::Va220803 do
     it 'formats the cost correctly' do
       merged_data = subject.merge_fields
 
-      expect(merged_data['testCost']).to eq('$55')
+      expect(merged_data['testCost']).to eq('$55,123')
     end
 
     context 'with a chapter 35 form' do

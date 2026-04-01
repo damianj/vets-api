@@ -115,6 +115,7 @@ Mobile::Engine.routes.draw do
     get '/health/rx/prescriptions/:id/tracking', to: 'prescriptions#tracking'
     get '/vet_verification_status', to: 'vet_verification_statuses#show'
     resource :veteran_status_card, only: :show
+    resources :tooltips, only: %i[index create update], controller: 'tooltips', defaults: { format: :json }
   end
 
   namespace :v1 do

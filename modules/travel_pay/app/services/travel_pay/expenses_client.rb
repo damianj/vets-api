@@ -10,14 +10,13 @@ module TravelPay
     # Generic HTTP POST call to the BTSSS 'expenses' endpoints to add a new expense
     # Routes to appropriate endpoint based on expense type
     #
-    # @param veis_token [String] VEIS authentication token
-    # @param btsss_token [String] BTSSS access token
+    # @param auth_session [TravelPay::AuthSession] Authentication session with tokens
     # @param expense_type [String] Type of expense (EX: 'other')
     # @param body [Hash] Request body to send to the API
     #
     # @return [Faraday::Response] API response
     #
-    def add_expense(veis_token, btsss_token, expense_type, body = {})
+    def add_expense(auth_session, expense_type, body = {})
       endpoint = expense_endpoint_for_type(expense_type, :add)
       btsss_url = Settings.travel_pay.base_url
       correlation_id = SecureRandom.uuid
@@ -27,8 +26,8 @@ module TravelPay
 
       log_to_statsd('expense', "add_#{expense_type}") do
         connection(server_url: btsss_url).post(endpoint) do |req|
-          req.headers['Authorization'] = "Bearer #{veis_token}"
-          req.headers['BTSSS-Access-Token'] = btsss_token
+          req.headers['Authorization'] = "Bearer #{auth_session.veis_token}"
+          req.headers['BTSSS-Access-Token'] = auth_session.btsss_token
           req.headers['X-Correlation-ID'] = correlation_id
           req.headers.merge!(claim_headers)
           req.body = body.to_json
@@ -40,14 +39,13 @@ module TravelPay
     # Generic HTTP GET call to the BTSSS 'expenses' endpoints to retrieve an expense by ID
     # Routes to appropriate endpoint based on expense type
     #
-    # @param veis_token [String] VEIS authentication token
-    # @param btsss_token [String] BTSSS access token
+    # @param auth_session [TravelPay::AuthSession] Authentication session with tokens
     # @param expense_type [String] Type of expense (EX: 'other')
     # @param expense_id [String] UUID of the expense to retrieve
     #
     # @return [Faraday::Response] API response with expense details
     #
-    def get_expense(veis_token, btsss_token, expense_type, expense_id)
+    def get_expense(auth_session, expense_type, expense_id)
       btsss_url = Settings.travel_pay.base_url
       correlation_id = SecureRandom.uuid
       endpoint_template = expense_endpoint_for_type(expense_type, :get)
@@ -58,8 +56,8 @@ module TravelPay
 
       log_to_statsd('expense', "get_#{expense_type}") do
         connection(server_url: btsss_url).get(endpoint) do |req|
-          req.headers['Authorization'] = "Bearer #{veis_token}"
-          req.headers['BTSSS-Access-Token'] = btsss_token
+          req.headers['Authorization'] = "Bearer #{auth_session.veis_token}"
+          req.headers['BTSSS-Access-Token'] = auth_session.btsss_token
           req.headers['X-Correlation-ID'] = correlation_id
           req.headers.merge!(claim_headers)
         end
@@ -86,14 +84,14 @@ module TravelPay
     #
     # @return expenseId => string
     #
-    def add_mileage_expense(veis_token, btsss_token, params = {})
+    def add_mileage_expense(auth_session, params = {})
       btsss_url = Settings.travel_pay.base_url
       correlation_id = SecureRandom.uuid
       Rails.logger.info(message: 'Correlation ID', correlation_id:)
       log_to_statsd('expense', 'add_mileage') do
         connection(server_url: btsss_url).post('api/v2/expenses/mileage') do |req|
-          req.headers['Authorization'] = "Bearer #{veis_token}"
-          req.headers['BTSSS-Access-Token'] = btsss_token
+          req.headers['Authorization'] = "Bearer #{auth_session.veis_token}"
+          req.headers['BTSSS-Access-Token'] = auth_session.btsss_token
           req.headers['X-Correlation-ID'] = correlation_id
           req.headers.merge!(claim_headers)
           req.body = {
@@ -110,13 +108,12 @@ module TravelPay
     # Generic HTTP DELETE call to the BTSSS 'expenses' endpoints to delete an expense
     # Routes to appropriate endpoint based on expense type
     #
-    # @param veis_token [String] VEIS authentication token
-    # @param btsss_token [String] BTSSS access token
-    # @param expense_type [String] Type of expense (EX: 'other')
+    # @param auth_session [TravelPay::AuthSession] Authentication session with tokens
     # @param expense_id [String] UUID of the expense
+    # @param expense_type [String] Type of expense (EX: 'other')
     # @return [Faraday::Response] API response
     #
-    def delete_expense(veis_token, btsss_token, expense_id, expense_type)
+    def delete_expense(auth_session, expense_id, expense_type)
       raise ArgumentError, 'Invalid expense_id' unless expense_id&.match?(TravelPay::Constants::UUID_REGEX)
 
       endpoint_template = expense_endpoint_for_type(expense_type, :delete)
@@ -129,8 +126,8 @@ module TravelPay
 
       log_to_statsd('expense', "delete_#{expense_type}") do
         connection(server_url: btsss_url).delete(endpoint) do |req|
-          req.headers['Authorization'] = "Bearer #{veis_token}"
-          req.headers['BTSSS-Access-Token'] = btsss_token
+          req.headers['Authorization'] = "Bearer #{auth_session.veis_token}"
+          req.headers['BTSSS-Access-Token'] = auth_session.btsss_token
           req.headers['X-Correlation-ID'] = correlation_id
           req.headers.merge!(claim_headers)
         end
@@ -141,14 +138,13 @@ module TravelPay
     # Generic HTTP PATCH call to the BTSSS 'expenses' endpoints to update an expense
     # Routes to appropriate endpoint based on expense type
     #
-    # @param veis_token [String] VEIS authentication token
-    # @param btsss_token [String] BTSSS access token
+    # @param auth_session [TravelPay::AuthSession] Authentication session with tokens
     # @param expense_id [String] UUID of the expense
     # @param expense_type [String] Type of expense (EX: 'other')
     # @param body [Hash] Request body to send to the API
     # @return [Faraday::Response] API response
     #
-    def update_expense(veis_token, btsss_token, expense_id, expense_type, body = {})
+    def update_expense(auth_session, expense_id, expense_type, body = {})
       raise ArgumentError, 'Invalid expense_id' unless expense_id&.match?(TravelPay::Constants::UUID_REGEX)
 
       endpoint_template = expense_endpoint_for_type(expense_type, :patch)
@@ -161,8 +157,8 @@ module TravelPay
 
       log_to_statsd('expense', "update_#{expense_type}") do
         connection(server_url: btsss_url).patch(endpoint) do |req|
-          req.headers['Authorization'] = "Bearer #{veis_token}"
-          req.headers['BTSSS-Access-Token'] = btsss_token
+          req.headers['Authorization'] = "Bearer #{auth_session.veis_token}"
+          req.headers['BTSSS-Access-Token'] = auth_session.btsss_token
           req.headers['X-Correlation-ID'] = correlation_id
           req.headers.merge!(claim_headers)
           req.body = body.to_json

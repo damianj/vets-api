@@ -116,7 +116,10 @@ module FormIntake
           'FORM_TYPE_1' => 'StructuredData:21P-601',
 
           # Form Type - Bottom of Page 2 (must be prefixed with StructuredData: to be ingested)
-          'FORM_TYPE' => 'StructuredData:21P-601'
+          'FORM_TYPE' => 'StructuredData:21P-601',
+
+          # Form Type - Bottom of Page 3
+          'FORM_TYPE_2' => 'StructuredData:21P-601'
         }
 
         # Add Box 14A-D - Surviving Relatives (up to 4)
@@ -128,7 +131,7 @@ module FormIntake
         # Add Box 18A-B - Other Debts (up to 4)
         add_other_debts(payload, form)
 
-        payload
+        payload.transform_values { |v| v.nil? ? '' : v }
       end
       # rubocop:enable Metrics/MethodLength
 

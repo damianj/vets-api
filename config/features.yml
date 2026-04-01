@@ -97,6 +97,10 @@ features:
       VA.gov, set this toggle to "Enabled", rather than specifying 100%
       in the percentage.
     enable_in_development: true
+  ask_va_datadog_rum:
+    actor_type: cookie_id
+    description: Enables DataDog Rum integration for tracing user sessions
+    enable_in_development: true
   ask_va_enhanced_inbox:
     actor_type: cookie_id
     description: Enables the enhanced Ask VA inbox experience
@@ -109,6 +113,13 @@ features:
       We need to remove this feature from the codebase ASAP.
       Mocks shouldn't live in the app logic. If needed, add at the API/middleware level.
     enable_in_development: true
+  ask_va_api_ava_int_for_staging:
+    actor_type: user
+    description: >
+      Use the AVA integration CRM environment for staging. When this is disabled,
+      use the AVA QA CRM environment for staging. This is used for testing purposes only
+      and should not be enabled in production.
+    enable_in_development: false
   ask_va_api_maintenance_mode:
     actor_type: user
     description: >
@@ -177,13 +188,14 @@ features:
   caregiver_upload_pattern_enabled:
     actor_type: user
     description: Enables multiple file input (V3) upload pattern in the 10-10CG form.
-    enable_in_development: false   
+    enable_in_development: false
   cave_idp:
     actor_type: cookie_id
     description: Enables the CAVE (Common Attachment Validation Engine) IDP proxy endpoints
   cerner_non_eligible_sis_enabled:
     actor_type: user
     description: Enables Sign in Service for cerner authentication
+    enable_in_development: true
   disability_526_new_bdd_sha_enforcement_workflow_enabled:
     actor_type: user
     description: If enabled, Form 21-526EZ will show new UI to encourage veterans to upload a Separation Health Assessment (SHA).
@@ -378,6 +390,9 @@ features:
   champva_claims_llm_validation:
     actor_type: user
     description: Enables LLM validation of claims on form submissions
+  champva_claims_insurance_dates:
+    actor_type: user
+    description: Enables insurance policy dates for the 10-7959a
   champva_resubmission_attachment_ids:
     actor_type: user
     description: Corrects attachment IDs for resubmission of form 10-7959a
@@ -530,10 +545,6 @@ features:
     actor_type: user
     description: Uses local_bgs rather than bgs-ext
     enable_in_development: true
-  claims_api_poa_uploads_bd_refactor:
-    actor_type: user
-    description: When enabled, sends poa forms to BD via the refactored logic
-    enable_in_development: true
   claims_api_526_validations_v1_local_bgs:
     actor_type: user
     description: Enables the method calls in the v1 526 validations use local_bgs
@@ -545,10 +556,6 @@ features:
   claims_api_use_update_poa_relationship:
     actor_type: user
     description: Uses local_bgs rather than bgs-ext
-    enable_in_development: true
-  claims_api_526_v2_uploads_bd_refactor:
-    actor_type: user
-    description: When enabled, sends 526 forms to BD via the refactored logic
     enable_in_development: true
   claims_api_add_document_uuid_to_claim:
     actor_type: user
@@ -585,14 +592,6 @@ features:
   cst_alert_improvements_evidence_requests:
     actor_type: user
     description: When enabled, aligns evidence request alerts in the claim status tool with VADS best practices.
-    enable_in_development: true
-  cst_show_document_upload_status:
-    actor_type: user
-    description: When enabled, claims status tool will display the upload status that comes from the evidence_submissions table.
-    enable_in_development: true
-  cst_update_evidence_submission_on_show:
-    actor_type: user
-    description: When enabled, polls Lighthouse for updated evidence submission statuses when viewing individual claims.
     enable_in_development: true
   cst_claim_phases:
     actor_type: user
@@ -942,9 +941,6 @@ features:
   disability_compensation_temp_separation_location_code_string:
     actor_type: user
     description: enables forcing separation location code to be a string in submit_all_claim endpoint.
-  disability_compensation_temp_toxic_exposure_optional_dates_fix:
-    actor_type: user
-    description: enables removing malformed optional dates from the Toxic Exposure node of a Form526Submission at SavedClaim creation.
   disability_compensation_toxic_exposure_destruction_modal:
     actor_type: user
     description: enables confirmation modal when removing toxic exposure data from Form 526
@@ -1072,6 +1068,14 @@ features:
   event_bus_gateway_retry_sms:
     actor_type: user
     description: When enabled, vets-api retries event bus gateway sms that VA Notify marks temporary-failure
+    enable_in_development: true
+  event_bus_gateway_sms_blackout:
+    actor_type: user
+    description: When enabled, blocks SMS notifications from being sent during the blackout period (21:00-09:00 Eastern)
+    enable_in_development: true
+  event_bus_gateway_sms_dry_run:
+    actor_type: user
+    description: When enabled, logs SMS notifications instead of sending them via VA Notify
     enable_in_development: true
   facilities_autosuggest_vamc_services_enabled:
     actor_type: user
@@ -1504,6 +1508,10 @@ features:
     actor_type: user
     description: Enable new list loop pattern
     enable_in_development: true
+  meb_dole_210_updates:
+    actor_type: user
+    description: Dole 210 updates to form 22-1990, 22-1990e, 22-5490, 22-10297
+    enable_in_development: false
   show_mbs_preneed_change_va_4010007:
     actor_type: user
     description: Updates to text in form VA 40-10007
@@ -1578,11 +1586,23 @@ features:
       across ALL domains (clinical notes, allergies, conditions, labs, vitals, vaccines). Use during
       incidents when you need full visibility. Per-domain toggles take priority when enabled.
     enable_in_development: true
+  mhv_medical_records_allergies_diagnostic:
+    actor_type: user
+    description: >
+      Enables diagnostic logging for allergies only (response counts, filtering metrics,
+      source breakdowns). Falls back to mhv_medical_records_diagnostic_logging if not enabled.
+    enable_in_development: false
   mhv_medical_records_clinical_notes_diagnostic:
     actor_type: user
     description: >
       Enables diagnostic logging for clinical notes only (response counts, filtering metrics,
       LOINC distributions). Falls back to mhv_medical_records_diagnostic_logging if not enabled.
+    enable_in_development: false
+  mhv_medical_records_conditions_diagnostic:
+    actor_type: user
+    description: >
+      Enables diagnostic logging for conditions only (response counts, filtering metrics,
+      source breakdowns). Falls back to mhv_medical_records_diagnostic_logging if not enabled.
     enable_in_development: false
   mhv_medical_records_labs_and_tests_diagnostic:
     actor_type: user
@@ -1590,6 +1610,18 @@ features:
       Enables diagnostic logging for labs and tests only (test code distribution,
       observation counts, filter rates). Falls back to mhv_medical_records_diagnostic_logging
       if not enabled.
+    enable_in_development: false
+  mhv_medical_records_vaccines_diagnostic:
+    actor_type: user
+    description: >
+      Enables diagnostic logging for vaccines only (response counts, filtering metrics,
+      source breakdowns). Falls back to mhv_medical_records_diagnostic_logging if not enabled.
+    enable_in_development: false
+  mhv_medical_records_vitals_diagnostic:
+    actor_type: user
+    description: >
+      Enables diagnostic logging for vitals only (response counts, filtering metrics,
+      source breakdowns). Falls back to mhv_medical_records_diagnostic_logging if not enabled.
     enable_in_development: false
   mhv_accelerated_delivery_uhd_oh_lab_type_logging_enabled:
     actor_type: user
@@ -1618,6 +1650,14 @@ features:
   mhv_oh_migration_extended_phases:
     actor_type: user
     description: Enables extended migration phases (p8, p9) for Oracle Health facility migration tracking
+    enable_in_development: true
+  mhv_oh_migration_dark_deploy_appointments:
+    actor_type: user
+    description: Gradually re-enables VAOS appointments for flagged users at T+5 instead of T+7 during Oracle Health migration cutover
+    enable_in_development: true
+  mhv_oh_migration_dark_deploy_sm_rx:
+    actor_type: user
+    description: Gradually re-enables Secure Messaging and Medications for flagged users at T+1 instead of T+2 during Oracle Health migration cutover
     enable_in_development: true
   mhv_medications_management_improvements:
     actor_type: user
@@ -1835,10 +1875,6 @@ features:
     actor_type: user
     description: when this flag is on the count will not be incremented for ipe
     enable_in_development: true
-  mhv_medications_enable_krames_html_sanitization:
-    actor_type: user
-    description: Enables sanitizeKramesHtmlStr function for Krames API prescription documentation
-    enable_in_development: false
   mhv_medications_oh_transition_refill_block:
     actor_type: user
     description: Blocks prescription refills for facilities transitioning to Oracle Health during phases p4-p5 (T-3 to T+2)
@@ -2243,6 +2279,10 @@ features:
     actor_type: user
     description: Enables the under 18 flow for form 22-5490
     enable_in_development: true
+  meb_block_under_18:
+    actor_type: user
+    description: Blocks users under 18 years old from filing the 1990e and 5490 forms
+    enable_in_development: true
   dgi_rudisill_hide_benefits_selection_step:
     actor_type: user
     description: Hides benefit selection page on original claims application.
@@ -2251,14 +2291,22 @@ features:
     actor_type: cookie_id
     description: Enables the ability to use OAuth authentication via the Sign in Service (Identity)
     enable_in_development: true
+  sign_in_disable_user_interaction:
+    actor_type: user
+    description: Disables user interaction during Authentication flow
+    enable_in_development: true
   mhv_credential_button_disabled:
     actor_type: user
     description: Enables the ability to hide the My HealtheVet sign in button (Identity)
     enable_in_development: true
   portal_notice_interstitial_enabled:
     actor_type: user
-    description: Enables the MHV portal notice interstital page
+    description: Enables the MHV portal notice interstitial page
     enable_in_development: true
+  portal_notice_interstitial_sunset:
+    actor_type: user
+    description: Enables the sunsetting message on the MHV portal notice interstitial page
+    enable_in_development: false
   sign_in_modal_v2:
     actor_type: user
     description: Enables new page design of Sign In modal and USiP
@@ -2459,6 +2507,9 @@ features:
       Use referring_provider_npi from CCRA for EPS provider lookups.
       Default is treating_provider_npi (root level). Falls back to nested provider_npi if selected NPI is blank.
       Primary care flag takes priority if both are enabled.
+  vba_documents_enable_kafka_tracking:
+    actor_type: user
+    description: Enables Kafka event tracking for 21P-527EZ uploads
   vba_documents_virus_scan:
     actor_type: user
     description: ClamAV virus scanning for Benefits Intake API upload submissions
@@ -3142,7 +3193,7 @@ features:
   survivors_benefits_structured_data_transmission:
     actor_type: cookie_id
     enable_in_development: true
-    description: "Toggle the sending of data to IBM GOVCIO for form (Form 21P-534EZ)"    
+    description: "Toggle the sending of data to IBM GOVCIO for form (Form 21P-534EZ)"
   sob_claimant_service:
     actor_type: user
     description: If enabled, use the new claimant service for SOB

@@ -102,36 +102,18 @@ module UnifiedHealthData
         UnifiedHealthData::BinaryData.new(avs_binary_data)
       end
 
-      # Parses CCD binary data for download
-      #
-      # @param document_ref_entry [Hash] FHIR DocumentReference entry
-      # @param format [String] Format to extract: 'xml', 'html', or 'pdf'
-      # @return [UnifiedHealthData::BinaryData, nil] Binary data object with Base64 encoded content,
-      #   or nil if resource is absent
-      # @raise [ArgumentError] if the requested format is invalid (not xml/html/pdf)
-      # @raise [ArgumentError] if the requested format is not available for this CCD
-      def parse_ccd_binary(document_ref_entry, format = 'xml')
-        resource = document_ref_entry['resource']
-        return nil unless resource
-
-        # For CCD, we need to search through all content items to find the matching format
-        content_type = content_type_for_format(format)
-        content_item = resource['content']&.find do |item|
-          attachment = item['attachment']
-          attachment&.dig('contentType') == content_type && attachment&.dig('data').present?
-        end
-
-        raise ArgumentError, "Format #{format} not available for this CCD" unless content_item
-
-        UnifiedHealthData::BinaryData.new(
-          content_type:,
-          binary: content_item['attachment']['data']
-        )
-      end
-
       private
 
       def build_clinical_note_attributes(record, note_content, source: nil)
+        if addendum_note?(record)
+          build_addendum_attributes(record, note_content, source:)
+        else
+          build_standard_attributes(record, note_content, source:)
+        end
+      end
+
+      # Builds attributes for a standard (non-addendum) note.
+      def build_standard_attributes(record, note_content, source: nil)
         date_value = record['date']
 
         {
@@ -148,12 +130,135 @@ module UnifiedHealthData
           admission_date: record['context']&.dig('period', 'start') || nil,
           discharge_date: record['context']&.dig('period', 'end') || nil,
           note: note_content,
+          addenda: nil,
           source:
         }
       end
 
+      # Builds attributes for an addendum note. The outer record is the newest addendum;
+      # the contained DocumentReferences referenced by relatesTo are the original note
+      # plus any intermediate addenda.
+      #
+      # Strategy:
+      #   1. Resolve every relatesTo[code=appends] reference to a contained DocumentReference.
+      #   2. Sort them by date ascending — the oldest is the original note.
+      #   3. Everything else (intermediate contained docs + the outer record) becomes an
+      #      addendum entry, sorted oldest-to-newest.
+      def build_addendum_attributes(record, addendum_content, source: nil) # rubocop:disable Metrics/MethodLength
+        appended_docs = get_all_appended_documents(record)
+
+        # If no contained docs could be resolved, fall back to standard behavior.
+        return build_standard_attributes(record, addendum_content, source:) if appended_docs.empty?
+
+        # Contained DocumentReferences don't carry their own nested `contained` array,
+        # but they reference Practitioners that live in the outer record's `contained`.
+        # Pass the outer record's `contained` so those references can be resolved.
+        parent_contained = record['contained'] || []
+
+        # Sort by date ascending; the oldest document is the original note.
+        sorted_docs = appended_docs.sort_by do |doc|
+          normalize_date_for_sorting(doc['date'] || record['date'] || '')
+        end
+        original_doc = sorted_docs.first
+        intermediate_docs = sorted_docs.drop(1)
+
+        original_content = get_note(original_doc)
+        date_value = original_doc['date'] || record['date']
+
+        # Build addenda: intermediate contained docs (oldest first), then the outer record (newest).
+        addenda = intermediate_docs.filter_map { |doc| build_addendum_entry(doc, parent_contained:) }
+        addenda << build_addendum_entry(record, content: addendum_content) if addendum_content.present?
+
+        {
+          id: record['id'],
+          name: get_title(original_doc) || get_title(record),
+          note_type: get_record_type(original_doc),
+          loinc_codes: get_loinc_codes(original_doc),
+          date: date_value,
+          sort_date: normalize_date_for_sorting(date_value),
+          date_signed: get_date_signed(original_doc) || get_date_signed(record),
+          written_by: extract_author(original_doc, contained: parent_contained) || extract_author(record),
+          signed_by: extract_authenticator(original_doc, contained: parent_contained) || extract_authenticator(record),
+          location: extract_location(original_doc, contained: parent_contained) || extract_location(record),
+          admission_date: original_doc['context']&.dig('period', 'start') || nil,
+          discharge_date: original_doc['context']&.dig('period', 'end') || nil,
+          note: original_content || addendum_content,
+          addenda: addenda.compact,
+          source:
+        }
+      end # rubocop:enable Metrics/MethodLength
+
       def allowed_doc_status?(doc_status)
         ALLOWED_DOC_STATUSES.include?(doc_status&.downcase)
+      end
+
+      # Builds a slim hash for entries in the `addenda` array of an addendum record.
+      # Omits fields that are redundant with the top-level record (note_type, loinc_codes,
+      # id, location, source, name, admission_date, discharge_date) to avoid redundancy.
+      #
+      # @param doc [Hash] A FHIR DocumentReference resource (original or addendum)
+      # @param content [String, nil] Pre-extracted note content
+      # @param parent_contained [Array, nil] The outer record's `contained` array, used to
+      #   resolve practitioner references that live outside the contained doc itself
+      # @return [Hash, nil] Hash with addendum-relevant fields, or nil if content is missing
+      def build_addendum_entry(doc, content: nil, parent_contained: nil)
+        content ||= get_note(doc)
+        return nil if content.blank?
+
+        {
+          date: doc['date'],
+          date_signed: get_date_signed(doc),
+          written_by: extract_author(doc, contained: parent_contained || doc['contained']),
+          signed_by: extract_authenticator(doc, contained: parent_contained || doc['contained']),
+          note: content
+        }
+      rescue NoMethodError, KeyError, TypeError => e
+        @mr_log.warn(
+          resource: MedicalRecords::MedicalRecordsLog::CLINICAL_NOTES,
+          action: 'build_addendum_entry',
+          anomaly: 'note_entry_skipped',
+          record_id: doc&.dig('id'),
+          error_class: e.class.name,
+          error_message: e.message
+        )
+        StatsD.increment('unified_health_data.clinical_note.note_entry_skipped')
+        nil
+      end
+
+      # Returns true if the record has a relatesTo entry with code "appends",
+      # indicating it is an addendum to another note.
+      def addendum_note?(record)
+        return false unless array_and_has_items(record['relatesTo'])
+
+        record['relatesTo'].any? { |r| r['code'] == 'appends' }
+      end
+
+      # Resolves all relatesTo[code=appends] references to contained DocumentReference
+      # resources. Returns an array of document hashes (may be empty).
+      #
+      # @param record [Hash] The outer FHIR DocumentReference resource
+      # @return [Array<Hash>] Contained DocumentReference resources referenced by relatesTo
+      def get_all_appended_documents(record)
+        return [] unless array_and_has_items(record['relatesTo'])
+
+        record['relatesTo']
+          .select { |r| r['code'] == 'appends' }
+          .filter_map do |relates_to_entry|
+            reference = relates_to_entry.dig('target', 'reference')
+            next unless reference
+
+            find_contained(record['contained'], reference, FHIR_RESOURCE_TYPES[:DOCUMENT_REFERENCE])
+          end
+      rescue NoMethodError, KeyError, TypeError => e
+        @mr_log.warn(
+          resource: MedicalRecords::MedicalRecordsLog::CLINICAL_NOTES,
+          action: 'get_all_appended_documents',
+          anomaly: 'appended_documents_extraction_failed',
+          record_id: record&.dig('id'),
+          error_class: e.class.name,
+          error_message: e.message
+        )
+        []
       end
 
       def log_filtered_clinical_note(record, reason)
@@ -215,10 +320,11 @@ module UnifiedHealthData
         nil
       end
 
-      def extract_authenticator(record)
+      def extract_authenticator(record, contained: nil)
+        contained ||= record['contained']
         # Should work for both VistA and OH formats.
         authenticator = find_contained(
-          record,
+          contained,
           record['authenticator']['reference'],
           FHIR_RESOURCE_TYPES[:PRACTITIONER]
         )
@@ -228,11 +334,12 @@ module UnifiedHealthData
         nil
       end
 
-      def extract_author(record)
+      def extract_author(record, contained: nil)
+        contained ||= record['contained']
         # Should work for both VistA and OH formats.
         if array_and_has_items(record['author'])
           author_ref = record['author'].find { |a| a['reference'] }
-          author = find_contained(record, author_ref['reference'], FHIR_RESOURCE_TYPES[:PRACTITIONER])
+          author = find_contained(contained, author_ref['reference'], FHIR_RESOURCE_TYPES[:PRACTITIONER])
           name = author['name']&.find { |n| n['text'] }
           format_name_first_to_last(name) if name
         end
@@ -264,17 +371,18 @@ module UnifiedHealthData
         nil
       end
 
-      def extract_location(record)
+      def extract_location(record, contained: nil)
+        contained ||= record['contained']
         # VistA - location is in the context.related array
         if array_and_has_items(record['context']['related'])
           reference = record['context']['related'].find { |r| r['reference'] }['reference']
           if reference
-            resource = find_contained(record, reference)
+            resource = find_contained(contained, reference)
             resource['name'] || nil
           end
         # OH - location is in the custodian field
         elsif record['custodian']['reference']
-          resource = find_contained(record, record['custodian']['reference'], FHIR_RESOURCE_TYPES[:LOCATION])
+          resource = find_contained(contained, record['custodian']['reference'], FHIR_RESOURCE_TYPES[:LOCATION])
           resource['name'] || nil
         end
       rescue
@@ -326,32 +434,21 @@ module UnifiedHealthData
         nil
       end
 
-      def find_contained(record, reference, type = nil)
-        return nil unless reference && record['contained']
+      def find_contained(contained, reference, type = nil)
+        return nil unless reference && contained
 
         if reference.start_with?('#')
           # Reference is in the format #mhv-resourceType-id
           target_id = reference.delete_prefix('#')
-          resource = record['contained'].detect { |res| res['id'] == target_id }
-          nil unless resource && resource['resourceType'] == type
+          resource = contained.detect { |res| res['id'] == target_id }
+          return nil unless resource && (type.nil? || resource['resourceType'] == type)
         else
           # Reference is in the format ResourceType/id
           type_id = reference.split('/')
-          resource = record['contained'].detect { |res| res['id'] == type_id.last }
+          resource = contained.detect { |res| res['id'] == type_id.last }
           return nil unless resource && (resource['resourceType'] == type_id.first || resource['resourceType'] == type)
         end
         resource
-      end
-
-      # Returns proper content type for format
-      def content_type_for_format(format)
-        case format.downcase
-        when 'xml' then 'application/xml'
-        when 'html' then 'text/html'
-        when 'pdf' then 'application/pdf'
-        else
-          raise ArgumentError, "Invalid format: #{format}. Use xml, html, or pdf"
-        end
       end
     end
   end

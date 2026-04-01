@@ -64,7 +64,7 @@ module FormIntake
 
           # Form Type (must be prefixed with StructuredData: to be ingested)
           'FORM_TYPE' => 'StructuredData:21P-0537'
-        }
+        }.transform_values { |v| v.nil? ? '' : v }
       end
       # rubocop:enable Metrics/MethodLength
 

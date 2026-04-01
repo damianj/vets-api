@@ -14,21 +14,21 @@ module TravelPay
     # Method to add a mileage expense, specifically for SMOC
     # TODO: Integrate into create_expense when ready to handle non-SMOC mileage expenses
     def add_expense(params = {})
-      @auth_manager.authorize => { veis_token:, btsss_token: }
+      auth_session = @auth_manager.authorize
 
       # check for required params (that don't have a default set in the client)
       unless params['claim_id'] && params['appt_date']
         raise ArgumentError,
               message: 'You must provide a claim ID and appointment date to add an expense.'
       end
-      new_expense_response = client.add_mileage_expense(veis_token, btsss_token, params)
+      new_expense_response = client.add_mileage_expense(auth_session, params)
 
       new_expense_response.body['data']
     end
 
     # Method to handle expense creation via the API
     def create_expense(params = {})
-      @auth_manager.authorize => { veis_token:, btsss_token: }
+      auth_session = @auth_manager.authorize
 
       # Validate required params
       raise ArgumentError, 'You must provide a claim ID to create an expense.' unless params['claim_id']
@@ -38,7 +38,7 @@ module TravelPay
       request_body = build_expense_request_body(params)
       request_body = receipt_converter.convert_if_heic(request_body)
 
-      response = client.add_expense(veis_token, btsss_token, params['expense_type'], request_body)
+      response = client.add_expense(auth_session, params['expense_type'], request_body)
       response.body['data']
     rescue Faraday::Error => e
       Rails.logger.error("Failed to create expense via API: #{e.message}")
@@ -47,7 +47,7 @@ module TravelPay
 
     # Method to retrieve an expense by ID via the API
     def get_expense(expense_type, expense_id)
-      @auth_manager.authorize => { veis_token:, btsss_token: }
+      auth_session = @auth_manager.authorize
 
       # Validate required params
       raise ArgumentError, 'You must provide an expense type to get an expense.' if expense_type.blank?
@@ -55,7 +55,7 @@ module TravelPay
 
       Rails.logger.info("Getting expense of type: #{expense_type} with ID: #{expense_id}")
 
-      response = client.get_expense(veis_token, btsss_token, expense_type, expense_id)
+      response = client.get_expense(auth_session, expense_type, expense_id)
       expense = response.body['data']
 
       # Normalize expense type
@@ -71,14 +71,14 @@ module TravelPay
       raise ArgumentError, 'You must provide an expense type to create an expense.' if expense_type.blank?
       raise ArgumentError, 'You must provide at least one field to update an expense.' if params.blank?
 
-      @auth_manager.authorize => { veis_token:, btsss_token: }
+      auth_session = @auth_manager.authorize
       Rails.logger.info("Updating expense of type: #{expense_type}")
 
       # Build the request body for the API
       request_body = build_expense_request_body(params)
       request_body = receipt_converter.convert_if_heic(request_body)
 
-      response = client.update_expense(veis_token, btsss_token, expense_id, expense_type, request_body)
+      response = client.update_expense(auth_session, expense_id, expense_type, request_body)
       response.body['data']
     end
 
@@ -87,10 +87,10 @@ module TravelPay
       raise ArgumentError, 'You must provide an expense ID to create an expense.' if expense_id.blank?
       raise ArgumentError, 'You must provide an expense type to create an expense.' if expense_type.blank?
 
-      @auth_manager.authorize => { veis_token:, btsss_token: }
+      auth_session = @auth_manager.authorize
       Rails.logger.info("Deleting expense of type: #{expense_type}")
 
-      response = client.delete_expense(veis_token, btsss_token, expense_id, expense_type)
+      response = client.delete_expense(auth_session, expense_id, expense_type)
       response.body['data']
     end
 

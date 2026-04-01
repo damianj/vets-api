@@ -408,6 +408,54 @@ describe Vass::AppointmentsService do
           end
         end
       end
+
+      it 'uses tomorrow at 4 AM UTC as the availability start date' do
+        service = described_class.build(edipi:, correlation_id:)
+        client = instance_double(Vass::Client)
+        allow(service).to receive(:client).and_return(client)
+
+        appointments_response = {
+          'success' => true,
+          'data' => {
+            'veteran_id' => veteran_id,
+            'appointments' => [{
+              'appointment_id' => 'cohort-123',
+              'start_utc' => nil,
+              'end_utc' => nil,
+              'cohort_start_utc' => '2026-01-05T00:00:00Z',
+              'cohort_end_utc' => '2026-01-20T23:59:59Z',
+              'appointment_status' => 'Active',
+              'appointment_status_code' => 0
+            }]
+          }
+        }
+
+        availability_response = {
+          'success' => true,
+          'data' => {
+            'appointment_duration' => 30,
+            'available_time_slots' => [{
+              'time_start_utc' => '2026-01-10T10:00:00Z',
+              'time_end_utc' => '2026-01-10T10:30:00Z',
+              'capacity' => 5
+            }]
+          }
+        }
+
+        allow(client).to receive(:get_veteran_appointments)
+          .and_return(double(body: appointments_response, status: 200))
+
+        expected_start = Time.utc(2026, 1, 8, 4, 0, 0)
+        expected_end = Time.utc(2026, 1, 21, 23, 59, 59)
+
+        expect(service).to receive(:get_availability).with(
+          veteran_id:,
+          start_date: expected_start,
+          end_date: expected_end
+        ).and_return(availability_response)
+
+        service.get_current_cohort_availability(veteran_id:)
+      end
     end
 
     context 'with current cohort that is already booked' do

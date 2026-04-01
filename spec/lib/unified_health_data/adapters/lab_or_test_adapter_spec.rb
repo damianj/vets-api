@@ -2623,6 +2623,238 @@ RSpec.describe UnifiedHealthData::Adapters::LabOrTestAdapter, type: :service do
       end
     end
 
+    describe '#extract_interpretation' do
+      it 'extracts the HL7 v3 ObservationInterpretation code when present' do
+        obs = {
+          'code' => { 'text' => 'Glucose' },
+          'interpretation' => [
+            {
+              'coding' => [
+                {
+                  'system' => 'https://fhir.cerner.com/some-id/codeSet/52',
+                  'code' => '201',
+                  'display' => 'ABN',
+                  'userSelected' => true
+                },
+                {
+                  'system' => 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+                  'code' => 'H',
+                  'display' => 'High',
+                  'userSelected' => false
+                }
+              ],
+              'text' => 'High'
+            }
+          ]
+        }
+        result = adapter.send(:extract_interpretation, obs)
+        expect(result).to eq('H')
+      end
+
+      it 'extracts critical high (HH) code' do
+        obs = {
+          'code' => { 'text' => 'Potassium' },
+          'interpretation' => [
+            {
+              'coding' => [
+                {
+                  'system' => 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+                  'code' => 'HH',
+                  'display' => 'Critical high'
+                }
+              ],
+              'text' => 'Critical high'
+            }
+          ]
+        }
+        result = adapter.send(:extract_interpretation, obs)
+        expect(result).to eq('HH')
+      end
+
+      it 'extracts Low (L) code' do
+        obs = {
+          'code' => { 'text' => 'Hemoglobin' },
+          'interpretation' => [
+            {
+              'coding' => [
+                {
+                  'system' => 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+                  'code' => 'L',
+                  'display' => 'Low'
+                }
+              ],
+              'text' => 'Low'
+            }
+          ]
+        }
+        result = adapter.send(:extract_interpretation, obs)
+        expect(result).to eq('L')
+      end
+
+      it 'extracts critical low (LL) code' do
+        obs = {
+          'code' => { 'text' => 'Sodium' },
+          'interpretation' => [
+            {
+              'coding' => [
+                {
+                  'system' => 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+                  'code' => 'LL',
+                  'display' => 'Critical low'
+                }
+              ],
+              'text' => 'Critical low'
+            }
+          ]
+        }
+        result = adapter.send(:extract_interpretation, obs)
+        expect(result).to eq('LL')
+      end
+
+      it 'extracts Abnormal (A) code' do
+        obs = {
+          'code' => { 'text' => 'COVID-19 Ag' },
+          'interpretation' => [
+            {
+              'coding' => [
+                {
+                  'system' => 'https://fhir.cerner.com/some-id/codeSet/52',
+                  'code' => '201',
+                  'display' => 'ABN',
+                  'userSelected' => true
+                },
+                {
+                  'system' => 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+                  'code' => 'A',
+                  'display' => 'Abnormal',
+                  'userSelected' => false
+                }
+              ],
+              'text' => 'Abnormal'
+            }
+          ]
+        }
+        result = adapter.send(:extract_interpretation, obs)
+        expect(result).to eq('A')
+      end
+
+      it 'falls back to interpretation text when no HL7 v3 coding is present' do
+        obs = {
+          'code' => { 'text' => 'LDL' },
+          'interpretation' => [
+            {
+              'coding' => [
+                {
+                  'system' => 'https://fhir.cerner.com/some-id/codeSet/52',
+                  'code' => '212',
+                  'display' => 'NA',
+                  'userSelected' => true
+                }
+              ],
+              'text' => 'N/A'
+            }
+          ]
+        }
+        result = adapter.send(:extract_interpretation, obs)
+        expect(result).to eq('N/A')
+      end
+
+      it 'returns nil when interpretation is absent' do
+        obs = {
+          'code' => { 'text' => 'Glucose' },
+          'valueQuantity' => { 'value' => 100, 'unit' => 'mg/dL' }
+        }
+        result = adapter.send(:extract_interpretation, obs)
+        expect(result).to be_nil
+      end
+
+      it 'returns nil when interpretation is an empty array' do
+        obs = {
+          'code' => { 'text' => 'Glucose' },
+          'interpretation' => []
+        }
+        result = adapter.send(:extract_interpretation, obs)
+        expect(result).to be_nil
+      end
+
+      it 'returns nil when interpretation is nil' do
+        obs = {
+          'code' => { 'text' => 'Glucose' },
+          'interpretation' => nil
+        }
+        result = adapter.send(:extract_interpretation, obs)
+        expect(result).to be_nil
+      end
+
+      it 'prefers HL7 v3 code from a later entry over text from an earlier entry' do
+        obs = {
+          'code' => { 'text' => 'Glucose' },
+          'interpretation' => [
+            {
+              'coding' => [
+                {
+                  'system' => 'https://fhir.cerner.com/some-id/codeSet/52',
+                  'code' => '212',
+                  'display' => 'NA',
+                  'userSelected' => true
+                }
+              ],
+              'text' => 'N/A'
+            },
+            {
+              'coding' => [
+                {
+                  'system' => 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+                  'code' => 'H',
+                  'display' => 'High',
+                  'userSelected' => false
+                }
+              ],
+              'text' => 'High'
+            }
+          ]
+        }
+        result = adapter.send(:extract_interpretation, obs)
+        expect(result).to eq('H')
+      end
+    end
+
+    describe '#build_observation interpretation integration' do
+      it 'includes interpretation in the built observation' do
+        obs = {
+          'resourceType' => 'Observation',
+          'code' => { 'text' => 'Glucose' },
+          'valueQuantity' => { 'value' => 250, 'unit' => 'mg/dL' },
+          'status' => 'final',
+          'interpretation' => [
+            {
+              'coding' => [
+                {
+                  'system' => 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+                  'code' => 'H',
+                  'display' => 'High'
+                }
+              ],
+              'text' => 'High'
+            }
+          ]
+        }
+        result = adapter.send(:build_observation, obs, [])
+        expect(result.interpretation).to eq('H')
+      end
+
+      it 'sets interpretation to nil when not present in FHIR data' do
+        obs = {
+          'resourceType' => 'Observation',
+          'code' => { 'text' => 'Glucose' },
+          'valueQuantity' => { 'value' => 100, 'unit' => 'mg/dL' },
+          'status' => 'final'
+        }
+        result = adapter.send(:build_observation, obs, [])
+        expect(result.interpretation).to be_nil
+      end
+    end
+
     describe '#parse_single_record with mixed observations' do
       context 'when DiagnosticReport has final status with mixed observation statuses' do
         it 'returns DiagnosticReport with only valid observations' do

@@ -937,6 +937,109 @@ Rspec.describe ClaimsApi::V2::Veterans::PowerOfAttorney::RequestController, type
         end
       end
 
+      describe 'handling international phone numbers' do
+        it 'returns the countryCode for the phone number in the response when an international number is used' do
+          mock_ccg(scopes) do |auth_header|
+            form_attributes[:veteran][:phone][:countryCode] = '91'
+            form_attributes[:veteran][:phone][:areaCode] = '22'
+            form_attributes[:veteran][:phone][:phoneNumber] = '12345678'
+
+            create_request_with(veteran_id:, form_attributes:, auth_header:)
+
+            parsed_response = JSON.parse(response.body)['data']
+            veteran_phone = parsed_response['attributes']['veteran']['phone']
+            dependent_phone = parsed_response['attributes']['claimant']['phone']
+
+            expect(response).to have_http_status(:created)
+            expect(veteran_phone['countryCode']).to eq('91')
+            expect(veteran_phone['areaCode']).to eq('22')
+            expect(veteran_phone['phoneNumber']).to eq('12345678')
+            expect(dependent_phone['countryCode']).to be_nil
+            expect(dependent_phone['areaCode']).to be_nil
+            expect(dependent_phone['phoneNumber']).to be_nil
+          end
+        end
+
+        it 'returns a 422 when the countryCode is not included for the veteran international phone number' do
+          mock_ccg(scopes) do |auth_header|
+            form_attributes[:veteran][:phone][:phoneNumber] = '12345678'
+
+            create_request_with(veteran_id:, form_attributes:, auth_header:)
+
+            response_body = JSON.parse(response.body)
+
+            expect(response).to have_http_status(:unprocessable_content)
+            expect(response_body['errors'][0]['detail']).to include(
+              "The veteran's international phone number requires a countryCode."
+            )
+          end
+        end
+
+        it 'returns a 422 when the countryCode is not included for the claimant international phone number' do
+          mock_ccg(scopes) do |auth_header|
+            form_attributes.merge!(claimant_information)
+            form_attributes[:veteran][:phone][:countryCode] = '91'
+            form_attributes[:veteran][:phone][:areaCode] = '22'
+            form_attributes[:veteran][:phone][:phoneNumber] = '12345678'
+            form_attributes[:claimant][:phone] = {}
+            form_attributes[:claimant][:phone][:phoneNumber] = '12345678'
+
+            create_request_with(veteran_id:, form_attributes:, auth_header:)
+
+            response_body = JSON.parse(response.body)
+
+            expect(response).to have_http_status(:unprocessable_content)
+            expect(response_body['errors'][0]['detail']).to include(
+              "The claimant's international phone number requires a countryCode."
+            )
+          end
+        end
+
+        it 'returns a 422 when the countryCode is 1 included for the claimant international phone number' do
+          mock_ccg(scopes) do |auth_header|
+            form_attributes.merge!(claimant_information)
+            form_attributes[:veteran][:phone][:countryCode] = '91'
+            form_attributes[:veteran][:phone][:areaCode] = '22'
+            form_attributes[:veteran][:phone][:phoneNumber] = '12345678'
+            form_attributes[:claimant][:phone] = {}
+            form_attributes[:claimant][:phone][:countryCode] = '1'
+            form_attributes[:claimant][:phone][:areaCode] = '22'
+            form_attributes[:claimant][:phone][:phoneNumber] = '12345678'
+
+            create_request_with(veteran_id:, form_attributes:, auth_header:)
+
+            response_body = JSON.parse(response.body)
+
+            expect(response).to have_http_status(:unprocessable_content)
+            expect(response_body['errors'][0]['detail']).to include(
+              "The claimant's countryCode is for a domestic phone number."
+            )
+          end
+        end
+
+        it 'returns a 422 when the countryCode is 1 included for the veteran international phone number' do
+          mock_ccg(scopes) do |auth_header|
+            form_attributes.merge!(claimant_information)
+            form_attributes[:veteran][:phone][:countryCode] = '1'
+            form_attributes[:veteran][:phone][:areaCode] = '22'
+            form_attributes[:veteran][:phone][:phoneNumber] = '12345678'
+            form_attributes[:claimant][:phone] = {}
+            form_attributes[:claimant][:phone][:countryCode] = '55'
+            form_attributes[:claimant][:phone][:areaCode] = '22'
+            form_attributes[:claimant][:phone][:phoneNumber] = '12345678'
+
+            create_request_with(veteran_id:, form_attributes:, auth_header:)
+
+            response_body = JSON.parse(response.body)
+
+            expect(response).to have_http_status(:unprocessable_content)
+            expect(response_body['errors'][0]['detail']).to include(
+              "The veteran's countryCode is for a domestic phone number."
+            )
+          end
+        end
+      end
+
       describe '#validate_country_code' do
         let(:min_form_attributes) do
           {

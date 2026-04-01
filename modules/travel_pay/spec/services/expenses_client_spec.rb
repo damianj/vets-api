@@ -5,8 +5,7 @@ require 'rails_helper'
 describe TravelPay::ExpensesClient do
   let(:user) { build(:user) }
   let(:client) { described_class.new }
-  let(:veis_token) { 'test_veis_token' }
-  let(:btsss_token) { 'test_btsss_token' }
+  let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'test_veis_token', btsss_token: 'test_btsss_token') }
 
   expected_log_prefix = 'travel_pay.expense.response_time'
   before do
@@ -40,7 +39,7 @@ describe TravelPay::ExpensesClient do
       end
 
       client = TravelPay::ExpensesClient.new
-      new_expense_response = client.add_mileage_expense('veis_token', 'btsss_token',
+      new_expense_response = client.add_mileage_expense(auth_session,
                                                         { 'claimId' => 'fake_claim_id',
                                                           'dateIncurred' => '2024-10-02T14:36:38.043Z',
                                                           'tripType' => 'RoundTrip' }.to_json)
@@ -88,11 +87,11 @@ describe TravelPay::ExpensesClient do
       it 'routes other expenses to the correct endpoint' do
         expect(connection_double).to receive(:post).with('api/v1/expenses/other')
 
-        client.add_expense(veis_token, btsss_token, 'other', expense_body)
+        client.add_expense(auth_session, 'other', expense_body)
       end
 
       it 'raises an error when an unsupported expense type is provided' do
-        expect { client.add_expense(veis_token, btsss_token, 'unknown_type', expense_body) }
+        expect { client.add_expense(auth_session, 'unknown_type', expense_body) }
           .to raise_error(ArgumentError, /Unsupported expense type: unknown_type/)
       end
     end
@@ -107,17 +106,17 @@ describe TravelPay::ExpensesClient do
       allow(request_double).to receive(:headers).and_return(headers_hash)
       allow(request_double).to receive(:body=)
 
-      client.add_expense(veis_token, btsss_token, 'other', expense_body)
+      client.add_expense(auth_session, 'other', expense_body)
 
-      expect(headers_hash['Authorization']).to eq("Bearer #{veis_token}")
-      expect(headers_hash['BTSSS-Access-Token']).to eq(btsss_token)
+      expect(headers_hash['Authorization']).to eq("Bearer #{auth_session.veis_token}")
+      expect(headers_hash['BTSSS-Access-Token']).to eq(auth_session.btsss_token)
       expect(headers_hash['X-Correlation-ID']).to be_present
     end
 
     it 'logs the expense type in statsd' do
       expect(client).to receive(:log_to_statsd).with('expense', 'add_other')
 
-      client.add_expense(veis_token, btsss_token, 'other', expense_body)
+      client.add_expense(auth_session, 'other', expense_body)
     end
   end
 
@@ -146,12 +145,12 @@ describe TravelPay::ExpensesClient do
       it 'routes other expenses to the correct endpoint' do
         expect(connection_double).to receive(:get).with("api/v1/expenses/other/#{expense_id}")
 
-        client.get_expense(veis_token, btsss_token, 'other', expense_id)
+        client.get_expense(auth_session, 'other', expense_id)
       end
 
       it 'raises error for unsupported expense types' do
         expect do
-          client.get_expense(veis_token, btsss_token, 'unknown_type',
+          client.get_expense(auth_session, 'unknown_type',
                              expense_id)
         end.to raise_error(ArgumentError, /Unsupported expense type/)
       end
@@ -166,17 +165,17 @@ describe TravelPay::ExpensesClient do
       allow(client).to receive_messages(connection: connection_double, claim_headers: { 'Custom-Header' => 'test' })
       allow(request_double).to receive(:headers).and_return(headers_hash)
 
-      client.get_expense(veis_token, btsss_token, 'other', expense_id)
+      client.get_expense(auth_session, 'other', expense_id)
 
-      expect(headers_hash['Authorization']).to eq("Bearer #{veis_token}")
-      expect(headers_hash['BTSSS-Access-Token']).to eq(btsss_token)
+      expect(headers_hash['Authorization']).to eq("Bearer #{auth_session.veis_token}")
+      expect(headers_hash['BTSSS-Access-Token']).to eq(auth_session.btsss_token)
       expect(headers_hash['X-Correlation-ID']).to be_present
     end
 
     it 'logs the expense type in statsd' do
       expect(client).to receive(:log_to_statsd).with('expense', 'get_other')
 
-      client.get_expense(veis_token, btsss_token, 'other', expense_id)
+      client.get_expense(auth_session, 'other', expense_id)
     end
   end
 
@@ -204,18 +203,18 @@ describe TravelPay::ExpensesClient do
         .and_yield(request_double)
         .and_return(mock_response)
 
-      response = client.delete_expense(veis_token, btsss_token, expense_id, 'other')
+      response = client.delete_expense(auth_session, expense_id, 'other')
       expect(response.body['success']).to be(true)
       expect(response.body['data']['id']).to eq(expense_id)
     end
 
     it 'raises an error when expense_id is not a valid UUID' do
-      expect { client.delete_expense(veis_token, btsss_token, 'not-a-uuid', 'other') }
+      expect { client.delete_expense(auth_session, 'not-a-uuid', 'other') }
         .to raise_error(ArgumentError, /Invalid expense_id/)
     end
 
     it 'raises an error when expense type is unsupported' do
-      expect { client.delete_expense(veis_token, btsss_token, expense_id, 'unknown_type') }
+      expect { client.delete_expense(auth_session, expense_id, 'unknown_type') }
         .to raise_error(ArgumentError, /Unsupported expense type: unknown_type/)
     end
 
@@ -229,10 +228,10 @@ describe TravelPay::ExpensesClient do
         .and_yield(request_double)
         .and_return(mock_response)
 
-      client.delete_expense(veis_token, btsss_token, expense_id, 'other')
+      client.delete_expense(auth_session, expense_id, 'other')
 
-      expect(headers_hash['Authorization']).to eq("Bearer #{veis_token}")
-      expect(headers_hash['BTSSS-Access-Token']).to eq(btsss_token)
+      expect(headers_hash['Authorization']).to eq("Bearer #{auth_session.veis_token}")
+      expect(headers_hash['BTSSS-Access-Token']).to eq(auth_session.btsss_token)
       expect(headers_hash['X-Correlation-ID']).to be_present
     end
 
@@ -242,7 +241,7 @@ describe TravelPay::ExpensesClient do
           .and_raise(Faraday::BadRequestError.new(nil))
 
         expect do
-          client.delete_expense(veis_token, btsss_token, expense_id, 'other')
+          client.delete_expense(auth_session, expense_id, 'other')
         end.to raise_error(Faraday::BadRequestError)
       end
 
@@ -251,7 +250,7 @@ describe TravelPay::ExpensesClient do
           .and_raise(Faraday::ForbiddenError.new(nil))
 
         expect do
-          client.delete_expense(veis_token, btsss_token, expense_id, 'other')
+          client.delete_expense(auth_session, expense_id, 'other')
         end.to raise_error(Faraday::ForbiddenError)
       end
 
@@ -260,7 +259,7 @@ describe TravelPay::ExpensesClient do
           .and_raise(Faraday::ResourceNotFound.new(nil))
 
         expect do
-          client.delete_expense(veis_token, btsss_token, expense_id, 'other')
+          client.delete_expense(auth_session, expense_id, 'other')
         end.to raise_error(Faraday::ResourceNotFound)
       end
 
@@ -269,7 +268,7 @@ describe TravelPay::ExpensesClient do
           .and_raise(Faraday::ServerError.new(nil))
 
         expect do
-          client.delete_expense(veis_token, btsss_token, expense_id, 'other')
+          client.delete_expense(auth_session, expense_id, 'other')
         end.to raise_error(Faraday::ServerError)
       end
     end
@@ -308,18 +307,18 @@ describe TravelPay::ExpensesClient do
         .and_yield(request_double)
         .and_return(mock_response)
 
-      response = client.update_expense(veis_token, btsss_token, expense_id, 'other', expense_body)
+      response = client.update_expense(auth_session, expense_id, 'other', expense_body)
       expect(response.body['success']).to be(true)
       expect(response.body['data']['id']).to eq(expense_id)
     end
 
     it 'raises an error when expense_id is not a valid UUID' do
-      expect { client.update_expense(veis_token, btsss_token, 'not-a-uuid', 'other', expense_body) }
+      expect { client.update_expense(auth_session, 'not-a-uuid', 'other', expense_body) }
         .to raise_error(ArgumentError, /Invalid expense_id/)
     end
 
     it 'raises an error when expense type is unsupported' do
-      expect { client.update_expense(veis_token, btsss_token, expense_id, 'unknown_type', expense_body) }
+      expect { client.update_expense(auth_session, expense_id, 'unknown_type', expense_body) }
         .to raise_error(ArgumentError, /Unsupported expense type: unknown_type/)
     end
 
@@ -334,10 +333,10 @@ describe TravelPay::ExpensesClient do
         .and_yield(request_double)
         .and_return(mock_response)
 
-      client.update_expense(veis_token, btsss_token, expense_id, 'other', expense_body)
+      client.update_expense(auth_session, expense_id, 'other', expense_body)
 
-      expect(headers_hash['Authorization']).to eq("Bearer #{veis_token}")
-      expect(headers_hash['BTSSS-Access-Token']).to eq(btsss_token)
+      expect(headers_hash['Authorization']).to eq("Bearer #{auth_session.veis_token}")
+      expect(headers_hash['BTSSS-Access-Token']).to eq(auth_session.btsss_token)
       expect(headers_hash['X-Correlation-ID']).to be_present
     end
 
@@ -347,7 +346,7 @@ describe TravelPay::ExpensesClient do
           .and_raise(Faraday::BadRequestError.new(nil))
 
         expect do
-          client.update_expense(veis_token, btsss_token, expense_id, 'other', expense_body)
+          client.update_expense(auth_session, expense_id, 'other', expense_body)
         end.to raise_error(Faraday::BadRequestError)
       end
 
@@ -356,7 +355,7 @@ describe TravelPay::ExpensesClient do
           .and_raise(Faraday::ForbiddenError.new(nil))
 
         expect do
-          client.update_expense(veis_token, btsss_token, expense_id, 'other', expense_body)
+          client.update_expense(auth_session, expense_id, 'other', expense_body)
         end.to raise_error(Faraday::ForbiddenError)
       end
 
@@ -365,7 +364,7 @@ describe TravelPay::ExpensesClient do
           .and_raise(Faraday::ResourceNotFound.new(nil))
 
         expect do
-          client.update_expense(veis_token, btsss_token, expense_id, 'other', expense_body)
+          client.update_expense(auth_session, expense_id, 'other', expense_body)
         end.to raise_error(Faraday::ResourceNotFound)
       end
 
@@ -374,7 +373,7 @@ describe TravelPay::ExpensesClient do
           .and_raise(Faraday::ServerError.new(nil))
 
         expect do
-          client.update_expense(veis_token, btsss_token, expense_id, 'other', expense_body)
+          client.update_expense(auth_session, expense_id, 'other', expense_body)
         end.to raise_error(Faraday::ServerError)
       end
     end

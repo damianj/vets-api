@@ -68,11 +68,15 @@ describe ClaimsApi::V2::ClaimsRequests::SupportingDocuments do
       documents: [
         {
           documentId: '{2161bfaa-cb21-43a6-90fc-c800c88f1234}',
+          documentUuid: '{a1b2c3d4-e5f6-7890-abcd-ef1234567890}',
+          currentVersionUuid: '{2161bfaa-cb21-43a6-90fc-c800c88f1234}',
           originalFileName: 'Jesse_Gray_600527334_526EZ.pdf',
           documentTypeLabel: 'VA 21-526 Veterans Application for Compensation or Pension',
           uploadedDateTime: '2024-07-16T18:59:08Z'
         }, {
           documentId: '{c4dbbe82-4502-4a0a-bfec-a65b7ddd2f8f}',
+          documentUuid: '{f9e8d7c6-b5a4-3210-fedc-ba0987654321}',
+          currentVersionUuid: '{c4dbbe82-4502-4a0a-bfec-a65b7ddd2f8f}',
           originalFileName: 'Jesse_Gray_600527334_526EZ.pdf',
           documentTypeLabel: 'VA 21-526 Veterans Application for Compensation or Pension',
           uploadedDateTime: '2024-07-16T18:59:43Z'
@@ -125,6 +129,7 @@ describe ClaimsApi::V2::ClaimsRequests::SupportingDocuments do
       result = controller.build_supporting_docs(bgs_claim, ssn)
 
       expect(result[0][:document_id]).to eq(supporting_doc_list[:data][:documents][0][:documentId])
+      expect(result[0][:document_uuid]).to eq(supporting_doc_list[:data][:documents][0][:documentUuid])
       expect(result[0][:document_type_label]).to eq(supporting_doc_list[:data][:documents][0][:documentTypeLabel])
       expect(result[0][:original_file_name]).to eq(supporting_doc_list[:data][:documents][0][:originalFileName])
       expect(result[0][:tracked_item_id]).to be_nil

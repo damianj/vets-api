@@ -7,12 +7,14 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
 
   let!(:user) { sis_user }
 
+  before do
+    allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
+      .and_return(TravelPay::AuthSession.new(veis_token: 'vt', btsss_token: 'bt', contact_id: 'ct'))
+  end
+
   describe '#index' do
     context 'happy path' do
       it 'returns claims within the date range' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
         VCR.use_cassette('travel_pay/200_search_claims_by_appt_date_range', match_requests_on: %i[method path]) do
           params = {
             'start_date' => '2024-01-01T00:00:00',
@@ -33,9 +35,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
       end
 
       it 'returns partial content status when more claims exist' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
         VCR.use_cassette('travel_pay/206_search_claims_partial_response', match_requests_on: %i[method path]) do
           params = {
             'start_date' => '2024-01-01T00:00:00',
@@ -65,9 +64,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
 
       describe('appointmentDateTime Z suffix handling') do
         it 'strips the Z from appointmentDateTime in claim summaries' do
-          allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-            .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
           VCR.use_cassette('travel_pay/200_search_claims_by_appt_date_range', match_requests_on: %i[method path]) do
             params = {
               'start_date' => '2024-01-01T00:00:00',
@@ -107,8 +103,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
             metadata: { 'status' => 200 }
           }
 
-          allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-            .and_return({ veis_token: 'vt', btsss_token: 'bt' })
           allow_any_instance_of(TravelPay::ClaimsService).to receive(:get_claims_by_date_range)
             .and_return(mock_claims_response)
 
@@ -145,8 +139,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
             metadata: { 'status' => 200 }
           }
 
-          allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-            .and_return({ veis_token: 'vt', btsss_token: 'bt' })
           allow_any_instance_of(TravelPay::ClaimsService).to receive(:get_claims_by_date_range)
             .and_return(with_nil_appointment_dates)
 
@@ -184,8 +176,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
           metadata: { 'status' => 200 }
         }
 
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
         allow_any_instance_of(TravelPay::ClaimsService).to receive(:get_claims_by_date_range)
           .and_return(with_empty_string_appointment_date)
 
@@ -245,8 +235,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
       end
 
       it 'returns an internal server error when Travel Pay API fails while fetching claims' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
         allow_any_instance_of(TravelPay::ClaimsService).to receive(:get_claims_by_date_range)
           .and_raise(Common::Exceptions::ExternalServerInternalServerError.new(
                        errors: [{ title: 'Something went wrong.', status: 500 }]
@@ -267,9 +255,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
   describe '#show' do
     context 'happy path' do
       it 'returns claim details for a valid claim ID' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
         VCR.use_cassette('travel_pay/show/success_details', match_requests_on: %i[method path]) do
           claim_id = '3fa85f64-5717-4562-b3fc-2c963f66afa6'
 
@@ -316,9 +301,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
 
       describe('appointmentDate Z suffix handling') do
         it 'strips the Z from appointment dates in the response' do
-          allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-            .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
           VCR.use_cassette('travel_pay/show/success_details', match_requests_on: %i[method path]) do
             claim_id = '3fa85f64-5717-4562-b3fc-2c963f66afa6'
 
@@ -363,8 +345,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
             'modifiedOn' => '2024-01-01T10:00:00'
           }
 
-          allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-            .and_return({ veis_token: 'vt', btsss_token: 'bt' })
           allow_any_instance_of(TravelPay::ClaimsService).to receive(:get_claim_details)
             .and_return(with_no_z_appointment_dates)
 
@@ -405,8 +385,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
             'modifiedOn' => '2024-01-01T10:00:00'
           }
 
-          allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-            .and_return({ veis_token: 'vt', btsss_token: 'bt' })
           allow_any_instance_of(TravelPay::ClaimsService).to receive(:get_claim_details)
             .and_return(with_nil_appointment_dates)
 
@@ -447,8 +425,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
             'modifiedOn' => '2024-01-01T10:00:00'
           }
 
-          allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-            .and_return({ veis_token: 'vt', btsss_token: 'bt' })
           allow_any_instance_of(TravelPay::ClaimsService).to receive(:get_claim_details)
             .and_return(with_empty_string_appointment_dates)
 
@@ -468,9 +444,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
       end
 
       it 'includes decision letter reason when available' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
         # Mock a claim with decision_letter_reason
         mock_claim_with_decision_reason = {
           'claimId' => '3fa85f64-5717-4562-b3fc-2c963f66afa6',
@@ -513,9 +486,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
       end
 
       it 'includes null decision letter reason when not available' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
         # Mock a claim without decision_letter_reason
         mock_claim_without_decision_reason = {
           'claimId' => '3fa85f64-5717-4562-b3fc-2c963f66afa6',
@@ -555,8 +525,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
 
     context 'failure paths' do
       it 'returns not found when claim does not exist' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
         allow_any_instance_of(TravelPay::ClaimsService).to receive(:get_claim_details)
           .and_return(nil)
 
@@ -572,8 +540,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
       end
 
       it 'returns bad request for invalid claim ID format' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
         allow_any_instance_of(TravelPay::ClaimsService).to receive(:get_claim_details)
           .and_raise(ArgumentError.new('Expected claim id to be a valid UUID, got invalid-id.'))
 
@@ -588,8 +554,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
       end
 
       it 'returns internal server error when Travel Pay API fails while fetching claim details' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
         allow_any_instance_of(TravelPay::ClaimsService).to receive(:get_claim_details)
           .and_raise(Common::Exceptions::ExternalServerInternalServerError.new(
                        errors: [{ title: 'Something went wrong.', status: 500 }]
@@ -611,9 +575,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
     end
 
     it 'returns a successfully submitted claim response' do
-      allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-        .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
       VCR.use_cassette('travel_pay/submit/success', match_requests_on: %i[method path]) do
         params = { 'appointment_date_time' => '2024-01-01T16:45:34.465',
                    'facility_station_number' => '123',
@@ -633,9 +594,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
     end
 
     it 'returns a BadRequest response if an invalid appointment date time is given' do
-      allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-        .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
       VCR.use_cassette('travel_pay/submit/success', match_requests_on: %i[method path], allow_playback_repeats: true) do
         params = { 'appointment_date_time' => 'My birthday, 4 years ago',
                    'facility_station_number' => '123',
@@ -650,9 +608,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
     end
 
     it 'returns a success response with saved status if a submit request to the Travel Pay API fails' do
-      allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-        .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
       VCR.use_cassette('travel_pay/submit/tokens_success', match_requests_on: %i[method path]) do
         VCR.use_cassette('travel_pay/submit/200_find_or_create_appt', match_requests_on: %i[method path]) do
           VCR.use_cassette('travel_pay/submit/200_create_claim', match_requests_on: %i[method path]) do
@@ -679,9 +634,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
     end
 
     it 'returns a success response with incomplete status if add expense call to the Travel Pay API fails' do
-      allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-        .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
       VCR.use_cassette('travel_pay/submit/tokens_success', match_requests_on: %i[method path]) do
         VCR.use_cassette('travel_pay/submit/200_find_or_create_appt', match_requests_on: %i[method path]) do
           VCR.use_cassette('travel_pay/submit/200_create_claim', match_requests_on: %i[method path]) do
@@ -706,9 +658,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
     end
 
     it 'returns an error if claim creation fails' do
-      allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-        .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
       VCR.use_cassette('travel_pay/submit/tokens_success', match_requests_on: %i[method path]) do
         VCR.use_cassette('travel_pay/submit/200_find_or_create_appt', match_requests_on: %i[method path]) do
           VCR.use_cassette('travel_pay/submit/500_create_claim', match_requests_on: %i[method path]) do
@@ -731,9 +680,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
   describe '#download_document' do
     context 'successful download' do
       it 'downloads a travel pay document and returns binary data' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
         mock_document_data = {
           body: 'binary_pdf_content',
           type: 'application/pdf',
@@ -759,9 +705,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
       end
 
       it 'handles URL-encoded document IDs' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
         mock_document_data = {
           body: 'binary_pdf_content',
           type: 'application/pdf',
@@ -790,9 +733,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
 
     context 'error scenarios' do
       it 'returns 404 when document is not found' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
         documents_service = instance_double(TravelPay::DocumentsService)
         allow(TravelPay::DocumentsService).to receive(:new).and_return(documents_service)
         allow(documents_service).to receive(:download_document)
@@ -808,9 +748,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
       end
 
       it 'returns 404 when claim is not found' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
         documents_service = instance_double(TravelPay::DocumentsService)
         allow(TravelPay::DocumentsService).to receive(:new).and_return(documents_service)
         allow(documents_service).to receive(:download_document)
@@ -826,9 +763,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
       end
 
       it 'returns 400 for invalid claim or document ID format' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
         documents_service = instance_double(TravelPay::DocumentsService)
         allow(TravelPay::DocumentsService).to receive(:new).and_return(documents_service)
         allow(documents_service).to receive(:download_document)
@@ -844,9 +778,6 @@ RSpec.describe 'Mobile::V0::TravelPayClaims', type: :request do
       end
 
       it 'returns 500 when travel pay service fails' do
-        allow_any_instance_of(TravelPay::AuthManager).to receive(:authorize)
-          .and_return({ veis_token: 'vt', btsss_token: 'bt' })
-
         documents_service = instance_double(TravelPay::DocumentsService)
         allow(TravelPay::DocumentsService).to receive(:new).and_return(documents_service)
         allow(documents_service).to receive(:download_document)

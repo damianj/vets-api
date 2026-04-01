@@ -4,6 +4,7 @@ require 'rails_helper'
 
 describe TravelPay::DocumentsClient do
   let(:user) { build(:user) }
+  let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token') }
 
   expected_log_prefix = 'travel_pay.documents.response_time'
   before do
@@ -51,7 +52,7 @@ describe TravelPay::DocumentsClient do
       expected_filenames = %w[DecisionLetter.pdf screenshot.jpg]
 
       client = TravelPay::DocumentsClient.new
-      new_documents_response = client.get_document_ids('veis_token', 'btsss_token',
+      new_documents_response = client.get_document_ids(auth_session,
                                                        claim_id)
       document_ids = new_documents_response.body['data'].pluck('documentId')
       document_filenames = new_documents_response.body['data'].pluck('filename')
@@ -77,7 +78,7 @@ describe TravelPay::DocumentsClient do
       end
 
       client = TravelPay::DocumentsClient.new
-      document_binary_response = client.get_document_binary('veis_token', 'btsss_token', { claim_id:, doc_id: })
+      document_binary_response = client.get_document_binary(auth_session, { claim_id:, doc_id: })
 
       expect(StatsD).to have_received(:measure)
         .with(expected_log_prefix,
@@ -96,7 +97,7 @@ describe TravelPay::DocumentsClient do
 
       client = TravelPay::DocumentsClient.new
       expect do
-        client.get_document_binary('veis_token', 'btsss_token', { claim_id:, doc_id: })
+        client.get_document_binary(auth_session, { claim_id:, doc_id: })
       end.to raise_error(Faraday::ResourceNotFound)
     end
   end
@@ -129,7 +130,7 @@ describe TravelPay::DocumentsClient do
       end
 
       client = TravelPay::DocumentsClient.new
-      response = client.add_document('veis_token', 'btsss_token', claim_id:, document: file)
+      response = client.add_document(auth_session, claim_id:, document: file)
 
       expect(StatsD).to have_received(:measure)
         .with(expected_log_prefix,
@@ -157,8 +158,7 @@ describe TravelPay::DocumentsClient do
       # Use a valid Rack::Test::UploadedFile, like you do normally
       expect do
         client.add_document(
-          'veis_token',
-          'btsss_token',
+          auth_session,
           claim_id:,
           document: file
         )
@@ -171,7 +171,7 @@ describe TravelPay::DocumentsClient do
       end
 
       client = TravelPay::DocumentsClient.new
-      expect { client.add_document('veis_token', 'btsss_token', claim_id:, document: file) }
+      expect { client.add_document(auth_session, claim_id:, document: file) }
         .to raise_error(Faraday::ServerError)
     end
 
@@ -187,7 +187,7 @@ describe TravelPay::DocumentsClient do
       client = TravelPay::DocumentsClient.new
 
       expect do
-        client.add_document('veis_token', 'btsss_token', claim_id:, document: file)
+        client.add_document(auth_session, claim_id:, document: file)
       end.to raise_error(Faraday::ClientError) # Faraday raises ClientError for 4xx
     end
 
@@ -203,7 +203,7 @@ describe TravelPay::DocumentsClient do
       client = TravelPay::DocumentsClient.new
 
       expect do
-        client.add_document('veis_token', 'btsss_token', claim_id:, document: file)
+        client.add_document(auth_session, claim_id:, document: file)
       end.to raise_error(Faraday::ClientError) # Faraday raises ClientError for 4xx responses
     end
 
@@ -219,7 +219,7 @@ describe TravelPay::DocumentsClient do
       client = TravelPay::DocumentsClient.new
 
       begin
-        client.add_document('veis_token', 'btsss_token', claim_id:, document: file)
+        client.add_document(auth_session, claim_id:, document: file)
       rescue Faraday::ClientError => e
         error = e
       end
@@ -248,7 +248,7 @@ describe TravelPay::DocumentsClient do
       end
 
       client = TravelPay::DocumentsClient.new
-      response = client.delete_document('veis_token', 'btsss_token',
+      response = client.delete_document(auth_session,
                                         { claim_id:, document_id: })
 
       expect(StatsD).to have_received(:measure)
@@ -271,7 +271,7 @@ describe TravelPay::DocumentsClient do
       client = TravelPay::DocumentsClient.new
 
       expect do
-        client.delete_document('veis_token', 'btsss_token', { claim_id:, document_id: })
+        client.delete_document(auth_session, { claim_id:, document_id: })
       end.to raise_error(Faraday::ResourceNotFound)
     end
 
@@ -287,7 +287,7 @@ describe TravelPay::DocumentsClient do
       client = TravelPay::DocumentsClient.new
 
       expect do
-        client.delete_document('veis_token', 'btsss_token', { claim_id:, document_id: })
+        client.delete_document(auth_session, { claim_id:, document_id: })
       end.to raise_error(Faraday::ClientError)
     end
 
@@ -303,7 +303,7 @@ describe TravelPay::DocumentsClient do
       client = TravelPay::DocumentsClient.new
 
       expect do
-        client.delete_document('veis_token', 'btsss_token', { claim_id:, document_id: })
+        client.delete_document(auth_session, { claim_id:, document_id: })
       end.to raise_error(Faraday::ServerError)
     end
   end

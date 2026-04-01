@@ -4,6 +4,8 @@ x-app: &common
   build:
     args:
       BUNDLE_ENTERPRISE__CONTRIBSYS__COM: "${BUNDLE_ENTERPRISE__CONTRIBSYS__COM}"
+      IMAGEMAGICK_IMAGE: "${IMAGEMAGICK_IMAGE:-dpokidov/imagemagick:7.1.1-47-bookworm}"
+      RUBY_IMAGE: "${RUBY_IMAGE:-ruby:3.3.6-slim-bookworm}"
     context: .
   environment:
     BUNDLE_ENTERPRISE__CONTRIBSYS__COM: "${BUNDLE_ENTERPRISE__CONTRIBSYS__COM}"
@@ -33,7 +35,7 @@ services:
     ports:
       - 33100:3310
     volumes:
-     - shared-vol:/vets-api
+      - shared-vol:/vets-api
     platform: linux/amd64
   redis:
     image: redis:6.2-alpine
@@ -59,4 +61,4 @@ services:
     command: bundle exec sidekiq -q critical,4 -q tasker,3 -q default,2 -q low,1
 
 volumes:
- shared-vol:
+  shared-vol:

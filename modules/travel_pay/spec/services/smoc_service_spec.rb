@@ -45,10 +45,10 @@ describe TravelPay::SmocService do
       }
     end
 
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
 
     before do
-      auth_manager = object_double(TravelPay::AuthManager.new(123, user), authorize: tokens)
+      auth_manager = object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session)
       @smoc_service = TravelPay::SmocService.new(auth_manager, user, 'VAGOV')
 
       @params = { 'appointment_date_time' => '2024-01-01T16:45:34',
@@ -189,10 +189,10 @@ describe TravelPay::SmocService do
       }
     end
 
-    let(:tokens) { { veis_token: 'veis_token', btsss_token: 'btsss_token' } }
+    let(:auth_session) { TravelPay::AuthSession.new(veis_token: 'veis_token', btsss_token: 'btsss_token', contact_id: 'contact_id') }
 
     before do
-      @auth_manager = object_double(TravelPay::AuthManager.new(123, user), authorize: tokens)
+      @auth_manager = object_double(TravelPay::AuthManager.new(123, user), authorize: auth_session)
 
       @params = { 'appointment_date_time' => '2024-01-01T16:45:34',
                   'facility_station_number' => '123',

@@ -17,10 +17,10 @@ RSpec.describe TravelPay::V0::ExpensesController, type: :request do
     # Mock authentication to provide tokens for VCR cassettes
     auth_manager_double = instance_double(
       TravelPay::AuthManager,
-      authorize: {
+      authorize: TravelPay::AuthSession.new(
         veis_token: 'veis_access_token_12345',
         btsss_token: 'btsss_access_token_67890'
-      },
+      ),
       user:
     )
     allow(TravelPay::AuthManager).to receive(:new).and_return(auth_manager_double)
@@ -87,7 +87,7 @@ RSpec.describe TravelPay::V0::ExpensesController, type: :request do
         allow(TravelPay::ExpensesClient).to receive(:new).and_return(expenses_client)
 
         expect(expenses_client).to receive(:add_expense)
-          .with(anything, anything, 'parking', expected_request_body)
+          .with(anything, 'parking', expected_request_body)
           .and_return({ 'id' => 1234 })
 
         # allow_any_instance_of(TravelPay::ExpensesService).to receive(:client).and_return(expenses_client)
@@ -258,7 +258,7 @@ RSpec.describe TravelPay::V0::ExpensesController, type: :request do
           allow(TravelPay::ExpensesClient).to receive(:new).and_return(expenses_client)
 
           received_body = nil
-          allow(expenses_client).to receive(:add_expense) do |_veis, _btsss, _type, body|
+          allow(expenses_client).to receive(:add_expense) do |_auth_session, _type, body|
             received_body = body
             OpenStruct.new(body: { 'data' => { 'id' => expense_id } })
           end
@@ -295,7 +295,7 @@ RSpec.describe TravelPay::V0::ExpensesController, type: :request do
             allow(TravelPay::ExpensesClient).to receive(:new).and_return(expenses_client)
 
             received_body = nil
-            allow(expenses_client).to receive(:add_expense) do |_veis, _btsss, _type, body|
+            allow(expenses_client).to receive(:add_expense) do |_auth_session, _type, body|
               received_body = body
               OpenStruct.new(body: { 'data' => { 'id' => expense_id } })
             end
@@ -333,7 +333,7 @@ RSpec.describe TravelPay::V0::ExpensesController, type: :request do
             allow(TravelPay::ExpensesClient).to receive(:new).and_return(expenses_client)
 
             received_body = nil
-            allow(expenses_client).to receive(:add_expense) do |_veis, _btsss, _type, body|
+            allow(expenses_client).to receive(:add_expense) do |_auth_session, _type, body|
               received_body = body
               OpenStruct.new(body: { 'data' => { 'id' => expense_id } })
             end
@@ -516,8 +516,8 @@ RSpec.describe TravelPay::V0::ExpensesController, type: :request do
 
         before do
           allow_any_instance_of(TravelPay::AuthManager)
-            .to receive(:authorize).and_return({ veis_token: 'veis_token',
-                                                 btsss_token: 'btsss_token' })
+            .to receive(:authorize).and_return(TravelPay::AuthSession.new(veis_token: 'veis_token',
+                                                                          btsss_token: 'btsss_token'))
           allow_any_instance_of(TravelPay::V0::ExpensesController).to receive(:current_user).and_return(user)
           allow(TravelPay::ExpensesService).to receive(:new).and_return(expenses_service)
         end

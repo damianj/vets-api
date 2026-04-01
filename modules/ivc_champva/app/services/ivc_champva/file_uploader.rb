@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'datadog'
 require 'ivc_champva/monitor'
 
 module IvcChampva
@@ -43,33 +44,41 @@ module IvcChampva
     #
     # @return [Array<Integer, String>] An array with a status code and an optional error message string.
     def handle_uploads
-      results = if Flipper.enabled?(:champva_fmp_single_file_upload, @current_user) && @form_id == 'vha_10_7959f_2'
-                  handle_combined_uploads
-                else
-                  handle_iterative_uploads
-                end
+      Datadog::Tracing.trace('IVC Champva Forms - FileUploader Handle Uploads') do
+        results = handle_combined_or_iterative_uploads
 
-      s3_err = nil
-      all_success = results.all? do |(status, err)|
-        s3_err = err if err # Collect last error present for logging purposes
-        status == 200
-      end
-
-      if all_success
-        if Flipper.enabled?(:champva_bypass_metadata_json_file_for_1010d, @current_user) && @form_id == 'vha_10_10d'
-          [200, nil] # Return success for metadata upload without actually uploading
-        else
-          generate_and_upload_meta_json
+        s3_err = nil
+        all_success = results.all? do |(status, err)|
+          s3_err = err if err # Collect last error present for logging purposes
+          status == 200
         end
-      else
-        monitor.track_s3_upload_error(@metadata['uuid'], s3_err)
-        # Stop this submission in its tracks - entries will still be added to database
-        # for these files, but user will see error on the FE saying submission failed.
-        raise StandardError, "IVC ChampVa Forms - failed to upload all documents for submission: #{s3_err}"
+
+        if all_success
+          if Flipper.enabled?(:champva_bypass_metadata_json_file_for_1010d, @current_user) && @form_id == 'vha_10_10d'
+            [200, nil] # Return success for metadata upload without actually uploading
+          else
+            generate_and_upload_meta_json
+          end
+        else
+          monitor.track_s3_upload_error(@metadata['uuid'], s3_err)
+          # Stop this submission in its tracks - entries will still be added to database
+          # for these files, but user will see error on the FE saying submission failed.
+          raise StandardError, "IVC ChampVa Forms - failed to upload all documents for submission: #{s3_err}"
+        end
       end
     end
 
     private
+
+    ##
+    # Determines whether to handle uploads iteratively or as a combined PDF based on form type and feature flag.
+    def handle_combined_or_iterative_uploads
+      if Flipper.enabled?(:champva_fmp_single_file_upload, @current_user) && @form_id == 'vha_10_7959f_2'
+        handle_combined_uploads
+      else
+        handle_iterative_uploads
+      end
+    end
 
     ##
     # Handles iterative uploading of files for standard claims (non-FMP or when feature flag is off)
@@ -104,8 +113,10 @@ module IvcChampva
       merged_pdf_path = File.join('tmp/', "#{@metadata['uuid']}_#{@form_id}_combined.pdf")
 
       begin
-        # Combine all PDFs into a single file
-        IvcChampva::PdfCombiner.combine(merged_pdf_path, @file_paths.compact, @current_user)
+        Datadog::Tracing.trace('IVC Champva Forms - Combine All PDFs into a Single File') do
+          # Combine all PDFs into a single file
+          IvcChampva::PdfCombiner.combine(merged_pdf_path, @file_paths.compact, @current_user)
+        end
 
         attachment_id = @form_id
         file_name = File.basename(merged_pdf_path)
@@ -130,16 +141,18 @@ module IvcChampva
     end
 
     def insert_merged_pdf_and_docs(file_name, response_status)
-      response_status_string = response_status.to_s
-      # insert the combined PDF
-      insert_form(file_name, response_status_string)
+      Datadog::Tracing.trace('IVC Champva Forms - Insert Merged PDF and Docs') do
+        response_status_string = response_status.to_s
+        # insert the combined PDF
+        insert_form(file_name, response_status_string)
 
-      # insert individual records for every original pre-merge file (main form + all attachments)
-      @file_paths.each do |file_path|
-        next if file_path.blank?
+        # insert individual records for every original pre-merge file (main form + all attachments)
+        @file_paths.each do |file_path|
+          next if file_path.blank?
 
-        original_file_name = File.basename(file_path).gsub('-tmp', '')
-        insert_form(original_file_name, response_status_string)
+          original_file_name = File.basename(file_path).gsub('-tmp', '')
+          insert_form(original_file_name, response_status_string)
+        end
       end
     end
 
@@ -166,20 +179,22 @@ module IvcChampva
     #
     # @return [IvcChampvaForm]
     def insert_form(file_name, response_status)
-      pega_status = response_status.first == 200 ? 'Submitted' : nil
-      IvcChampvaForm.create!(
-        form_uuid: @metadata['uuid'],
-        email: validate_email(@metadata&.dig('primaryContactInfo', 'email')),
-        first_name: @metadata&.dig('primaryContactInfo', 'name', 'first'),
-        last_name: @metadata&.dig('primaryContactInfo', 'name', 'last'),
-        form_number: @metadata['docType'],
-        file_name:,
-        s3_status: response_status,
-        pega_status:,
-        request_json: @parsed_form_data&.to_json
-      )
+      Datadog::Tracing.trace('IVC Champva Forms - Insert Form') do
+        pega_status = response_status.first == 200 ? 'Submitted' : nil
+        IvcChampvaForm.create!(
+          form_uuid: @metadata['uuid'],
+          email: validate_email(@metadata&.dig('primaryContactInfo', 'email')),
+          first_name: @metadata&.dig('primaryContactInfo', 'name', 'first'),
+          last_name: @metadata&.dig('primaryContactInfo', 'name', 'last'),
+          form_number: @metadata['docType'],
+          file_name:,
+          s3_status: response_status,
+          pega_status:,
+          request_json: @parsed_form_data&.to_json
+        )
 
-      monitor.track_insert_form(@metadata['uuid'], @form_id)
+        monitor.track_insert_form(@metadata['uuid'], @form_id)
+      end
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.error("Database Insertion Error for #{@metadata['uuid']}: #{e.message}")
       raise
@@ -195,21 +210,23 @@ module IvcChampva
     # [400, '... No such file or directory ...']
     # [500, 'Unexpected response from S3 upload']
     def generate_and_upload_meta_json
-      uuid = @metadata['uuid']
-      Rails.logger.info "IVC Champva Forms - FileUploader: Writing metadata.json file for form_uuid #{uuid}"
+      Datadog::Tracing.trace('IVC Champva Forms - Generate and Upload metadata.json') do
+        uuid = @metadata['uuid']
+        Rails.logger.info "IVC Champva Forms - FileUploader: Writing metadata.json file for form_uuid #{uuid}"
 
-      meta_file_name = "#{uuid}_#{@form_id}_metadata.json"
-      meta_file_path = "tmp/#{meta_file_name}"
-      File.write(meta_file_path, @metadata.to_json)
+        meta_file_name = "#{uuid}_#{@form_id}_metadata.json"
+        meta_file_path = "tmp/#{meta_file_name}"
+        File.write(meta_file_path, @metadata.to_json)
 
-      Rails.logger.info 'IVC Champva Forms - FileUploader: Starting upload of metadata json'
-      meta_upload_status, meta_upload_error_message = upload(meta_file_name, meta_file_path)
+        Rails.logger.info 'IVC Champva Forms - FileUploader: Starting upload of metadata json'
+        meta_upload_status, meta_upload_error_message = upload(meta_file_name, meta_file_path)
 
-      if meta_upload_status == 200
-        FileUtils.rm_f(meta_file_path)
-        [meta_upload_status, nil]
-      else
-        [meta_upload_status, meta_upload_error_message]
+        if meta_upload_status == 200
+          FileUtils.rm_f(meta_file_path)
+          [meta_upload_status, nil]
+        else
+          [meta_upload_status, meta_upload_error_message]
+        end
       end
     end
 
@@ -223,13 +240,15 @@ module IvcChampva
     # @return [Array<Integer, String>] List containing either a single HTTP response code or a reponse
     # code and an error message.
     def upload(file_name, file_path, metadata = {})
-      case client.put_object(file_name, file_path, metadata)
-      in { success: true }
-        [200]
-      in { success: false, error_message: error_message }
-        [400, error_message]
-      else
-        [500, 'Unexpected response from S3 upload']
+      Datadog::Tracing.trace('IVC Champva Forms - Upload a File') do
+        case client.put_object(file_name, file_path, metadata)
+        in { success: true }
+          [200]
+        in { success: false, error_message: error_message }
+          [400, error_message]
+        else
+          [500, 'Unexpected response from S3 upload']
+        end
       end
     end
 

@@ -25,6 +25,21 @@ RSpec.describe 'ClinicalNotesAdapter' do
     ).read)
   end
 
+  # Helper to find a fixture entry by resource ID, independent of array position.
+  def find_vista_entry(id)
+    notes_sample_response['vista']['entry'].find { |e| e['resource']['id'] == id }
+  end
+
+  def find_oh_entry(id)
+    notes_sample_response['oracle-health']['entry'].find { |e| e['resource']['id'] == id }
+  end
+
+  # Well-known fixture IDs
+  vista_standard_note_id = '76ad925b-0c2c-4401-ac0a-13542d6b6ef5'
+  vista_single_addendum_note_id = '2e1d581e-bb36-4041-9350-40dbb5651d5c'
+  vista_multi_addendum_note_id = '9b7034fd-ee22-41ff-8b10-1a18232f4711'
+  oh_note_id = '15249697279'
+
   before do
     allow(Flipper).to receive(:enabled?)
       .with(:mhv_medical_records_clinical_notes_diagnostic, user)
@@ -36,7 +51,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
 
   describe '#parse' do
     it 'returns the expected fields for happy path for vista note with all fields' do
-      note = notes_sample_response['vista']['entry'][0].merge('source' => 'vista')
+      note = find_vista_entry(vista_standard_note_id).merge('source' => 'vista')
       parsed_note = adapter.parse(note)
 
       expect(parsed_note).to have_attributes(
@@ -58,7 +73,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
     end
 
     it 'returns the expected fields for happy path for OH note with all fields' do
-      note = notes_sample_response['oracle-health']['entry'][1].merge('source' => 'oracle-health')
+      note = find_oh_entry(oh_note_id).merge('source' => 'oracle-health')
       parsed_note = adapter.parse(note)
 
       expect(parsed_note).to have_attributes(
@@ -104,6 +119,113 @@ RSpec.describe 'ClinicalNotesAdapter' do
       )
     end
 
+    it 'returns nil for addenda on a standard (non-addendum) note' do
+      note = find_vista_entry(vista_standard_note_id).merge('source' => 'vista')
+      parsed_note = adapter.parse(note)
+
+      expect(parsed_note.addenda).to be_nil
+    end
+
+    context 'single addendum note' do
+      it 'parses original note content and a single addendum entry' do
+        note = find_vista_entry(vista_single_addendum_note_id).merge('source' => 'vista')
+        parsed_note = adapter.parse(note)
+
+        # The outer record is the addendum; the contained doc is the original note.
+        # Original note date should be the oldest (contained doc's date).
+        expect(parsed_note.id).to eq(vista_single_addendum_note_id)
+        expect(parsed_note.date).to eq('2024-12-17T17:13:00.000+00:00')
+        expect(parsed_note.source).to eq('vista')
+
+        # Original note content comes from the contained DocumentReference (oldest)
+        expect(parsed_note.note).to match(/TGFyZ2UgbnVtYmVycyBvZiBiYWN0ZXJpYSBpbiB1/i)
+
+        # One addendum entry from the outer record (newest)
+        expect(parsed_note.addenda).to be_an(Array)
+        expect(parsed_note.addenda.size).to eq(1)
+        expect(parsed_note.addenda.first[:date]).to eq('2024-12-18T05:22:40.000+00:00')
+        expect(parsed_note.addenda.first[:note]).to match(/VXJpbmFseXNpcyBwb3NpdGl2ZSBmb3IgUHJvdGV1/i)
+      end
+    end
+
+    context 'multiple addendum note' do
+      let(:note) { find_vista_entry(vista_multi_addendum_note_id).merge('source' => 'vista') }
+      let(:parsed_note) { adapter.parse(note) }
+
+      it 'parses original note content and multiple addenda entries in chronological order' do
+        # The outer record (9b7034fd) is the newest addendum (THIRD addendum).
+        # 3 contained DocumentReferences are referenced by relatesTo[code=appends]:
+        #   6f64a6f8 (2026-03-25T14:55:18) - original note
+        #   10e790a0 (2026-03-26T12:21:00) - FIRST addendum
+        #   0fd5924f (2026-03-26T12:25:00) - SECOND addendum
+        expect(parsed_note.id).to eq(vista_multi_addendum_note_id)
+        expect(parsed_note.note_type).to eq('physician_procedure_note')
+        expect(parsed_note.loinc_codes).to eq(['11506-3'])
+        expect(parsed_note.source).to eq('vista')
+
+        # Date should be from the original (oldest) contained note
+        expect(parsed_note.date).to eq('2026-03-25T14:55:18+00:00')
+
+        # Original note content from the oldest contained doc
+        expect(parsed_note.note).to match(/RG9jdW1lbnRlZDogQ0hPTEVSQSwgTElWRSBBVFRF/i)
+
+        expect(parsed_note.addenda).to be_an(Array)
+        expect(parsed_note.addenda.size).to eq(3)
+
+        # Addenda dates should all be more recent than the original note date
+        # and should be in chronological order (oldest first)
+        original_date = Time.zone.parse(parsed_note.date)
+        addenda_dates = parsed_note.addenda.map { |a| Time.zone.parse(a[:date]) }
+
+        expect(addenda_dates).to all(be > original_date)
+
+        expect(addenda_dates).to eq(addenda_dates.sort)
+      end
+
+      it 'uses the original note title and author for the top-level fields' do
+        # Name should come from the original (oldest) note or the outer record
+        expect(parsed_note.name).to be_a(String)
+        expect(parsed_note.name).not_to be_empty
+
+        # Written-by/signed-by should come from the original note or fall back to outer
+        expect(parsed_note.written_by).to be_a(String).or(be_nil)
+        expect(parsed_note.signed_by).to be_a(String).or(be_nil)
+      end
+
+      it 'parses all fields for the first addendum (contained doc 10e790a0)' do
+        first = parsed_note.addenda[0]
+        expect(first).to include(
+          date: '2026-03-26T12:21:00+00:00',
+          date_signed: '2026-03-26T12:23:13+00:00',
+          written_by: 'MARCI P MCGUIRE',
+          signed_by: 'MARCI P MCGUIRE'
+        )
+        expect(first[:note]).to match(/SGVsbG8gaGVsbG8uICBUaGlzIGlzIHRoZSBGSVJT/i)
+      end
+
+      it 'parses all fields for the second addendum (contained doc 0fd5924f)' do
+        second = parsed_note.addenda[1]
+        expect(second).to include(
+          date: '2026-03-26T12:25:00+00:00',
+          date_signed: '2026-03-26T12:27:38+00:00',
+          written_by: 'MARCI P MCGUIRE',
+          signed_by: 'MARCI P MCGUIRE'
+        )
+        expect(second[:note]).to match(/SGkhIFRoaXMgaXMgdGhlIFNFQ09ORCBhZGRlbmR1/i)
+      end
+
+      it 'parses all fields for the third addendum (outer record 9b7034fd)' do
+        third = parsed_note.addenda[2]
+        expect(third).to include(
+          date: '2026-03-26T12:29:00+00:00',
+          date_signed: '2026-03-26T12:31:50+00:00',
+          written_by: 'MARCI P MCGUIRE',
+          signed_by: 'MARCI P MCGUIRE'
+        )
+        expect(third[:note]).to match(/SGksIHRoaXMgaXMgdGhlIFRISVJEIGFkZGVuZHVt/i)
+      end
+    end
+
     it 'private methods fail gracefully and returns the expected fields with nil for missing values' do
       parsed_note = adapter.parse(notes_methods_fallback_response['vista']['entry'][0])
 
@@ -133,7 +255,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
     end
 
     it 'returns a parsed note with nil note field for oracle-health records without binary content' do
-      note = notes_sample_response['oracle-health']['entry'][1].deep_dup.merge('source' => 'oracle-health')
+      note = find_oh_entry(oh_note_id).deep_dup.merge('source' => 'oracle-health')
       note['resource']['content'].each { |c| c['attachment'].delete('data') }
       parsed_note = adapter.parse(note)
 
@@ -145,7 +267,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
 
     context 'docStatus filtering' do
       it 'returns a parsed note when docStatus is final' do
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
         note['resource']['docStatus'] = 'final'
         parsed_note = adapter.parse(note)
 
@@ -154,7 +276,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
       end
 
       it 'returns a parsed note when docStatus is amended' do
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
         note['resource']['docStatus'] = 'amended'
         parsed_note = adapter.parse(note)
 
@@ -163,7 +285,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
       end
 
       it 'is case insensitive for docStatus' do
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
         note['resource']['docStatus'] = 'Final'
         parsed_note = adapter.parse(note)
 
@@ -172,7 +294,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
       end
 
       it 'returns nil when docStatus is preliminary' do
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
         note['resource']['docStatus'] = 'preliminary'
         parsed_note = adapter.parse(note)
 
@@ -180,7 +302,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
       end
 
       it 'returns nil when docStatus is entered-in-error' do
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
         note['resource']['docStatus'] = 'entered-in-error'
         parsed_note = adapter.parse(note)
 
@@ -188,7 +310,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
       end
 
       it 'returns nil when docStatus is nil' do
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
         note['resource'].delete('docStatus')
         parsed_note = adapter.parse(note)
 
@@ -196,7 +318,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
       end
 
       it 'logs filtered clinical notes with disallowed docStatus' do
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
         note['resource']['docStatus'] = 'preliminary'
 
         expect(Rails.logger).to receive(:info).with(
@@ -219,7 +341,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
       end
 
       it 'logs filtered clinical notes with missing docStatus' do
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
         note['resource'].delete('docStatus')
 
         expect(Rails.logger).to receive(:info).with(
@@ -245,7 +367,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
           .with(:mhv_medical_records_clinical_notes_diagnostic, user)
           .and_return(false)
 
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
         note['resource']['docStatus'] = 'preliminary'
 
         expect(Rails.logger).not_to receive(:info)
@@ -261,7 +383,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
 
     context 'proactive warnings' do
       it 'warns when note content is empty' do
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
         # Remove all content data to simulate empty note
         note['resource']['content'].each { |c| c['attachment'].delete('data') }
 
@@ -282,7 +404,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
       end
 
       it 'does not warn when note content is present' do
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
 
         expect(Rails.logger).not_to receive(:warn)
         expect(StatsD).not_to receive(:increment).with('unified_health_data.clinical_note.empty_content')
@@ -292,7 +414,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
       end
 
       it 'logs unknown LOINC code as diagnostic when toggle is enabled' do
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
         note['resource']['type']['coding'] = [{ 'code' => '99999-9', 'system' => 'http://loinc.org' }]
 
         expect(Rails.logger).to receive(:info).with(
@@ -316,7 +438,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
           .with(:mhv_medical_records_clinical_notes_diagnostic, user)
           .and_return(false)
 
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
         note['resource']['type']['coding'] = [{ 'code' => '99999-9', 'system' => 'http://loinc.org' }]
 
         expect(Rails.logger).not_to receive(:info).with(
@@ -329,7 +451,7 @@ RSpec.describe 'ClinicalNotesAdapter' do
       end
 
       it 'does not log when LOINC code is in known mapping' do
-        note = notes_sample_response['vista']['entry'][0].deep_dup
+        note = find_vista_entry(vista_standard_note_id).deep_dup
 
         expect(Rails.logger).not_to receive(:info).with(
           hash_including(anomaly: 'unknown_loinc_code')
@@ -337,6 +459,80 @@ RSpec.describe 'ClinicalNotesAdapter' do
         expect(StatsD).not_to receive(:increment).with('unified_health_data.clinical_note.unknown_loinc_code')
 
         adapter.parse(note)
+      end
+    end
+  end
+
+  describe 'error handling in addenda entry methods' do
+    context 'build_addendum_entry' do
+      it 'logs a warning and returns nil when a rescued error occurs inside build_addendum_entry' do
+        # A doc missing the 'authenticator' key entirely but with content that passes the blank
+        # check. Stub extract_authenticator to raise NoMethodError, simulating a scenario where
+        # the inner rescue is bypassed (e.g., a future refactor removes the bare rescue).
+        malformed_doc = {
+          'id' => 'malformed-addendum-001',
+          'date' => '2025-01-01T00:00:00Z',
+          'content' => [{ 'attachment' => { 'contentType' => 'text/plain', 'data' => 'c29tZSB0ZXh0' } }]
+        }
+        allow(adapter).to receive(:extract_authenticator).with(malformed_doc, contained: nil)
+                                                         .and_raise(NoMethodError, 'undefined method `[]` for nil')
+
+        expect(Rails.logger).to receive(:warn).with(
+          hash_including(
+            service: 'medical_records',
+            resource: 'clinical_notes',
+            action: 'build_addendum_entry',
+            anomaly: 'note_entry_skipped',
+            record_id: 'malformed-addendum-001',
+            error_class: 'NoMethodError'
+          )
+        )
+        expect(StatsD).to receive(:increment).with('unified_health_data.clinical_note.note_entry_skipped')
+
+        result = adapter.send(:build_addendum_entry, malformed_doc)
+        expect(result).to be_nil
+      end
+
+      it 'returns nil without logging when content is blank' do
+        # A well-formed doc with no extractable content should return nil (not an error)
+        empty_doc = { 'content' => [] }
+
+        expect(Rails.logger).not_to receive(:warn)
+        expect(StatsD).not_to receive(:increment).with('unified_health_data.clinical_note.note_entry_skipped')
+
+        result = adapter.send(:build_addendum_entry, empty_doc)
+        expect(result).to be_nil
+      end
+
+      it 'returns empty addenda when build_addendum_entry returns nil for all entries' do
+        note = find_vista_entry(vista_single_addendum_note_id).deep_dup.merge('source' => 'vista')
+        # Stub build_addendum_entry to return nil (simulating blank content / rescued error)
+        allow(adapter).to receive(:build_addendum_entry).and_return(nil)
+
+        parsed_note = adapter.parse(note)
+        expect(parsed_note).not_to be_nil
+        expect(parsed_note.addenda).to eq([])
+      end
+    end
+
+    context 'get_all_appended_documents' do
+      it 'logs a warning and returns empty array when extraction fails due to malformed relatesTo' do
+        note = find_vista_entry(vista_single_addendum_note_id).deep_dup.merge('source' => 'vista')
+        # Break the relatesTo target to cause a NoMethodError during dig
+        note['resource']['relatesTo'] = [{ 'code' => 'appends', 'target' => 'not_a_hash' }]
+
+        expect(Rails.logger).to receive(:warn).with(
+          hash_including(
+            service: 'medical_records',
+            resource: 'clinical_notes',
+            action: 'get_all_appended_documents',
+            anomaly: 'appended_documents_extraction_failed'
+          )
+        )
+
+        # The note still parses — appended docs are empty, falls back to standard behavior
+        parsed_note = adapter.parse(note)
+        expect(parsed_note).not_to be_nil
       end
     end
   end
@@ -460,61 +656,6 @@ RSpec.describe 'ClinicalNotesAdapter' do
 
         expect(parsed_avs).to be_nil
       end
-    end
-  end
-
-  describe '#parse_ccd_binary' do
-    let(:ccd_fixture) do
-      JSON.parse(Rails.root.join('spec', 'fixtures', 'unified_health_data', 'ccd_example.json').read)
-    end
-    let(:document_ref_entry) do
-      ccd_fixture['entry'].find { |e| e['resource']['resourceType'] == 'DocumentReference' }
-    end
-
-    it 'returns BinaryData object with XML content' do
-      result = adapter.parse_ccd_binary(document_ref_entry, 'xml')
-
-      expect(result).to be_a(UnifiedHealthData::BinaryData)
-      expect(result.content_type).to eq('application/xml')
-      expect(result.binary).to be_present
-      expect(result.binary[0, 20]).to eq('PD94bWwgdmVyc2lvbj0i')
-    end
-
-    it 'keeps data Base64 encoded' do
-      result = adapter.parse_ccd_binary(document_ref_entry, 'xml')
-
-      expect(result.binary).to be_a(String)
-      expect(result.binary).not_to include('<')
-    end
-
-    it 'returns BinaryData object with HTML content' do
-      result = adapter.parse_ccd_binary(document_ref_entry, 'html')
-
-      expect(result).to be_a(UnifiedHealthData::BinaryData)
-      expect(result.content_type).to eq('text/html')
-      expect(result.binary).to be_present
-      expect(result.binary[0, 20]).to eq('PCEtLSBEbyBOT1QgZWRp')
-    end
-
-    it 'returns BinaryData object with PDF content' do
-      result = adapter.parse_ccd_binary(document_ref_entry, 'pdf')
-
-      expect(result).to be_a(UnifiedHealthData::BinaryData)
-      expect(result.content_type).to eq('application/pdf')
-      expect(result.binary).to be_present
-      expect(result.binary[0, 20]).to eq('JVBERi0xLjUKJeLjz9MK')
-    end
-
-    it 'raises ArgumentError for unavailable format' do
-      # Modify fixture to remove HTML content item
-      modified_entry = JSON.parse(document_ref_entry.to_json)
-      modified_entry['resource']['content'].reject! do |item|
-        item['attachment']['contentType'] == 'text/html'
-      end
-
-      expect do
-        adapter.parse_ccd_binary(modified_entry, 'html')
-      end.to raise_error(ArgumentError, 'Format html not available for this CCD')
     end
   end
 end

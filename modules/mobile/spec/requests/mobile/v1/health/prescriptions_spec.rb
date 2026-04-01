@@ -21,7 +21,8 @@ RSpec.describe 'Mobile::V1::Health::Prescriptions', type: :request do
     sign_in_as(user)
     allow(Flipper).to receive(:enabled?).with(:mhv_medications_cerner_pilot, anything).and_return(true)
     # Freeze today so service default_end_date is deterministic for VCR cassettes
-    allow(Time.zone).to receive(:today).and_return(Date.new(2025, 9, 19))
+    allow(Time.zone).to receive(:today).and_return(Date.new(2026, 3, 25))
+    allow(UniqueUserEvents).to receive(:log_event)
   end
 
   describe 'GET /mobile/v1/health/rx/prescriptions' do
@@ -96,6 +97,46 @@ RSpec.describe 'Mobile::V1::Health::Prescriptions', type: :request do
                 user: anything,
                 event_name: UniqueUserEvents::EventRegistry::PRESCRIPTIONS_ACCESSED
               )
+            end
+          end
+
+          it 'includes sortedDispensedDate for Oracle Health prescriptions with dispenses' do
+            VCR.use_cassette('unified_health_data/get_prescriptions_success') do
+              get '/mobile/v1/health/rx/prescriptions',
+                  params: { page: { number: 1, size: 100 } },
+                  headers: sis_headers
+
+              expect(response).to have_http_status(:ok)
+              data = response.parsed_body['data']
+
+              oh_with_dates = data.select do |rx|
+                rx.dig('attributes', 'sourceEhr') == 'OH' &&
+                  rx.dig('attributes', 'sortedDispensedDate').present?
+              end
+              expect(oh_with_dates).not_to be_empty
+
+              oh_with_dates.each do |rx|
+                expect(rx['attributes']['sortedDispensedDate']).to match(/\A\d{4}-\d{2}-\d{2}\z/)
+              end
+            end
+          end
+
+          it 'returns nil sortedDispensedDate for VistA prescriptions without dispense records' do
+            VCR.use_cassette('unified_health_data/get_prescriptions_success') do
+              get '/mobile/v1/health/rx/prescriptions',
+                  params: { page: { number: 1, size: 100 } },
+                  headers: sis_headers
+
+              expect(response).to have_http_status(:ok)
+              data = response.parsed_body['data']
+
+              # VistA prescriptions in the cassette have null rxRFRecords and dispensedDate
+              vista_rx = data.find do |rx|
+                rx.dig('attributes', 'sourceEhr') == 'vista' &&
+                  rx.dig('attributes', 'sortedDispensedDate').nil?
+              end
+              expect(vista_rx).not_to be_nil
+              expect(vista_rx['attributes']['sortedDispensedDate']).to be_nil
             end
           end
 
@@ -207,7 +248,6 @@ RSpec.describe 'Mobile::V1::Health::Prescriptions', type: :request do
               status_count = response.parsed_body['meta']['prescriptionStatusCount']
               expect(status_count).to be_a(Hash)
 
-              # Verify the structure includes expected keys
               expected_keys = %w[isRefillable active]
               expected_keys.each do |key|
                 expect(status_count).to have_key(key)

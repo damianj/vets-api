@@ -135,25 +135,25 @@ class SavedClaim::Form21p530a < SavedClaim
     place_of_birth_str = [pob_city, pob_state].compact.reject(&:empty?).join(', ').presence
 
     {
-      'VETERAN_FIRST_NAME' => full_name['first'],
-      'VETERAN_MIDDLE_INITIAL' => extract_middle_initial(full_name['middle']),
-      'VETERAN_LAST_NAME' => full_name['last'],
-      'VETERAN_NAME' => build_full_name(full_name),
-      'VETERAN_SSN' => vet_info['ssn'],
-      'VETERAN_SERVICE_NUMBER' => vet_info['vaServiceNumber'],
-      'VA_FILE_NUMBER' => vet_info['vaFileNumber'],
-      'VETERAN_DOB' => format_date_for_ibm(vet_info['dateOfBirth']),
-      'VETERAN_PLACE_OF_BIRTH' => place_of_birth_str,
-      'VETERAN_DATE_OF_DEATH' => format_date_for_ibm(vet_info['dateOfDeath'])
+      'VETERAN_FIRST_NAME' => full_name['first'].to_s,
+      'VETERAN_MIDDLE_INITIAL' => extract_middle_initial(full_name['middle']).to_s,
+      'VETERAN_LAST_NAME' => full_name['last'].to_s,
+      'VETERAN_NAME' => build_full_name(full_name).to_s,
+      'VETERAN_SSN' => vet_info['ssn'].to_s,
+      'VETERAN_SERVICE_NUMBER' => vet_info['vaServiceNumber'].to_s,
+      'VA_FILE_NUMBER' => vet_info['vaFileNumber'].to_s,
+      'VETERAN_DOB' => format_date_for_ibm(vet_info['dateOfBirth']).to_s,
+      'VETERAN_PLACE_OF_BIRTH' => place_of_birth_str.to_s,
+      'VETERAN_DATE_OF_DEATH' => format_date_for_ibm(vet_info['dateOfDeath']).to_s
     }
   end
 
   def build_burial_fields(burial_info, place_of_burial)
     {
-      'ORG_CLAIMING_ALLOWANCE' => burial_info['nameOfStateCemeteryOrTribalOrganization'],
-      'CEMETERY_NAME' => place_of_burial['stateCemeteryOrTribalCemeteryName'],
-      'CEMETERY_LOCATION' => place_of_burial['stateCemeteryOrTribalCemeteryLocation'],
-      'VETERAN_DATE_OF_BURIAL' => format_date_for_ibm(burial_info['dateOfBurial'])
+      'ORG_CLAIMING_ALLOWANCE' => burial_info['nameOfStateCemeteryOrTribalOrganization'].to_s,
+      'CEMETERY_NAME' => place_of_burial['stateCemeteryOrTribalCemeteryName'].to_s,
+      'CEMETERY_LOCATION' => place_of_burial['stateCemeteryOrTribalCemeteryLocation'].to_s,
+      'VETERAN_DATE_OF_BURIAL' => format_date_for_ibm(burial_info['dateOfBurial']).to_s
     }
   end
 
@@ -167,17 +167,17 @@ class SavedClaim::Form21p530a < SavedClaim
     # Always create all 3 service period slots (Boxes 8-9)
     (1..3).each do |suffix|
       period = service_periods[suffix - 1] || {}
-      fields["BRANCH_OF_SERVICE_#{suffix}"] = period['serviceBranch']
+      fields["BRANCH_OF_SERVICE_#{suffix}"] = period['serviceBranch'].to_s
       fields["DATE_ENTERED_TO_SERVICE_#{suffix}"] =
-        format_date_for_ibm(period['dateEnteredService'])
-      fields["PLACE_ENTERED_TO_SERVICE_#{suffix}"] = period['placeEnteredService']
-      fields["GRADE_RANK_#{suffix}"] = period['rankAtSeparation']
-      fields["SEPARATION_DATE_#{suffix}"] = format_date_for_ibm(period['dateLeftService'])
-      fields["SEPARATION_PLACE_#{suffix}"] = period['placeLeftService']
+        format_date_for_ibm(period['dateEnteredService']).to_s
+      fields["PLACE_ENTERED_TO_SERVICE_#{suffix}"] = period['placeEnteredService'].to_s
+      fields["GRADE_RANK_#{suffix}"] = period['rankAtSeparation'].to_s
+      fields["SEPARATION_DATE_#{suffix}"] = format_date_for_ibm(period['dateLeftService']).to_s
+      fields["SEPARATION_PLACE_#{suffix}"] = period['placeLeftService'].to_s
     end
 
     # Box 10 - Veteran served under other name
-    fields['VET_NAME_OTHER'] = service_periods_data['servedUnderDifferentName']
+    fields['VET_NAME_OTHER'] = service_periods_data['servedUnderDifferentName'].to_s
 
     fields
   end
@@ -189,14 +189,14 @@ class SavedClaim::Form21p530a < SavedClaim
     address = recipient_org['address'] || {}
 
     {
-      'REP_NAME' => recipient_org['name'],
-      'REP_PHONE_NUMBER' => recipient_org['phoneNumber'],
-      'REP_ADDRESS_LINE1' => address['streetAndNumber'],
-      'REP_ADDRESS_LINE2' => address['aptOrUnitNumber'],
-      'REP_ADDRESS_CITY' => address['city'],
-      'REP_ADDRESS_STATE' => address['state'],
-      'REP_ADDRESS_ZIP5' => address['postalCode'],
-      'REP_ADDRESS' => format_recipient_address(address)
+      'REP_NAME' => recipient_org['name'].to_s,
+      'REP_PHONE_NUMBER' => recipient_org['phoneNumber'].to_s,
+      'REP_ADDRESS_LINE1' => address['streetAndNumber'].to_s,
+      'REP_ADDRESS_LINE2' => address['aptOrUnitNumber'].to_s,
+      'REP_ADDRESS_CITY' => address['city'].to_s,
+      'REP_ADDRESS_STATE' => address['state'].to_s,
+      'REP_ADDRESS_ZIP5' => address['postalCode'].to_s,
+      'REP_ADDRESS' => format_recipient_address(address).to_s
     }
   end
 
@@ -204,11 +204,11 @@ class SavedClaim::Form21p530a < SavedClaim
     date_signed = certification['dateSigned'] || parsed_form['dateSigned'] || created_at&.to_date&.iso8601
 
     {
-      'OFFICIAL_SIGNATURE' => certification['signature'],
-      'OFFICIAL_TITLE' => certification['titleOfStateOrTribalOfficial'],
-      'DATE_SIGNED' => format_date_for_ibm(date_signed),
-      'REMARKS' => parsed_form['remarks'],
-      'VETERAN_SSN_1' => parsed_form.dig('veteranInformation', 'ssn'),
+      'OFFICIAL_SIGNATURE' => certification['signature'].to_s,
+      'OFFICIAL_TITLE' => certification['titleOfStateOrTribalOfficial'].to_s,
+      'DATE_SIGNED' => format_date_for_ibm(date_signed).to_s,
+      'REMARKS' => parsed_form['remarks'].to_s,
+      'VETERAN_SSN_1' => parsed_form.dig('veteranInformation', 'ssn').to_s,
       'FORM_TYPE' => 'VA FORM 21P-530a, OCT 2024',
       'FORM_TYPE_1' => 'VA FORM 21P-530a, OCT 2024'
     }

@@ -8,12 +8,12 @@ RSpec.describe SimpleFormsApi::FormRemediation::Uploader do
   let(:config) do
     instance_double(
       SimpleFormsApi::FormRemediation::Configuration::VffConfig,
-      s3_settings: OpenStruct.new(region: 'region', bucket: bucket_name)
+      s3_settings: OpenStruct.new(region: 'region', bucket: bucket_name),
+      handle_error: nil
     )
   end
-  let(:directory) { '/some/path' }
+  let(:directory)   { '/some/path' }
   let(:bucket_name) { 'bucket' }
-  let(:mock_config) { instance_double(Config::Options) }
   let(:uploader_instance) { described_class.new(directory:, config:) }
 
   before do
@@ -81,7 +81,7 @@ RSpec.describe SimpleFormsApi::FormRemediation::Uploader do
   describe '#store!' do
     subject(:store!) { uploader_instance.store!(file) }
 
-    let(:file) { instance_double(CarrierWave::SanitizedFile, filename: 'test_file.txt', path: '/tmp/test_file.txt') }
+    let(:file) { instance_double(CarrierWave::SanitizedFile, filename: 'test_file.pdf', path: '/tmp/test_file.pdf') }
 
     before { allow(config).to receive(:handle_error) }
 
@@ -97,67 +97,148 @@ RSpec.describe SimpleFormsApi::FormRemediation::Uploader do
       end
     end
 
-    context 'when the file is not nil' do
-      it 'stores the file' do
-        expect { store! }.not_to raise_exception
+    context 'when the file does not respond to #filename' do
+      let(:file) { 'not-a-file-object' }
+
+      it 'delegates to config.handle_error' do
+        store!
+        expect(config).to have_received(:handle_error).with(
+          'An error occurred while uploading the file.',
+          an_instance_of(RuntimeError)
+        )
+      end
+    end
+
+    context 'when the file is valid and the upload succeeds' do
+      before do
+        allow_any_instance_of(CarrierWave::Uploader::Base).to receive(:store!).and_return(true)
+      end
+
+      it 'does not enqueue a retry job' do
+        expect(SimpleFormsApi::FormRemediation::UploadRetryJob).not_to receive(:perform_async)
+        store!
+      end
+
+      it 'does not create a temp copy' do
+        expect(FileUtils).not_to receive(:cp)
+        store!
       end
     end
 
     context 'when an aws service error occurs' do
       let(:aws_service_error) { Aws::S3::Errors::ServiceError.new(nil, 'Service error') }
+      let(:expected_temp_dir)  { File.join(Dir.tmpdir, described_class::RETRY_TEMP_DIR) }
+      let(:expected_temp_path) { File.join(expected_temp_dir, 'test-uuid_test_file.pdf') }
 
       before do
         allow_any_instance_of(CarrierWave::Uploader::Base).to receive(:store!).and_raise(aws_service_error)
+        allow(SecureRandom).to receive(:uuid).and_return('test-uuid')
+        allow(FileUtils).to receive(:mkdir_p)
+        allow(FileUtils).to receive(:cp)
         allow(SimpleFormsApi::FormRemediation::UploadRetryJob).to receive(:perform_async)
       end
 
-      it 'logs an error and retries the upload' do
+      it 'does not raise' do
         expect { store! }.not_to raise_error
-        expect(Rails.logger).to(
-          have_received(:error).with("Upload failed for #{file.filename}. Enqueuing for retry.", aws_service_error)
-        )
+      end
+
+      it 'returns false so callers know the upload was deferred' do
+        expect(store!).to be false
+      end
+
+      it 'copies the file to the retry temp directory before enqueuing' do
+        store!
+        expect(FileUtils).to have_received(:mkdir_p).with(expected_temp_dir)
+        expect(FileUtils).to have_received(:cp).with(file.path, expected_temp_path)
+      end
+
+      it 'enqueues UploadRetryJob with the temp path, not the original file path' do
+        store!
         expect(SimpleFormsApi::FormRemediation::UploadRetryJob).to(
-          have_received(:perform_async).with(file.path, directory, config.class.name)
+          have_received(:perform_async).with(expected_temp_path, directory, config.class.name)
         )
+      end
+
+      it 'logs the failure at error level including the directory' do
+        store!
+        expect(Rails.logger).to(
+          have_received(:error).with(
+            "SimpleFormsApi::FormRemediation::Uploader - upload failed, enqueuing retry for #{file.filename}",
+            hash_including(directory:)
+          )
+        )
+      end
+    end
+
+    context 'when a non-S3 RuntimeError occurs' do
+      let(:runtime_error) { RuntimeError.new('unexpected problem') }
+
+      before do
+        allow_any_instance_of(CarrierWave::Uploader::Base).to receive(:store!).and_raise(runtime_error)
+      end
+
+      it 'delegates to config.handle_error' do
+        store!
+        expect(config).to have_received(:handle_error).with(
+          'An error occurred while uploading the file.',
+          runtime_error
+        )
+      end
+
+      it 'does not enqueue a retry job' do
+        expect(SimpleFormsApi::FormRemediation::UploadRetryJob).not_to receive(:perform_async)
+        store!
       end
     end
   end
 
-  describe '#get_s3_link' do
-    subject(:get_s3_link) { uploader_instance.get_s3_link(file_path, filename) }
+  describe '#store_for_retry!' do
+    subject(:store_for_retry!) { uploader_instance.store_for_retry!(file) }
 
-    let(:file_path) { 'file_path' }
-    let(:filename) { 'filename' }
-    let(:s3_obj) { instance_double(Aws::S3::Object) }
+    let(:file) { instance_double(CarrierWave::SanitizedFile, filename: 'test_file.pdf', path: '/tmp/test_file.pdf') }
 
-    before do
-      allow(uploader_instance).to receive(:s3_obj).with(file_path).and_return(s3_obj)
-      allow(s3_obj).to receive(:presigned_url).with(
-        :get,
-        expires_in: 30.minutes.to_i,
-        response_content_disposition: "attachment; filename=\"#{filename}\""
-      ).and_return('url')
+    context 'when the file is nil' do
+      let(:file) { nil }
+
+      it 'raises a RuntimeError' do
+        expect { store_for_retry! }.to raise_error(RuntimeError, /Invalid file object/)
+      end
     end
 
-    it 'returns a presigned URL' do
-      expect(get_s3_link).to eq('url')
-    end
-  end
+    context 'when the file is valid and upload succeeds' do
+      before do
+        allow_any_instance_of(CarrierWave::Uploader::Base).to receive(:store!).and_return(true)
+      end
 
-  describe '#get_s3_file' do
-    subject(:get_s3_file) { uploader_instance.get_s3_file(from_path, to_path) }
-
-    let(:from_path) { 'from_path' }
-    let(:to_path) { 'to_path' }
-    let(:s3_obj) { instance_double(Aws::S3::Object) }
-
-    before do
-      allow(uploader_instance).to receive(:s3_obj).with(from_path).and_return(s3_obj)
-      allow(s3_obj).to receive(:get).with(response_target: to_path)
+      it 'does not enqueue a retry job' do
+        expect(SimpleFormsApi::FormRemediation::UploadRetryJob).not_to receive(:perform_async)
+        store_for_retry!
+      end
     end
 
-    it 'downloads the file to the given path' do
-      expect(get_s3_file).to be_nil
+    context 'when an S3 error occurs' do
+      let(:aws_service_error) { Aws::S3::Errors::ServiceError.new(nil, 'Service error') }
+
+      before do
+        allow_any_instance_of(CarrierWave::Uploader::Base).to receive(:store!).and_raise(aws_service_error)
+      end
+
+      it 'propagates the error rather than rescuing it' do
+        expect { store_for_retry! }.to raise_error(Aws::S3::Errors::ServiceError)
+      end
+
+      it 'does not enqueue a retry job' do
+        expect(SimpleFormsApi::FormRemediation::UploadRetryJob).not_to receive(:perform_async)
+        expect { store_for_retry! }.to raise_error(Aws::S3::Errors::ServiceError)
+      end
+    end
+
+    context 'when the file is a non-nil invalid object' do
+      let(:file) { 'not a file object' }
+
+      it 'raises a RuntimeError' do
+        expect { store_for_retry! }.to raise_error(RuntimeError, /Invalid file object/)
+      end
     end
   end
 end

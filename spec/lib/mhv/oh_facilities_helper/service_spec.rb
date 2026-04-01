@@ -204,6 +204,8 @@ RSpec.describe MHV::OhFacilitiesHelper::Service do
     before do
       allow(user).to receive(:va_treatment_facility_ids).and_return(user_facility_ids)
       allow(Settings.mhv.oh_facility_checks).to receive(:oh_migrations_list).and_return(oh_migrations_list)
+      allow(Flipper).to receive(:enabled?).with(:mhv_oh_migration_dark_deploy_sm_rx, user).and_return(false)
+      allow(Flipper).to receive(:enabled?).with(:mhv_oh_migration_dark_deploy_appointments, user).and_return(false)
     end
 
     context 'Parsing' do
@@ -1134,6 +1136,141 @@ RSpec.describe MHV::OhFacilitiesHelper::Service do
 
       it 'returns the phase of the valid migration date' do
         expect(service.get_soonest_migration_phase).to eq('p3')
+      end
+    end
+  end
+
+  describe 'dark deploy (gradual re-enablement)' do
+    let(:user) { build(:user, :loa3) }
+    let(:service) { described_class.new(user) }
+    let(:migration_date) { Date.new(2026, 5, 1) }
+    let(:oh_migrations_list) { "#{migration_date.strftime('%Y-%m-%d')}:[516,Columbus VA]" }
+
+    before do
+      allow(Settings.mhv.oh_facility_checks).to receive(:oh_migrations_list).and_return(oh_migrations_list)
+      allow(Flipper).to receive(:enabled?).with(:mhv_oh_migration_extended_phases).and_return(true)
+      allow(Flipper).to receive(:enabled?).with(:mhv_oh_migration_dark_deploy_sm_rx, user).and_return(false)
+      allow(Flipper).to receive(:enabled?).with(:mhv_oh_migration_dark_deploy_appointments, user).and_return(false)
+    end
+
+    describe 'SM/Rx dark deploy (p6 shifted from T+2 to T+1)' do
+      context 'when sm_rx flag is enabled' do
+        before do
+          allow(Flipper).to receive(:enabled?).with(:mhv_oh_migration_dark_deploy_sm_rx, user).and_return(true)
+        end
+
+        context 'at T+1 (1 day after migration)' do
+          it 'returns p6 instead of p5 (early unblock)' do
+            allow(Date).to receive(:current).and_return(migration_date + 1)
+            expect(service.get_phase_for_station_number('516')).to eq('p6')
+          end
+        end
+
+        context 'at T+0 (migration day)' do
+          it 'still returns p5 (not yet in early window)' do
+            allow(Date).to receive(:current).and_return(migration_date)
+            expect(service.get_phase_for_station_number('516')).to eq('p5')
+          end
+        end
+
+        context 'at T+2 (normal p6 boundary)' do
+          it 'returns p6 (same result with or without dark deploy)' do
+            allow(Date).to receive(:current).and_return(migration_date + 2)
+            expect(service.get_phase_for_station_number('516')).to eq('p6')
+          end
+        end
+
+        context 'at T-3 (pre-cutover, p4)' do
+          it 'returns p4 (pre-cutover phases unaffected)' do
+            allow(Date).to receive(:current).and_return(migration_date - 3)
+            expect(service.get_phase_for_station_number('516')).to eq('p4')
+          end
+        end
+
+        context 'at T-6 (pre-cutover, p3)' do
+          it 'returns p3 (pre-cutover phases unaffected)' do
+            allow(Date).to receive(:current).and_return(migration_date - 6)
+            expect(service.get_phase_for_station_number('516')).to eq('p3')
+          end
+        end
+      end
+
+      context 'when sm_rx flag is disabled' do
+        before do
+          allow(Flipper).to receive(:enabled?).with(:mhv_oh_migration_dark_deploy_sm_rx, user).and_return(false)
+        end
+
+        context 'at T+1' do
+          it 'returns p5 (normal blocking behavior)' do
+            allow(Date).to receive(:current).and_return(migration_date + 1)
+            expect(service.get_phase_for_station_number('516')).to eq('p5')
+          end
+        end
+      end
+    end
+
+    describe 'Appointments dark deploy (p7 shifted from T+7 to T+5)' do
+      context 'when appointments flag is enabled' do
+        before do
+          allow(Flipper).to receive(:enabled?).with(:mhv_oh_migration_dark_deploy_appointments,
+                                                    user).and_return(true)
+        end
+
+        context 'at T+5 (5 days after migration)' do
+          it 'returns p7 instead of p6 (early unblock)' do
+            allow(Date).to receive(:current).and_return(migration_date + 5)
+            expect(service.get_phase_for_station_number('516')).to eq('p7')
+          end
+        end
+
+        context 'at T+4 (not yet in early window)' do
+          it 'returns p6 (normal behavior)' do
+            allow(Date).to receive(:current).and_return(migration_date + 4)
+            expect(service.get_phase_for_station_number('516')).to eq('p6')
+          end
+        end
+
+        context 'at T+7 (normal p7 boundary)' do
+          it 'returns p7 (same result with or without dark deploy)' do
+            allow(Date).to receive(:current).and_return(migration_date + 7)
+            expect(service.get_phase_for_station_number('516')).to eq('p7')
+          end
+        end
+      end
+
+      context 'when appointments flag is disabled' do
+        before do
+          allow(Flipper).to receive(:enabled?).with(:mhv_oh_migration_dark_deploy_appointments,
+                                                    user).and_return(false)
+        end
+
+        context 'at T+5' do
+          it 'returns p6 (normal behavior)' do
+            allow(Date).to receive(:current).and_return(migration_date + 5)
+            expect(service.get_phase_for_station_number('516')).to eq('p6')
+          end
+        end
+      end
+    end
+
+    describe 'get_migration_schedules reflects dark deploy in current phase' do
+      let(:user_facility_ids) { %w[516] }
+
+      before do
+        allow(user).to receive(:va_treatment_facility_ids).and_return(user_facility_ids)
+        allow(Flipper).to receive(:enabled?).with(:mhv_oh_migration_dark_deploy_sm_rx, user).and_return(true)
+        allow(Date).to receive(:current).and_return(migration_date + 1)
+      end
+
+      it 'current phase is p6 at T+1 (dark deploy shifted)' do
+        result = service.get_migration_schedules
+        expect(result.first[:phases][:current]).to eq('p6')
+      end
+
+      it 'phase dates show shifted p6 boundary at T+1 for dark deploy user' do
+        result = service.get_migration_schedules
+        expected_p6_date = "#{(migration_date + 1).strftime('%B %-d, %Y')} at 12:00AM ET"
+        expect(result.first[:phases][:p6]).to eq(expected_p6_date)
       end
     end
   end
